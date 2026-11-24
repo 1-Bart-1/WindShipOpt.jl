@@ -522,17 +522,17 @@ wing_unit_cost:
   estimate: true
   source: "Authors' estimate: controls, power pack and assembly hours"
   reason: "Authors' estimate of the manufacturing cost of a wing sail's controls, hydraulic power pack and 600 h of assembly; tilting or retraction is in the retractable rig premium."
-wing_cost_per_area:
-  value: 665.0
-  unit: USD/m^2
+wing_cost_per_mass:
+  value: 4.05
+  unit: USD/kg
   estimate: true
-  source: "Authors' estimate: build-up at blade material prices [@bortolotti2019blade]"
-  reason: "Authors' estimate of the manufacturing cost per m^2 of sail from 0.13 t/m^2 [@emsa2023, Table 4], near the 45 t for 363 m^2 of the OceanWings OW RE [@oceanwings2026web]: steel at the authors' cost, composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2] and slewing parts at the yaw-system cost of @wisdem_csm."
-wing_installation_fraction:
+  source: "Authors' estimate: blade materials [@bortolotti2019blade], steel [@wisdem_csm]"
+  reason: "Manufacturing cost per kg of a wing sail with its foundation on deck: a hard sail of 0.13 t/m^2 with its foundation [@emsa2023, Table 4], near the 45 t for 363 m^2 of the OceanWings OW RE [@oceanwings2026web], costs 665 USD/m^2 (steel at the authors' cost, composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2], slewing parts at the yaw-system cost of @wisdem_csm), and the 0.12 t/m^2 of steel by which the tallest wings' masts and foundations are heavier at 2.9 USD/kg, a wind turbine's welded tower [@wisdem_csm]: 1013 USD on 250 kg."
+installation_fraction:
   value: 0.15
   unit: "-"
   source: "@emsa2023 [Table 7]: installation on a newbuild"
-  reason: "Installation at the yard over unit price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
+  reason: "Installation at the yard over the build-up of every rig, its supports and cameras included. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
 wing_lifetime:
   value: 25.0
   low: 20.0
@@ -598,12 +598,12 @@ suction_mass_per_area:
   unit: t/m^2
   source: "@conoship2022econowind: eConowind unit in its container"
   reason: "Suction sail with its foundation per m^2: the eConowind unit, two aluminium VentiFoils of 32 m^2 in all in a steel 40 ft container, weighs 9.6 t [@conoship2022econowind]. High: twice that, as wing sails go from 0.13 t/m^2 for small hard sails to 0.27 for the largest [@emsa2023, Table 4; @riviera2024windwing; @bar2026windwings], for a taller sail that carries more than twice a wing sail's force per m^2."
-suction_cost_per_mass:
-  value: 3.2
-  unit: USD/kg
+suction_fan_cost_per_power:
+  value: 400.0
+  unit: USD/kW
   estimate: true
-  source: "Authors' estimate: wing sail build-up plus fans at the rotor's drive price"
-  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 400 W/m^2 on 300 kg/m^2, 0.5 USD/kg."
+  source: "Authors' estimate: motor and frequency converter of marine type approval"
+  reason: "Manufacturing cost per kW of a suction sail's fans with their motors and frequency converters, at the price per kW of the drive in the authors' build-up of the Norsepower rotors."
 suction_lifetime:
   value: 25.0
   low: 20.0
@@ -702,11 +702,6 @@ rotor_cost_per_area:
   estimate: true
   source: "Authors' build-up: slope of the line of rotor costs"
   reason: "Manufacturing cost per m^2 of height times diameter, the slope of the line of bottom-up rotor costs that gives the rotor unit cost."
-rotor_installation_fraction:
-  value: 0.15
-  unit: "-"
-  source: "@emsa2023 [Table 7]: installation on a newbuild, foundation excluded"
-  reason: "Installation at the yard over unit price, the foundation being in the unit price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
 rotor_lifetime:
   value: 25.0
   low: 20.0
@@ -1222,11 +1217,6 @@ launch_mast_max_height:
   unit: m
   source: "@airseas_seawing_web: tallest kite launch mast at sea"
   reason: "Tallest kite launch mast at sea, the 35 m mast of @airseas_seawing_web; larger kites are flown from a mast of this height, beyond any built launch system."
-kite_integration_fraction:
-  value: 0.15
-  unit: "-"
-  source: "@emsa2023 [Table 7]: yard installation on a newbuild"
-  reason: "Installation at the yard over hardware price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
 kite_lifetime:
   value: 15.0
   unit: years
