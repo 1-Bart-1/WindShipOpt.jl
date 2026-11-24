@@ -5488,6 +5488,7 @@ function market_class_table()
         "rig" => column(case -> case.rig), "cost" => cost.(cases),
         "departure_costs" => departure_costs.(cases),
         "area" => column(case -> case.rig == "wings" ? 1500.0 : 1000.0),
+        "rotor_area" => zeros(length(cases)),
         "units" => column(case -> case.rig == "wings" ? 3.0 : 5.0),
         "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
         "carbon" => column(case -> case.rig == "none" ? 2.0 : 1.5),
