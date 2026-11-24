@@ -611,36 +611,14 @@ function rudder_inflow(ship::Ship, speed, thrust)
 end
 
 """
-    required_thrust(ship, speed, wind_10m, true_angle, force, added_resistance=0)
-
-Net propeller thrust [N] the ship needs at `speed` with the rig delivering `force`, the
-wind on the ship's [`Windage`](@ref) balanced together and `added_resistance` [N] of waves,
-or `Inf` if the rig pushes the heel, leeway or rudder past its limit, or further past it
-than the wind on the ship alone.
-"""
-function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForce,
-        added_resistance=0.0)
-    hull_force = wind_force(ship.windage, ship.env, wind_10m, true_angle, speed)
-    drag = resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) +
-           added_resistance
-    balance = HullBalance(ship, speed, force + hull_force, drag)
-    if force != NO_RIG_FORCE
-        alone = HullBalance(ship, speed, hull_force, drag)
-        balance.heel <= max(ship.heel_limit, alone.heel) &&
-            balance.leeway <= max(ship.leeway_limit, alone.leeway) &&
-            balance.rudder_lift_coefficient <=
-            max(ship.rudder_max_lift, alone.rudder_lift_coefficient) || return Inf
-    end
-    return balance.thrust
-end
-
-"""
     TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
 
 Engine output of `ship` carrying `rig`, its own rig or a part of it, at `speed` [m/s] in a
 10 m true wind of `wind_10m` [m/s] from `true_angle` [rad], with `added_resistance` [N] of
 waves on top of the calm-water resistance; called on a trim setting of the rig, it returns
-the [`trim_point`](@ref) there.
+the [`trim_point`](@ref) there. It holds what no trim changes: the wind's force on the
+ship's [`Windage`](@ref), the hull's drag before leeway and rudder [N], and the
+[`HullBalance`](@ref) of that wind alone.
 """
 struct TrimOutput{S, R}
     ship::S
@@ -648,7 +626,42 @@ struct TrimOutput{S, R}
     speed::Float64
     wind_10m::Float64
     true_angle::Float64
-    added_resistance::Float64
+    windage::RigForce
+    drag::Float64
+    alone::HullBalance
+end
+
+function TrimOutput(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance)
+    windage = wind_force(ship.windage, ship.env, wind_10m, true_angle, speed)
+    drag = resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) +
+           added_resistance
+    return TrimOutput(ship, rig, speed, wind_10m, true_angle, windage, drag,
+        HullBalance(ship, speed, windage, drag))
+end
+
+"""
+    required_thrust(output, force)
+    required_thrust(ship, speed, wind_10m, true_angle, force, added_resistance=0)
+
+Net propeller thrust [N] the ship of [`TrimOutput`](@ref) `output`, or `ship` at `speed`
+in that wind and `added_resistance` [N] of waves, needs with the rig delivering `force`, or
+`Inf` if the rig pushes the heel, leeway or rudder past its limit, or further past it than
+the wind on the ship alone.
+"""
+function required_thrust(output::TrimOutput, force::RigForce)
+    (; ship, alone) = output
+    balance = HullBalance(ship, output.speed, force + output.windage, output.drag)
+    balance.heel <= max(ship.heel_limit, alone.heel) &&
+        balance.leeway <= max(ship.leeway_limit, alone.leeway) &&
+        balance.rudder_lift_coefficient <=
+        max(ship.rudder_max_lift, alone.rudder_lift_coefficient) || return Inf
+    return balance.thrust
+end
+
+function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForce,
+        added_resistance=0.0)
+    output = TrimOutput(ship, nothing, speed, wind_10m, true_angle, added_resistance)
+    return required_thrust(output, force)
 end
 
 """
@@ -659,10 +672,10 @@ force of [`TrimOutput`](@ref) `output` at the rig trim `setting`; output and thr
 where the rig force exceeds the heel, leeway or rudder limit.
 """
 function trim_point(output::TrimOutput, setting)
-    (; ship, speed, wind_10m, true_angle) = output
-    force = rig_force(output.rig, ship.env, wind_10m, true_angle, speed, setting)
-    thrust = required_thrust(ship, speed, wind_10m, true_angle, force,
-        output.added_resistance)
+    (; ship, speed) = output
+    force = rig_force(output.rig, ship.env, output.wind_10m, output.true_angle, speed,
+        setting)
+    thrust = required_thrust(output, force)
     isfinite(thrust) || return (; output=Inf, thrust, force)
     engine = delivered_power(ship.propeller, ship.env, speed, thrust) /
              ship.powertrain.transmission_efficiency + force.power

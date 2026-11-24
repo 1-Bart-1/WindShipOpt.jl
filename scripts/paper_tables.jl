@@ -2139,15 +2139,16 @@ fidelity_parts() = [
         model="steady balance; side force beyond the limits is shed by trimming the rig",
         error="limits are design rules, not measured", effect=switched(:limits)),
     (part="Rudder drag", varied="removed",
-        model="lifting line carrying the yaw moment in the free stream",
-        error="no wake or propeller slipstream at the rudder", effect=switched(:rudder)),
+        model="lifting line carrying the yaw moment in the wake and propeller slipstream",
+        error="wake fraction from CFD of two cargo ships; drag within 10\\,\\% at no thrust",
+        effect=switched(:rudder)),
     (part="Leeway and rudder drag", varied="both removed",
-        model="Kijima side-force slope; induced drag of a slender wing and cross flow",
-        error="regression on merchant-ship models, not on these hulls",
+        model="side force fitted to tank tests of a tanker; induced drag of a slender wing and cross flow",
+        error="one conventional hull tested, not these hulls",
         effect=switched(:side_force)),
     (part="Hull side-force slope", varied="at its low bound",
-        model="Kijima regression on merchant-ship models in calm water",
-        error="hulls without a skeg tested at 0.4 to 0.5 times it",
+        model="Kijima regression times 0.55, fitted to tank tests of a tanker",
+        error="hulls without a skeg tested at 0.32 to 0.37 times the regression",
         effect=switched(:weak_hull)),
     (part="Propeller and engine", varied="not measured",
         model="actuator disk with viscous loss; engine efficiency falling at part load",
@@ -3308,6 +3309,36 @@ function drift_check_table()
                     tested^2 / (π * aspect_ratio),
                     WindShipOpt.leeway_drag(hull, tested, leeway))
             end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    centre_check_table()
+
+Write to paper/sections/centre_check_table.tex, for each captive test of
+data/hull_centre_tests.csv, the side force on ½ρV²LT and the distance forward of midship
+where it acts, as a fraction of the length, measured and of the model's hull of the same
+main dimensions at the same leeway.
+"""
+function centre_check_table()
+    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv"))
+    write_whole(joinpath(sections, "centre_check_table.tex")) do io
+        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
+        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
+            "\\multicolumn{2}{c}{Centre \\(x_\\mathrm{h}/L\\)} \\\\")
+        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
+        println(io, " & [\\si{\\degree}] & Test & Model & Test & Model \\\\\n\\midrule")
+        for (k, name) in enumerate(tests["hull"])
+            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
+                tests["block"][k], assumptions)
+            leeway = deg2rad(tests["leeway"][k])
+            @printf(io, "%s & %d & %.4f & %.4f & %.2f & %.2f \\\\\n", name,
+                tests["leeway"][k], tests["side_force"][k],
+                WindShipOpt.side_force_coefficient(hull, leeway),
+                tests["yaw_moment"][k] / tests["side_force"][k],
+                WindShipOpt.lateral_centre(hull, leeway) / hull.length)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

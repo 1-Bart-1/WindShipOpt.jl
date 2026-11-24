@@ -170,7 +170,7 @@ leeway_limit:
   high: 15.0
   unit: deg
   source: "@tillig2020: range of captive tests on wind-assisted hulls"
-  reason: "Validity limit of the linear hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle [@tillig2020]."
+  reason: "Validity limit of the hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle [@tillig2020]."
 hull_side_force_factor:
   value: 0.55
   low: 0.32

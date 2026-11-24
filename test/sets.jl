@@ -124,15 +124,19 @@ end
           WindShipOpt.lateral_centre(ship.hull)
 end
 
-# NMRI captive tests of the KVLCC2M, tabulated by Toxopeus (2011), pp. 155-156: Y' and N'
-# on ½ρV²LT and ½ρV²L²T; the two runs at 3° give a centre of 0.46 and 0.58 L.
 @testset "the hull's side force is as large and acts as far forward as tank tests show" begin
-    kvlcc2m = Hull(320.0, 58.0, 20.8, 0.8098, assumptions)
-    for (angle, side_force, centre) in
-        ((3, 0.0125, 0.52), (6, 0.026, 0.54), (9, 0.046, 0.41), (12, 0.0708, 0.359))
+    path = joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv")
+    tests = [parse.(Float64, WindShipOpt.csv_fields(line)[2:8])
+             for line in readlines(path)[2:end]]
+    for angle in unique(test[5] for test in tests)
+        runs = filter(test -> test[5] == angle, tests)
+        hull = Hull(first(runs)[1:4]..., assumptions)
         leeway = deg2rad(angle)
-        @test WindShipOpt.side_force_coefficient(kvlcc2m, leeway) ≈ side_force rtol = 0.1
-        @test WindShipOpt.lateral_centre(kvlcc2m, leeway) / kvlcc2m.length ≈ centre atol = 0.06
+        @test WindShipOpt.side_force_coefficient(hull, leeway) ≈
+              mean(test[6] for test in runs) rtol = 0.1
+        # repeat runs at 3° differ by 0.12 L, the tables giving three decimals
+        @test WindShipOpt.lateral_centre(hull, leeway) / hull.length ≈
+              mean(test[7] / test[6] for test in runs) atol = 0.06
     end
 end
 
@@ -1241,7 +1245,7 @@ end
     @test isnothing(layout(2, 1, 20000.0))
 end
 
-@testset "a kite tows from its bow mast, and towing midship loads the rudder more" begin
+@testset "a kite tows from its bow mast, and towing further aft of the lateral centre loads the rudder more" begin
     hull = Hull(140.0, assumptions)
     design = ShipDesign(:methanol, 140.0; kite_area=800.0)
     bow = Ship(design, assumptions)
@@ -1252,8 +1256,9 @@ end
     wind_speed, wind_angle, ship_speed = 8.8295, 86.6957, 5.4 # hand check's beam reach
     balance(ship) = WindShipOpt.HullBalance(ship, ship_speed,
         rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1), 0.0)
-    @test balance(midship).rudder_lift_coefficient >
-          3balance(bow).rudder_lift_coefficient > 0
+    centre = WindShipOpt.lateral_centre(hull)
+    @test balance(midship).rudder_lift_coefficient / balance(bow).rudder_lift_coefficient ≈
+          centre / (centre - bow.rig.attach_position) rtol = 0.1
     drag(balance) = balance.leeway_drag + balance.rudder_drag
     @test drag(balance(midship)) > drag(balance(bow))
 end
