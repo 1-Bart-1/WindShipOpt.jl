@@ -2484,17 +2484,18 @@ end by the [`NodeToGo`](@ref) `beyond`; `Inf` where blocked.
 """
 function rest_of_edge(points, table::RouteTable, met, beyond, corridor, edge, speed_index,
         aloft, from, time, prices)
-    from >= 1 && return ahead_value(beyond, aloft, time)
+    (; to_go, next, start) = beyond
+    if from >= 1
+        ahead = to_go(next, aloft + 1, beyond.stage, time - start)
+        return isnan(ahead) ? Inf : ahead
+    end
     (; stage, lateral, step) = edge
-    start = EdgeSample(table.table, met, corridor, stage, lateral, step, from, time)
-    hours = sail_edge!(points, start, table, met, corridor, stage, lateral, step, time,
-        speed_index, aloft; from)
+    first_point = EdgeSample(table.table, met, corridor, stage, lateral, step, from, time)
+    hours = sail_edge!(points, first_point, table, met, corridor, stage, lateral, step,
+        time, speed_index, aloft; from)
     isfinite(hours) || return Inf
-    down, up = kite_passage(table, points, aloft, prices)
-    return min(edge_objective(down.cost, hours, prices) +
-               ahead_value(beyond, false, time + hours),
-        edge_objective(up.cost, hours, prices) +
-        ahead_value(beyond, true, time + hours))
+    return best_arrival(to_go, table, points, aloft, hours,
+        (; prices, next, beyond.stage, time=time - start))
 end
 
 """
@@ -2507,17 +2508,6 @@ struct NodeToGo{C <: CostToGo}
     next::Int
     stage::Int
     start::Float64
-end
-
-"""
-    ahead_value(beyond, aloft, time)
-
-Cost [USD] by the [`NodeToGo`](@ref) `beyond` from the end of an edge reached at `time` [h]
-with the kite `aloft`, `Inf` where it found no path.
-"""
-function ahead_value(beyond::NodeToGo, aloft, time)
-    value = beyond.to_go(beyond.next, aloft + 1, beyond.stage, time - beyond.start)
-    return isnan(value) ? Inf : value
 end
 
 """

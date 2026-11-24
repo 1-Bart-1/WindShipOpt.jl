@@ -1223,20 +1223,6 @@ kite_controls_cost:
   estimate: true
   source: "Authors' estimate: the controls a rotor carries"
   reason: "Authors' estimate of the manufacturing cost of the kite's ship-side controller, wind and tether sensors, bridge interface and software licence: the controls a rotor carries per unit."
-launch_mast_height_ratio:
-  value: 1.3
-  low: 1.11
-  high: 1.34
-  unit: "-"
-  source: "@nextnature2007kiteship; @airseas_seawing_web: built launch masts"
-  reason: "Launch mast height over the square root of projected kite area: SkySails 15 m [@nextnature2007kiteship] on its kite of 160 m^2 [@konstruktionspraxis_skysails], 125 m^2 projected at 1.28 flat over projected, 1.34; Airseas 35 m on 1,000 m^2 of stated sail surface [@airseas_seawing_web], 1.11 if projected and 1.25 if flat; the two masts bound the range."
-launch_mast_max_height:
-  value: 35.0
-  low: 29.0
-  high: 60.0
-  unit: m
-  source: "@airseas_seawing_web: tallest kite launch mast at sea"
-  reason: "Tallest kite launch mast at sea, the 35 m mast of @airseas_seawing_web; larger kites are flown from a mast of this height, beyond any built launch system."
 kite_lifetime:
   value: 15.0
   unit: years

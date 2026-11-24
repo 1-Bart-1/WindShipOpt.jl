@@ -614,15 +614,6 @@ function surface_cost(rig::WingRig, assumptions)
                        assumptions[:suction_fan_cost_per_power]
 end
 
-"""
-    launch_mast_height(area, assumptions)
-
-Height [m] of the launch mast of a kite of projected `area` [m^2].
-"""
-launch_mast_height(area, assumptions) = min(
-    assumptions[:launch_mast_height_ratio] * sqrt(area),
-    assumptions[:launch_mast_max_height])
-
 rig_price_parts(rig::KiteRig, assumptions) =
     kite_price_parts(rig.area, rig.max_force, assumptions)
 
