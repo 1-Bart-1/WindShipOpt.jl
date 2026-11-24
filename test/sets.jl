@@ -1360,7 +1360,8 @@ end
         @test WindShipOpt.size_factor(built, assumptions) == 1
         growth = (tall.height / reference)^(exponent - 2)
         @test WindShipOpt.size_factor(tall, assumptions) ≈ growth
-        mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
+        mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2] -
+                    rig.count * WindShipOpt.foundation_mass(rig, assumptions)
         @test mass(built) ≈ area * assumptions[Symbol(unit, :_mass_per_area)]
         @test mass(tall) ≈ growth * mass(built)
         fans = unit == :suction ? 1e-3area * assumptions[:suction_fan_power_per_area] *
