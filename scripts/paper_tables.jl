@@ -3214,8 +3214,8 @@ rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "r
 """
     advice(lead; short=false)
 
-Rig to use by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two level, in
-the order of `rig_names`, or no rig; `short` names a rig without its article and two level
+The rig that saves most by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two
+level, in the order of `rig_names`, or no rig; `short` names a rig without its article and two level
 without "either".
 """
 function advice(lead; short=false)
@@ -3227,22 +3227,23 @@ end
 """
     advice_text(rows)
 
-Text of the [`advice`](@ref) of rig lead `rows` of [`rig_lead_rows`](@ref) by
-[`fuel_advice_text`](@ref), one sentence per fuel, e-ammonia first, or one for both fuels
-where they advise alike.
+Text of the rig that saves most, by [`fuel_advice_text`](@ref), of rig lead `rows` of
+[`rig_lead_rows`](@ref): one sentence per fuel, e-ammonia first, or one for both fuels
+where they find alike.
 """
 function advice_text(rows)
     drives = sort(unique(row.drive for row in rows); by=drive -> drive != "ammonia")
     texts = [fuel_advice_text(filter(row -> row.drive == drive, rows)) for drive in drives]
-    length(drives) > 1 && allequal(texts) && return "On both fuels, fit $(first(texts))."
-    return join(["On $(fuel_names[drive]), fit $text." for (drive, text) in zip(drives, texts)],
-        " ")
+    best = "the rig that saves most is"
+    length(drives) > 1 && allequal(texts) && return "On both fuels, $best $(first(texts))."
+    sentences = ["On $(fuel_names[drive]), $best $text." for (drive, text) in zip(drives, texts)]
+    return join(sentences, " ")
 end
 
 """
     fuel_advice_text(rows; short=false)
 
-Text of the rig to fit on each ship type of rig lead `rows` of one drive by its
+Text of the rig that saves most on each ship type of rig lead `rows` of one drive by its
 [`advice`](@ref), ship types given the same rig named together, the most ship types last
 as the other ship types; `short` names the rigs without their articles and the last ship
 types "elsewhere".

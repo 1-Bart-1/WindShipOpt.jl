@@ -313,18 +313,18 @@ function study_sources(runs)
     open(joinpath(sections, "study_runs.tex"), "w") do io
         for (study, run) in sort(collect(runs); by=first)
             println(io, "\\studyrunis{", study, "}{",
-                run_words(run["run"], run["fidelity"], run["commit"]), "}")
+                run_words(run["fidelity"], run["commit"]), "}")
         end
     end
 end
 
 """
-    run_words(run, fidelity, commit)
+    run_words(fidelity, commit)
 
-The run `run`, its `fidelity` and the short hash of `commit` as the paper names them.
+A run of `fidelity` named by its `commit`, as a link to that commit on GitHub.
 """
-run_words(run, fidelity, commit) =
-    string("run ", run, " at ", fidelity, " fidelity, commit ", first(commit, 7))
+run_words(fidelity, commit) = string(fidelity, " run of commit \\href{",
+    "https://github.com/1-Bart-1/WindShipOpt.jl/commit/", commit, "}{", first(commit, 7), "}")
 
 """
     results_run_words()
@@ -335,7 +335,7 @@ function results_run_words()
     directory = dirname(resolved_data_file("classes.csv"))
     record = TOML.parsefile(joinpath(directory, "run.toml"))
     commit = step_entry(record, "classes")["git_commit"]
-    return run_words(basename(directory), record["fidelity"], commit)
+    return run_words(record["fidelity"], commit)
 end
 
 """
