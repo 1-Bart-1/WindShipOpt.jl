@@ -559,10 +559,12 @@ Price [USD] the model gives the one rotor on deck that the [`rotor_prices`](@ref
 where `price` leaves it out and with the retractable rig premium where it folds or tilts.
 """
 function bottom_up_price(price, assumptions)
-    # only the count and size of the rotor enter its price
+    # only its size and the loads its limits set enter its price, not where it stands
     rotor = WindShipOpt.RotorRig(; count=1, columns=1, price.height, price.diameter,
-        foot_height=0.0, centre_position=0.0, column_offset=0.0, max_wind=0.0,
-        max_surface_speed=0.0, lift_factor=0.0, interference_factor=1.0)
+        foot_height=0.0, centre_position=0.0, column_offset=0.0,
+        max_wind=assumptions[:rotor_max_wind],
+        max_surface_speed=assumptions[:rotor_max_surface_speed],
+        lift_factor=assumptions[:rotor_lift_factor], interference_factor=1.0)
     parts = WindShipOpt.rig_price_parts(rotor, assumptions)
     cost = price.installed ? sum(parts) : sum(parts) - parts.installation
     premium = price.retractable ? 1 + assumptions[:retractable_rig_premium] : 1.0
