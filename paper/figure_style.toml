@@ -21,6 +21,7 @@ cell = 0.3 # white line between two cells of the drawn kite
 dimension = 0.4 # dimension lines and leaders to a label
 arrow_length = 4.0 # arrowhead length, the same on every arrow
 arrow_width = 3.2 # arrowhead width
+break_gap = 1.6 # gap between the two strokes that break an arrow shortened to fit
 halo = 1.6 # white outline behind a label
 clearance = 0.75 # least gap between a label and another label, line or arrow
 tick_gap = 2.5 # least gap between two tick labels side by side
