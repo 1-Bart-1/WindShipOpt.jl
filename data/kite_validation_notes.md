@@ -24,8 +24,7 @@ model's taller mast and area-scaled docking head.
 | 3,200 m²       | 131 k          | 94 k  | 74 k         | 118 k        | 479 k                       | 627 k   | 242 k  |
 | 8,000 m²       | 246 k          | 148 k | 74 k         | 262 k        | 840 k                       | 1,568 k | 955 k  |
 
-All in USD. The docking head is the same 74 k for every size, and the mast is
-the same 0.8 m × 12 mm tube at every height; both matter in §2.
+All in USD.
 
 ## 1. AWE LCOE check: the same kite in a pumping ground-generation system
 
@@ -131,10 +130,10 @@ With Kitepower's 4,000 h rating and SkySails' claimed yield the LCOE falls to
 ~115 EUR/MWh, the level Faggiani and BVGA give for 2025. So the canopy price per
 m² is consistent with AWE practice (§2), and our 2,000 h canopy life is, if
 anything, pessimistic against what AWE developers assume. The check cannot
-validate the ship-specific hardware (winch, mast scaling, docking head); those
-are compared with other industries below.
+validate the ship-specific hardware (winch, mast, docking head), which
+`cost_basis_notes.md` §4.1 prices from masses of built systems.
 
-## 2. Cross-industry check of each component's manufacturing cost
+## 2. Cross-industry check of the canopy and tether
 
 ### Canopy (98 USD per projected m² manufacturing, 196 market; 84 / 168 USD per flat m²)
 
@@ -167,59 +166,6 @@ at 8,000 m²; offshore HMPE mooring ropes are made in such sizes, but no bulk
 price was found. **Plausible as a series purchase price; the 8,000 m² rope is
 outside any priced product.**
 
-### Holding winch (27 k + 0.024 USD/N manufacturing; 54 k + 0.048 USD/N market)
-
-| Benchmark                                                    | Price                                     | Per N          | Source                                                                                                                                                                                                                 |
-| ------------------------------------------------------------ | ----------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Chinese deck mooring winches, 10–2,000 kN pull (asking, FOB) | USD 8,000–50,000                          | ~0.02 marginal | `kite_costs_notes.md` §4a (hnnucrane.en.made-in-china.com)                                                                                                                                                             |
-| Yacht windlass, 15.6 kN (retail)                             | USD 6,940–9,045                           | 0.44–0.58      | same (defender.com)                                                                                                                                                                                                    |
-| Faggiani 2018 drum + tether handling and bearings, 32 kN     | EUR 12,200                                | 0.44 USD/N     | Table 16.2                                                                                                                                                                                                             |
-| AHTS towing winches, brake holding up to 670–750 t           | price on request, custom-built per vessel | —              | https://www.macgregor.com/Products/products/offshore-deck-machinery-equipment/anchor-handling-winches ; https://palfinger.com/worldwide/en/our-products/deck-equipment/winches/anchor-handling-and-towing-winches.html |
-
-Up to 1,600 m² (800 kN, ~80 t) the holding force is in the range of ordinary
-mooring winches, and our market price (58–92 kUSD) is 2–7× the Chinese FOB
-asking prices, which covers class approval, controls and a brake rated above
-pull. At 3,200 m² (1.6 MN, 163 t) and 8,000 m² (4 MN, 408 t) the brake load is
-beyond ship mooring winches (brakes are designed to 80 % of line MBL, Wärtsilä)
-and in the class of anchor-handling tug winches, which are custom-built; no
-price was found, but 131–246 kUSD for a class-approved 160–400 t brake winch is
-likely low (estimate). **Plausible to 1,600 m²; probably low above.**
-
-### Launch mast (830 USD/m manufacturing; 237 kg/m with 30 % foundation, i.e. 3.5 USD/kg, 7.0 USD/kg market)
-
-Chinese hot-dip galvanised telecom towers are listed at ~1,000–1,350 USD/t
-(asking, FOB, 1 t minimum order; Accio listings via search, not opened),
-lighting poles at 100–250 USD/m bare (`kite_costs_notes.md` §4b), and WISDEM's
-supplier price for a finished wind tower is 2.9 USD/kg (`cost_basis_notes.md`
-§0). Per kg our market price is 2.4× a wind tower and 5–7× a Chinese telecom
-pole, so the steel itself is not underpriced. The flaw is scaling: the model
-keeps one 0.8 m × 12 mm tube at every height, so an 89 m mast for 8,000 m² costs
-only 148 kUSD and could not stand (height over diameter ~110, carrying a ~2.5 t
-canopy and ship motions). Faggiani's launch-and-landing cost, c·M_kite·√A, gives
-the same 121 kUSD as ours at 800 m² but 752 kUSD against our 168 kUSD (mast plus
-head) at 3,200 m² (kite mass 0.3 kg/m² + 100 kg control unit). **Plausible at
-160–1,000 m²; low above, because the cross-section does not grow with height.**
-
-### Docking head (37 k manufacturing, the same at every size)
-
-Chinese 5 t marine knuckle-boom cranes are listed at USD 5,100–90,000
-(madeinchina.com listings via search); class-approved units (Palfinger, Sormec)
-are price-on-request. A slewing gripper with hydraulics and an inflation fan at
-37 k manufacturing / 74 k market is in that bracket for a 50–300 kg canopy. It
-cannot be the same for a 2.4 t canopy at 8,000 m². **Plausible to ~1,000 m²; low
-above.**
-
-### Control unit (11 k + 15 USD/m² manufacturing)
-
-Faggiani 2018 prices a series KCU for 100 m² at EUR 3,000 (Table 16.2); Joshi et
-al. 2025 put avionics at EUR 15,000 for a prototype and EUR 150,000 for early
-commercial units with aviation certification and redundancy (§2.6.1); integrated
-servos with drives start at USD 698 (Teknic, `kite_costs_notes.md` §4c). Ours is
-12.2 k manufacturing at 72 m², 4× Faggiani, and 59 k at 3,200 m². **Plausible;
-certification could push it to the high value (22 k + 30 USD/m²).**
-
-These rows compare at the sizes as sold, which are flat (section 6). At their projected areas, 125 and 250 m², our price is 10 and 15 % lower, from the hardware and today's canopy, so the ratios rise by about that.
-
 ## 3. Production volume and technology phase
 
 ### What "series production" implies
@@ -232,6 +178,8 @@ Every observed ship-kite price is 2.4–6× ours:
 | SkySails 320 m², ~EUR 1 M "estimated selling price" (2009), 1.16 MUSD | 297 kUSD                          | 3.9                                | 5.9                                                            |
 | AFP 2011: "Retailing at half a million and one million euros"         | —                                 | —                                  | —                                                              |
 | EMSA 2023 Table 7, EUR 340–2,345 k asset                              | —                                 | 1.8–5.5 (`cost_basis_notes.md` §6) | —                                                              |
+
+These rows compare at the sizes as sold, which are flat (section 5). At their projected areas, 125 and 250 m², our price is 10 and 15 % lower, from the hardware and today's canopy, so the ratios rise by about that.
 
 AFP source: https://terradaily.com/want-to-save-fuel-go-fly-a-kite-999/ (15 Apr
 2011). Those prices came from a maker that never made a profit, so its cost was
@@ -357,32 +305,7 @@ which is ten times the whole wind-propulsion market's current output of any
 single rig maker (Norsepower: 32 rotors in 13 years). At SkySails' or
 Norsepower's historical pace it does not break even.
 
-## 5. Overall verdict and suggested input changes
-
-Per component, the kite inputs are consistent with a mass-produced product:
-canopy, tether and control unit sit at or near series AWE assumptions and retail
-sport-wing prices, steel is not underpriced per kg, and the shared components
-put into a pumping AWE system give a high, not a low, LCOE (250 EUR/MWh base
-against 96–150 in the literature). As a system price they correspond to ~1,000
-cumulative units, 50–100× the ship kites built so far, so they describe a mature
-market that no ship-kite maker has reached. Two inputs do not scale with kite
-size and make the kite too cheap above ~1,000–1,600 m²: the mast (fixed tube)
-and the docking head (fixed cost); the winch per N is probably low above ~1,600
-kN.
-
-Suggested changes:
-
-| Input                                                                                             | Change                                                                                                                                                                                                  | Why                                                                                                            |
-| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `winch_cost_per_force`                                                                            | run the high value (0.084 USD/N) for kites above ~3,200 m²                                                                                                                                              | brake loads above ~150 t are in the custom anchor-handling-winch class                                         |
-| `market_price_factor`                                                                             | keep 2.0 as the mature-market base; add a near-term case at 2.5 together with high mast, head and winch values, which comes to ~2× the base system price, the cost at unit ~50 on a 15 % learning curve | the base corresponds to ~1,000 cumulative units                                                                |
-| canopy cost and life, `tether_price`, `tether_lifetime`, `control_unit_cost`                      | keep                                                                                                                                                                                                    | supported by the cross-industry and AWE checks                                                                 |
-
-Report the kite results as a series-production scenario, and state alongside
-them that the business behind it needs ~USD 200 M of funding, ~150–200 systems a
-year and canopy replacement revenue to break even in about 12 years.
-
-## 6. Aspect ratio and area basis of towing kites
+## 5. Aspect ratio and area basis of towing kites
 
 The base kite has a projected aspect ratio of 3. On the shape in `kite_polars/wing_polars.jl` (arc with projected span 0.82 of flat span, tip chord 0.4 of root) flat area is 1.185 times projected area, so flat aspect ratio = 3 × (1/0.82)² / 1.185 = 3.76. The value is one used by industry, from an industrial design known to the authors without a public reference.
 
