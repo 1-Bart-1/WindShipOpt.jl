@@ -123,7 +123,8 @@ function explorer_input_entries(classes, class_names)
     for name in class_names
         value = classes[name].cargo_value
         entries[cargo_input(name)] = Assumption(value, value * cargo.low / cargo.value,
-            value * cargo.high / cargo.value, "USD/t", "cargo value of the class", value)
+            value * cargo.high / cargo.value, "USD/t", "cargo value of the class", value,
+            cargo.estimate)
     end
     return entries
 end

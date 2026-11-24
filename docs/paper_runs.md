@@ -68,7 +68,7 @@ curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/de
 exec bash -l   # puts julia on your PATH
 ```
 
-Jobs are charged to the research account `research-ae-fpt` (faculty AE, department FPT): a job may run up to 120 hours, and up to 64 jobs of one user run at once. The run uses 16 jobs of 64 cores. It asks each for 24 hours, which Slurm schedules sooner than a longer job, and resumes by itself past that. Without a research account, set `account = "innovation"` and `jobs = 4`: 24 hours a job and 4 jobs at once, and a draft and a final run started together share those 4. The setup lists your accounts at its end. Commit any change to `scripts/cluster.toml`, since a final run needs a clean tree on a pushed commit. `compute-p1` has 48 cores and at most `3996M` per core, `compute-p2` 64 cores and at most `4000M`; keep `cores` at most the partition's.
+Jobs are charged to the research account `research-ae-fpt` (faculty AE, department FPT): a job may run up to 120 hours, and up to 64 jobs of one user run at once. The run uses all 64 jobs, of 64 cores and 6 hours each: short jobs slip into gaps in the queue sooner, and the run resumes by itself past them. 6 hours is well over the 48 minutes a final round trip takes on average, so a slow one still finishes inside its job. Without a research account, set `account = "innovation"` and `jobs = 4`: 24 hours a job and 4 jobs at once, and a draft and a final run started together share those 4. The setup lists your accounts at its end. Commit any change to `scripts/cluster.toml`, since a final run needs a clean tree on a pushed commit. `compute-p1` has 48 cores and at most `3996M` per core, `compute-p2` 64 cores and at most `4000M`; keep `cores` at most the partition's.
 
 ### Running
 

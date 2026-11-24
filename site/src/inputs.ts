@@ -40,6 +40,13 @@ export function inputRange(input: Input, control: InputControl): [number, number
   return [low, high];
 }
 
+/** The controls of `controls` whose slider spans more than one value; an input the paper gives one value is not offered. */
+export const offeredControls = (data: ExplorerData, controls: InputControl[]): InputControl[] =>
+  controls.filter((control) => {
+    const [low, high] = inputRange(data.inputs[control.name], control);
+    return high > low;
+  });
+
 /** The inputs a reader changes, in groups. */
 export const inputGroups: { title: string; controls: InputControl[] }[] = [
   {

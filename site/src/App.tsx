@@ -19,6 +19,7 @@ import {
   differs,
   inputGroups,
   inputRange,
+  offeredControls,
   moderateChange,
   paperCargoFactor,
   resetInputs,
@@ -122,7 +123,7 @@ function Explorer({ data }: { data: ExplorerData }) {
                   Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².
                 </p>
               )}
-              {group.controls.map((control) => (
+              {offeredControls(data, group.controls).map((control) => (
                 <Slider key={control.name} control={control}
                   range={inputRange(data.inputs[control.name], control)}
                   value={changes[control.name] ?? data.inputs[control.name].value}

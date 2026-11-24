@@ -2429,12 +2429,12 @@ end
 """
     breakdown_factors(drive, bound)
 
-Factors on the parts of the [`breakdown_figure`](@ref) with the fuel price of `drive`, the
-crew cost and the cargo interest at `bound`, `:low` or `:high`.
+Factors on the parts of the [`breakdown_figure`](@ref) with the fuel price of `drive` and
+the cargo interest at `bound`, `:low` or `:high`.
 """
-breakdown_factors(drive, bound) = [input_factor(fuel_price_inputs[drive], bound), 1, 1,
-    input_factor(:crew_cost, bound), 1,
-    input_factor(:cargo_value, bound) * input_factor(:discount_rate, bound)]
+breakdown_factors(drive, bound) =
+    [input_factor(fuel_price_inputs[drive], bound), 1, 1, 1, 1,
+        input_factor(:cargo_value, bound) * input_factor(:discount_rate, bound)]
 
 """
     breakdown_figure()
@@ -3028,12 +3028,8 @@ function wind_angle_figure()
     cost_axis = Axis(figure[2, 2]; title="(d) mean thrust per rig cost",
         ylabel="thrust per cost\n[kN per 1000 USD/day]", xticks=ticks,
         xticklabelrotation=π / 6, yautolimitmargin=(0, 0.05))
-    fixed = Dict((rig, bound) => rig_fixed_cost(rig, area, bound)
-                 for (rig, area) in reference_rigs for bound in (:value, :low, :high))
     for (i, name) in enumerate(names)
         cost(rig) = first(table["rig_cost"][rows(table, "rig" => rig, "route" => name)])
-        spread = mean(cost(rig) / fixed[(rig, :value)]
-                      for (rig, _) in rigs if rig in deck_rig_names)
         for (slot, (rig, _)) in enumerate(rigs)
             work = band_totals(table, rig, "work"; route=name)
             stacked_bar!(work_axis, i + rig_offset(slot, length(rigs), lane_offset),
@@ -3041,14 +3037,9 @@ function wind_angle_figure()
                 rig_colour(rig))
             chosen = rows(table, "rig" => rig, "route" => name)
             thrust = sum(table["thrust_hours"][chosen]) / sum(table["hours"][chosen])
-            per_day(bound) = 24e-3 * (cost(rig) +
-                                      spread * (fixed[(rig, bound)] - fixed[(rig, :value)]))
-            x = i + rig_offset(slot, length(rigs), 0.27)
-            barplot!(cost_axis, [x], [thrust / per_day(:value)];
+            barplot!(cost_axis, [i + rig_offset(slot, length(rigs), 0.27)],
+                [thrust / (24e-3 * cost(rig))];
                 width=rig_bar_width(0.27, length(rigs)), color=rig_colour(rig))
-            bounds = thrust ./ per_day.((:high, :low))
-            rangebars!(cost_axis, [x], [bounds[1]], [bounds[2]]; color=:black,
-                linewidth=rule_width, whiskerwidth=pt(2.5))
         end
     end
     hidexdecorations!(time_axis; ticks=false, ticklabels=false)
@@ -3061,19 +3052,6 @@ function wind_angle_figure()
         "true wind angle, darkest upwind in each colour";
         orientation=:horizontal, titleposition=:left)
     save_figure("wind_angle", figure)
-end
-
-"""
-    rig_fixed_cost(rig, area, bound)
-
-Fixed annual cost [USD] that `area` [m^2] of `rig` adds to the 140 m e-ammonia ship, with
-its [`rig_price_inputs`](@ref) at `bound` (`:value`, `:low` or `:high`).
-"""
-function rig_fixed_cost(rig, area, bound)
-    inputs = at_bound(assumptions, rig_price_inputs[rig], bound)
-    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), inputs)
-    bare = Ship(ShipDesign(:ammonia, 140.0), inputs)
-    return ShipCosts(ship, inputs).fixed_annual - ShipCosts(bare, inputs).fixed_annual
 end
 
 """
@@ -3515,7 +3493,7 @@ end
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
 crosswind and climbing bounds at the lowest elevation, and the calm-sea launch wind the
 model uses, the larger of the climbing bound and the reported launch wind, with its range
-over the bounds of the reported launch wind and the elevation in turn.
+over the range of the reported launch wind.
 """
 function min_wind_figure()
     figure = Figure(size=(column_width, 190))
@@ -3523,16 +3501,13 @@ function min_wind_figure()
         xlabel=square_metres("projected kite area [", "]"),
         ylabel="lowest apparent wind [m/s]")
     areas = exp.(range(log(500), log(16000); length=40))
-    elevation = assumptions.entries[:kite_min_elevation]
-    elevations = deg2rad.((elevation.value, elevation.low, elevation.high))
-    bounds = one_at_a_time(assumptions, (:kite_launch_min_wind, :kite_min_elevation))
+    elevation = deg2rad(assumptions[:kite_min_elevation])
+    bounds = one_at_a_time(assumptions, (:kite_launch_min_wind,))
     winds = map(areas) do area
         model, _, _ = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
         launches = [WindShipOpt.launch_min_wind(model, inputs) for inputs in bounds]
-        cross = [WindShipOpt.crosswind_min_wind(model, angle) for angle in elevations]
-        climb = [WindShipOpt.climbing_min_wind(model, angle) for angle in elevations]
-        (cross=cross[1], cross_low=minimum(cross), cross_high=maximum(cross),
-            climb=climb[1], climb_low=minimum(climb), climb_high=maximum(climb),
+        (cross=WindShipOpt.crosswind_min_wind(model, elevation),
+            climb=WindShipOpt.climbing_min_wind(model, elevation),
             launch=WindShipOpt.launch_min_wind(model, assumptions),
             launch_low=minimum(launches), launch_high=maximum(launches))
     end
@@ -3541,16 +3516,13 @@ function min_wind_figure()
         color=(launch_colour, 0.25))
     curves = ((:launch, launch_colour, pt(3.5)), (:climb, category_colours[2], line_width),
         (:cross, category_colours[3], line_width))
-    for (key, color, _) in curves[2:end]
-        band!(axis, areas, getindex.(winds, Symbol(key, :_low)),
-            getindex.(winds, Symbol(key, :_high)); color=(color, 0.15))
-    end
     for (key, color, linewidth) in curves
         lines!(axis, areas, getindex.(winds, key); color, linewidth)
     end
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
-    entries = [[PolyElement(color=(color, key == :launch ? 0.25 : 0.15)),
-                   LineElement(; color, linewidth)] for (key, color, linewidth) in curves]
+    entries = [key == :launch ?
+               [PolyElement(color=(color, 0.25)), LineElement(; color, linewidth)] :
+               LineElement(; color, linewidth) for (key, color, linewidth) in curves]
     axislegend(axis, entries, ["launch", "climb", "crosswind"]; position=:lt,
         orientation=:horizontal)
     save_figure("min_wind", figure)
@@ -3563,7 +3535,7 @@ Cost saving of each rig against the canopy life, the canopy price and the share 
 service, for each ship of the development study with its rig sizes held: the kite's saving
 over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
 share out of service. Each goal is a vertical line over the shaded range of its input,
-and the canopy price, an estimate, a dotted line over its range.
+and the canopy price, an estimate with no range, a dotted line.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -3594,8 +3566,8 @@ function missed_goals_figure()
                     ("out of service [%]", Makie.pseudolog10,
                         [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
-        goal_marks!(axes[2], reference_canopy_price(assumptions), canopy_price_at(:low),
-            canopy_price_at(:high); linestyle=:dot, shade=(palette[1], 0.1))
+        vlines!(axes[2], reference_canopy_price(assumptions); color=:black,
+            linewidth=goal_width, linestyle=:dot)
         goal_marks!(axes[3], 100service_goal,
             100minimum(input.low for input in service_inputs),
             100maximum(input.high for input in service_inputs))
@@ -3636,26 +3608,24 @@ function missed_goals_figure()
         column == 2 && axislegend(axes[2],
             [[PolyElement(color=(:gray50, 0.15)),
                     LineElement(color=:black, linewidth=goal_width)],
-                [PolyElement(color=(palette[1], 0.1)),
-                    LineElement(color=:black, linewidth=goal_width, linestyle=:dot)]],
-            ["goal, its range", "estimate, its range"]; position=(1, 0.6))
+                LineElement(color=:black, linewidth=goal_width, linestyle=:dot)],
+            ["goal, its range", "estimate"]; position=(1, 0.6))
     end
     save_figure("missed_goals", figure)
 end
 
 """
-    goal_marks!(axis, value, low, high; linestyle=:solid, shade=(:gray50, 0.15))
+    goal_marks!(axis, value, low, high)
 
-A vertical goal line at `value` in `linestyle` over the range from `low` to `high` shaded
-in `shade`; `goal_marks!(axis, input)` for an input of the assumptions.
+A vertical goal line at `value` over the range from `low` to `high` shaded grey;
+`goal_marks!(axis, input)` for an input of the assumptions.
 """
-function goal_marks!(axis, value, low, high; linestyle=:solid, shade=(:gray50, 0.15))
-    vspan!(axis, low, high; color=shade)
-    vlines!(axis, value; color=:black, linewidth=goal_width, linestyle)
+function goal_marks!(axis, value, low, high)
+    vspan!(axis, low, high; color=(:gray50, 0.15))
+    vlines!(axis, value; color=:black, linewidth=goal_width)
 end
 
-goal_marks!(axis, input; kwargs...) =
-    goal_marks!(axis, input.value, input.low, input.high; kwargs...)
+goal_marks!(axis, input) = goal_marks!(axis, input.value, input.low, input.high)
 
 """
     reference_line!(axis, value=0; vertical=false, linestyle=:solid)
@@ -3667,8 +3637,7 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
         linewidth=rule_width, linestyle)
 
 "inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
-soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
-    canopy_cell_width=:high, canopy_mass_overhead=:low, control_unit_mass_per_force=:low)
+soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_cell_width=:high)
 
 """
     soft_mass_bound(lightest)
