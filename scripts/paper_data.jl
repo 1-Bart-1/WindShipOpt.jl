@@ -1488,27 +1488,26 @@ guessed_size(guesses, class, drive, rig, route) =
 Search the cheapest size of each rig of [`size_bounds`](@ref) on each (class, drive, route)
 of `ships`, adding the cases tried and their round trips to `cases` and `trips`: the
 [`start_sizes`](@ref) about the area `guess` gives for each (class, drive, rig, route),
-then in rounds the [`next_size`](@ref) of every search until each is confirmed. Each case
-is tagged with the `round` that added it, 0 for the starting sizes. Returns the cheapest
-area [m^2] of each search.
+then in rounds the [`next_size`](@ref) of every search until each is confirmed. A round's
+cases are made side by side on this process's threads, building their ships and kite
+pattern tables at once, and each is tagged with the `round` that added it, 0 for the
+starting sizes. Returns the cheapest area [m^2] of each search.
 """
 function searched_rigs!(cases, trips, ships, guess)
     grids = Dict((class, drive, rig, route) => size_grid(bounds...)
                  for (class, drive, route) in ships for (rig, bounds) in size_bounds(class))
-    batch = [class_case(key[1:3]..., area, key[4]; round=0)
-             for (key, grid) in grids for area in start_sizes(guess(key), grid)]
+    sizes = [(key, area) for (key, grid) in grids for area in start_sizes(guess(key), grid)]
     searches = Dict(key => Tuple{Float64, Float64}[] for key in keys(grids))
     round = 0
-    while !isempty(batch)
+    while !isempty(sizes)
+        batch = fetch.([Threads.@spawn class_case(key[1:3]..., area, key[4]; round)
+                        for (key, area) in sizes])
         append!(trips, round_trips(batch, sampled_departures()))
         append!(cases, batch)
         record_sizes!(searches, cases, trips)
         round += 1
-        batch = []
-        for (key, points) in searches
-            area = next_size(points, grids[key])
-            isnothing(area) || push!(batch, class_case(key[1:3]..., area, key[4]; round))
-        end
+        sizes = [(key, next_size(points, grids[key])) for (key, points) in searches]
+        filter!(!isnothing ∘ last, sizes)
     end
     return Dict(key => first(points[argmin(last.(points))]) for (key, points) in searches)
 end

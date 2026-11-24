@@ -3927,7 +3927,7 @@ end
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
-@testset "a batch's kite pattern tables are all asked for at once, not one after another" begin
+@testset "a batch's kite pattern tables are asked for at once, not one by one" begin
     tables = WindShipOpt.PATTERN_TABLES
     session = copy(tables)
     kites = [(; design=ShipDesign(:methanol, 140.0; kite_area), assumptions,
