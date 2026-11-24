@@ -806,7 +806,8 @@ data files that `reads` lists, as a round trip resting on what made them read th
 function replay_reads(reads, case)
     foreach(((name, _),) -> case.assumptions[name], reads.inputs)
     trip_files = files_read_scope[]
-    isnothing(trip_files) || @lock paper_run.tally.lock merge!(trip_files, Dict(reads.files))
+    isnothing(trip_files) ||
+        @lock paper_run.tally.lock merge!(trip_files, Dict(reads.files))
 end
 
 """

@@ -1778,7 +1778,8 @@ end
     apart = [WindShipOpt.departure_passages(
                  WindShipOpt.DepartureRouting(ship, first(corridors), changed),
                  corridors..., SyntheticWeather(), departure) for departure in departures]
-    combined = WindShipOpt.combine_departures(ship, corridors..., departures, changed, apart)
+    combined = WindShipOpt.combine_departures(ship, corridors..., departures, changed,
+        apart)
     @test !isnothing(WindShipOpt.DepartureRouting(ship, first(corridors), changed).schedule)
     @test count(!isnothing, first(apart)) == 2
     @test all(getfield(combined, name) == getfield(whole, name)
@@ -3836,7 +3837,7 @@ stored_departures(directories) =
     @test PaperRuns.stored_count(batch) == 9
 end
 
-@testset "a batch whose job stores nothing stops the run naming the departures it lacks" begin
+@testset "a batch whose job stores nothing stops the run naming its departures lacking" begin
     store_run(:draft, "code")
     jobs = StubJobs(Dict(2 => 0), 1)
     directories = [mktempdir() for _ in handed_cases]

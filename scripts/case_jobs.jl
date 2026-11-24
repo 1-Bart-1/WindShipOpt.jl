@@ -132,7 +132,8 @@ end
 "labels of the case of the `k`-th departure of `batch`, and the departure [h]"
 function departure_labels(batch, k)
     case, departure = departure_case(batch, k)
-    return string(case_labels(batch.cases[case]), " departure=", batch.departures[departure])
+    return string(case_labels(batch.cases[case]), " departure=",
+        batch.departures[departure])
 end
 
 """

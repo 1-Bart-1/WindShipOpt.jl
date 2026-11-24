@@ -60,18 +60,20 @@ what it plans on; `nothing` where its ship does not exist.
 function case_routing(case)
     ship = case_ship(case)
     isnothing(ship) && return nothing
-    return (; routing=DepartureRouting(ship, first(case.corridors), case.assumptions;
-            case.held_knots), forecast=forecast_source(case.forecast))
+    routing = WindShipOpt.DepartureRouting(ship, first(case.corridors), case.assumptions;
+        case.held_knots)
+    return (; routing, forecast=forecast_source(case.forecast))
 end
 
 """
     departure_trip(routing, case, departure)
 
 The [`departure_passages`](@ref) of `case` from `departure` [h] by its
-[`case_routing`](@ref) `routing`; `nothing` where its ship does not exist or a passage fails.
+[`case_routing`](@ref) `routing`; `nothing` where its ship does not exist or a passage
+fails.
 """
 departure_trip(routing, case, departure) = isnothing(routing) ? nothing :
-    departure_passages(routing.routing, case.corridors..., weather, departure;
+    WindShipOpt.departure_passages(routing.routing, case.corridors..., weather, departure;
         routing.forecast)
 
 """
@@ -83,8 +85,8 @@ or `nothing` where its ship does not exist or a passage failed.
 function combined_trip(case, departures, departed)
     ship = case_ship(case)
     isnothing(ship) && return nothing
-    return combine_departures(ship, case.corridors..., departures, case.assumptions,
-        departed)
+    return WindShipOpt.combine_departures(ship, case.corridors..., departures,
+        case.assumptions, departed)
 end
 
 """
