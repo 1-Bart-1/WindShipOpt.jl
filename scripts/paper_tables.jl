@@ -2349,7 +2349,7 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, the `highlight_limit` the paper build checks, the run the results come from
-([`results_run_words`](@ref)), the [`class_numbers`](@ref),
+([`results_run_words`](@ref)), the [`class_numbers`](@ref), [`kite_rotor_numbers`](@ref),
 [`class_range_numbers`](@ref), [`recommendation_numbers`](@ref),
 [`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
 [`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
@@ -2359,8 +2359,9 @@ the [`side_force_numbers`](@ref).
 """
 function numbers_file()
     classes = class_table()
-    results = [class_numbers(classes); class_range_numbers(classes);
-               recommendation_numbers(classes); rig_lead_numbers(classes);
+    results = [class_numbers(classes); kite_rotor_numbers(classes);
+               class_range_numbers(classes); recommendation_numbers(classes);
+               rig_lead_numbers(classes);
                route_numbers(classes); split_numbers(classes); payback_numbers(classes);
                premium_numbers(classes);
                design_premium_numbers(read_table(data_file("designs.csv")));
@@ -2463,6 +2464,29 @@ function class_numbers(classes)
             push!(numbers, "Saving$name" => whole_number(savings[rig]),
                 "Leads$name" => string(count(==(rig), bands)))
         end
+    end
+    return numbers
+end
+
+"""
+    kite_rotor_numbers(classes)
+
+Name and text, per drive, of the median over the [`fleet_cells`](@ref) of the bulk
+carriers and tankers in the class table `classes` of the kite's cost saving as a share [%]
+of the rotors' and of the rotors' lead over the kite [points].
+"""
+function kite_rotor_numbers(classes)
+    types = [type for (word, _, kinds) in ship_types if word in ("BulkCarrier", "Tanker")
+             for type in kinds]
+    ships = ship_classes()
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        cells = filter(cell -> ships[cell.class].type in types, fleet_cells(classes, drive))
+        kite = [cell.savings["kite"] for cell in cells]
+        rotors = [cell.savings["rotors"] for cell in cells]
+        share, lead = median(kite ./ rotors), median(rotors .- kite)
+        push!(numbers, "KiteShareBulkTanker$word" => whole_number(100share),
+            "RotorLeadBulkTanker$word" => whole_number(lead))
     end
     return numbers
 end
