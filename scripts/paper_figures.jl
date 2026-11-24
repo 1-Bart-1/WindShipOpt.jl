@@ -74,7 +74,7 @@ than `least["colour"]` in normal or in some colour-blind vision.
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
-    groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol", "suction"])),
+    groups = (("rig", style_colour.(collect(rig_names))),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
         ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors",
@@ -3127,7 +3127,7 @@ function abatement_figure()
 end
 
 "markers of the rigs, in the order of `rig_names`, told apart by shape"
-rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle)
+rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle, :hexagon)
 
 "marker size [figure units] of a rig of `area` [m²], growing with its logarithm"
 area_marker_size(area) = pt(1.5) + pt(0.9) * log2(area / 100)
@@ -3688,21 +3688,37 @@ rigid_mass_bounds() = [with_value(with_value(assumptions, :rigid_mass,
                        for mass in (:low, :high), exponent in (:low, :high)]
 
 """
+    lei_kite_mass(area, inputs)
+
+Mass [kg] of a leading-edge inflatable kite of projected `area` [m^2] without its tether, at
+`inputs`.
+"""
+lei_kite_mass(area, inputs) = WindShipOpt.soft_kite_mass(area, inputs[:lei_aspect_ratio],
+    1e3inputs[:lei_max_force_per_area] * area, inputs, WindShipOpt.TubeFrame())
+
+"the assumptions at each bound of the leading-edge inflatable kite's force limit per area"
+lei_mass_bounds() = [with_value(assumptions, :lei_max_force_per_area,
+                         getfield(assumptions.entries[:lei_max_force_per_area], bound))
+                     for bound in (:low, :high)]
+
+"""
     kite_mass_figure()
 
-Mass per area against area of VTOL kites and soft kites without their tether: each law at
-base inputs between its bounds, dashed beyond the largest soft kite flown and beyond MX2,
-which the VTOL kite's law is scaled from, and the published wings and kites of
-data/kite_masses.csv, its `kind`, `status`, `area` [m^2] and `mass_low` to `mass_high` [kg].
+Mass per area against area of VTOL kites, ram-air kites and leading-edge inflatable kites
+without their tether: each law at base inputs between its bounds, dashed beyond the largest
+kite of its kind flown and beyond MX2, which the VTOL kite's law is scaled from, and the
+published wings and kites of data/kite_masses.csv, its `kind`, `status`, `area` [m^2] and
+`mass_low` to `mass_high` [kg].
 """
 function kite_mass_figure()
     published = read_table(joinpath(root, "data", "kite_masses.csv"))
-    rigid_colour, soft_colour = style_colour("vtol"), palette[1]
+    rigid_colour, soft_colour, lei_colour = style_colour("vtol"), palette[1],
+    style_colour("lei")
     figure = Figure(size=(column_width, 200))
     axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 2048; base=0.125)...,
+        doubling_axis(:y, 0.125, 8192; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 3000)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 12000)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
     rigid_areas = exp.(range(log(10), log(2000); length=50))
@@ -3716,9 +3732,15 @@ function kite_mass_figure()
     mass_law!(axis, soft_areas, per_area(assumptions), per_area(soft_mass_bound(true)),
         per_area(soft_mass_bound(false)), maximum(published["area"][flew .& soft]),
         soft_colour)
+    lei_per_area(inputs) = lei_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
+    lei_bounds = lei_per_area.(lei_mass_bounds())
+    mass_law!(axis, soft_areas, lei_per_area(assumptions), min.(lei_bounds...),
+        max.(lei_bounds...), maximum(published["area"][published["kind"] .== "lei"]),
+        lei_colour)
+    kind_colours = Dict("soft" => soft_colour, "lei" => lei_colour,
+        "propellers" => rigid_colour)
     for row in eachindex(published["name"])
-        color = published["kind"][row] == "soft" ? soft_colour :
-                published["kind"][row] == "propellers" ? rigid_colour : category_colours[2]
+        color = get(kind_colours, published["kind"][row], category_colours[2])
         area = published["area"][row]
         low, high = published["mass_low"][row], published["mass_high"][row]
         rangebars!(axis, [area], [low / area], [high / area]; color)
@@ -3728,10 +3750,11 @@ function kite_mass_figure()
     statuses = ["flown", "built", "designed"]
     markers = [MarkerElement(color=:black, marker=status_markers[status])
                for status in statuses]
-    entries = [LineElement(color=rigid_colour),
-        LineElement(color=soft_colour), LineElement(color=:black, linestyle=:dash),
+    entries = [LineElement(color=rigid_colour), LineElement(color=soft_colour),
+        LineElement(color=lei_colour), LineElement(color=:black, linestyle=:dash),
         markers...]
-    axislegend(axis, entries, ["VTOL kite", "soft kite", "extrapolated", statuses...];
+    axislegend(axis, entries,
+        ["VTOL kite", "ram-air kite", "LEI kite", "extrapolated", statuses...];
         position=:lt, nbanks=3, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)

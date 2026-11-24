@@ -39,7 +39,7 @@ export type ExplorerData = {
   check: { changes: Record<string, number>; costs: number[] };
 };
 
-export const rigs = ["wings", "rotors", "suction", "kite", "vtol"] as const;
+export const rigs = ["wings", "rotors", "suction", "kite", "lei", "vtol"] as const;
 export const drives = ["vlsfo", "ammonia"] as const;
 
 /** Name of the recorded input of the cargo value of class `name`. */
