@@ -2164,8 +2164,8 @@ fidelity_parts() = [
         error="interference fitted to CFD of three to four sails",
         effect=varied_inputs(:wing_max_lift_coefficient)),
     (part="Suction sail forces", varied="maximum lift",
-        model="the wing sail's, drag rising to the maker's one point at maximum lift and " *
-              "fan power with the cube of the apparent wind",
+        model="the wing sail's, drag rising to full-scale CFD at maximum lift and fan " *
+              "power on the maker's curve",
         error="one published point of lift and drag; lift bounded by sea trials and a " *
               "digital twin",
         effect=varied_inputs(:suction_max_lift_coefficient)),
@@ -3394,3 +3394,32 @@ sea_effect_flight(table, ship, sea) =
 sea_effect_rows(table, ship, route, rig, sea) =
     findall(i -> table["ship"][i] == ship && table["route"][i] == route &&
                  table["rig"][i] == rig && table["sea"][i] == sea, eachindex(table["ship"]))
+
+"""
+    recosting_numbers_file()
+
+Write to paper/sections/recosting_numbers.tex, from the recosting bias step, the largest
+mean points of cost saving routing anew gained a rig over recosting at the measured end of
+a recosted input, the largest spread of that gain over the departures as a standard
+deviation, the departures, and the kite's error scaled to the shortest canopy life of the
+missed-goal sweep on the 140 m ship.
+"""
+function recosting_numbers_file()
+    table = read_table(data_file("recosting_bias.csv"))
+    gaps = [recosting_gap(table, change, rig)
+            for change in setdiff(unique(table["change"]), ["base"])
+            for rig in setdiff(unique(table["rig"]), ["none"])]
+    filter!(!isempty, gaps)
+    shortest = first(canopy_lives) / assumptions[:canopy_life] - 1
+    numbers = ["Largest" => one_decimal(maximum(mean, gaps)),
+        "Spread" => one_decimal(maximum(gap -> length(gap) > 1 ? std(gap) : 0.0, gaps)),
+        "Departures" => string(length(unique(table["departure"]))),
+        "CanopyLife" => one_decimal(recosting_error(table, "canopy_life", shortest,
+            "kite")),
+        "ShortestLife" => @sprintf("%.0f", first(canopy_lives))]
+    write_whole(joinpath(sections, "recosting_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro("Recosting" * name, text, paper_run.fidelity != :final))
+        end
+    end
+end

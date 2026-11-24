@@ -816,8 +816,8 @@ end
 suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions), inputs;
     unit=:suction, in_column=ceil(Int, area / 100))
 
-@testset "a suction sail of the VentiFoil's shape holds its published lift, drag and fan \
-          power" begin
+@testset "a suction sail of the VentiFoil's shape holds its published lift and drag, and \
+          its maker's fan power curve" begin
     pair = suction_sail(32.0)
     @test pair.count == 1
     @test pair.height ≈ sqrt(32.0 * 6.6)
@@ -827,8 +827,11 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     @test WindShipOpt.drag_coefficient(pair, 0.0) ==
           assumptions[:wing_profile_drag_coefficient]
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
-    @test WindShipOpt.fan_power(pair, attached, 17.0) ≈ 2 * 7.5e3 rtol = 0.01
-    @test WindShipOpt.fan_power(pair, attached, 8.5) ≈ 2 * 7.5e3 / 8 rtol = 0.01
+    full_power = 0.40e3 * 32.0
+    @test WindShipOpt.fan_power(pair, attached, 14.0) ≈ full_power rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 21.0) ≈ full_power rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 7.0) ≈ full_power / 8 rtol = 0.01
+    @test pair.max_wind == 22.0
 end
 
 @testset "a suction sail's fan runs only while its flow is attached and lifts, and it lies \
@@ -1515,9 +1518,9 @@ end
     @test !WindShipOpt.container_holds(rotors, assumptions)
     suction(unit_area) = WingRig(4unit_area, Hull(ship_classes()["feeder container ship"],
             assumptions), assumptions; unit=:suction, columns=2, in_column=2)
-    @test WindShipOpt.container_holds(suction(40.0), assumptions)
+    @test WindShipOpt.container_holds(suction(30.0), assumptions)
     @test !WindShipOpt.container_holds(suction(50.0), assumptions)
-    boxed = WindShipOpt.with_pedestal(suction(40.0), :container)
+    boxed = WindShipOpt.with_pedestal(suction(30.0), :container)
     feeder = ship_classes()["feeder container ship"]
     @test WindShipOpt.pedestal_mass(boxed, assumptions) == 0
     @test WindShipOpt.blocked_slots(boxed, feeder, assumptions) == 8
@@ -1749,12 +1752,24 @@ end
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
-                    [24.0 * 31, 24.0 * 200], assumptions, hourly,
-                    24assumptions[:port_time_per_call], nothing, nothing)
+                    [24.0 * 31, 24.0 * 200], assumptions, hourly, nothing, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
     @test all(kite_hourly .> hourly)
+end
+
+@testset "the return leg leaves at its scheduled time whatever the outbound takes" begin
+    design = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    routing = shared_route_table(design)
+    outbound, inbound = corridors
+    turnaround = WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
+    trip(out_cost) = WindShipOpt.route_round_trip(routing, outbound, inbound,
+        SyntheticWeather(), 24.0 * 31, turnaround, (out_cost, 300.0), nothing)
+    (slow_out, slow_back), (fast_out, fast_back) = trip(30.0), trip(3000.0)
+    @test fast_out.duration < slow_out.duration
+    @test fast_back.duration == slow_back.duration
+    @test fast_back.fuel_energy == slow_back.fuel_energy
 end
 
 @testset "departure costs with the year's ship average to the round trip's cost" begin
@@ -1948,7 +1963,7 @@ end
     end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
-    @test scheduled.fuel_energy < free.fuel_energy
+    @test scheduled.fuel_energy < bare.fuel_energy
     @test days(bare_tramp) == days(bare)
 end
 
@@ -4710,6 +4725,50 @@ end
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
 end
 
+@testset "a change of only what a route costs is recosted on the base route, its fuel \
+          kept" begin
+    longer = with_value(assumptions, :canopy_life, 6000.0)
+    @test PaperData.changed_inputs(longer) == [:canopy_life]
+    @test PaperData.cost_only(longer)
+    @test !PaperData.cost_only(with_value(assumptions, :kite_max_force_per_area, 1.0))
+    @test !PaperData.cost_only(with_value(assumptions, :rotor_out_of_service, 0.1))
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    trip = round_trip(Ship(kite, assumptions; route=:caribbean), corridors...,
+        SyntheticWeather(), [24.0 * 31], assumptions)
+    case = (; design=kite, assumptions=longer, route=:caribbean, corridors)
+    recosted = PaperData.recosted_trip(case, trip)
+    @test recosted.cost_per_tonne_km ≈ PaperData.changed_cost(case, trip)
+    @test recosted.cost_per_tonne_km < trip.cost_per_tonne_km
+    @test recosted.fuel_per_tonne_km == trip.fuel_per_tonne_km
+    @test isempty(recosted.departures)
+    @test_throws ArgumentError PaperData.recosted_trips(
+        [merge(case, (; assumptions=with_value(assumptions, :kite_max_wind, 20.0)))],
+        [24.0 * 31])
+end
+
+@testset "the gain of routing anew is measured per departure and grows with the square \
+          of the change" begin
+    table = Dict("change" => ["x", "x", "x", "x"], "relative" => fill(0.5, 4),
+        "rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "cost_recosted" => [10.0, 8.0, 10.0, 8.0], "cost_rerouted" => [9.0, 7.0, 10.0, 7.5])
+    @test PaperData.recosting_gap(table, "x", "kite") ≈ [100 * (1 - 7 / 9) - 20, 5.0]
+    gain = sum(PaperData.recosting_gap(table, "x", "kite")) / 2
+    @test PaperData.recosting_error(table, "x", 0.5, "kite") ≈ gain
+    @test PaperData.recosting_error(table, "x", -1.0, "kite") ≈ 4gain
+    @test PaperData.recosting_error(table, "y", 1.0, "kite") == 0.0
+end
+
+@testset "routing anew that costs more than recosting on average is router scatter and \
+          sets no cost error" begin
+    costs = (; cost_recosted=[10.0, 8.0, 10.0, 8.0], cost_rerouted=[10.0, 8.5, 10.0, 8.2])
+    table = Dict("change" => fill("x", 4), "relative" => fill(0.5, 4),
+        "rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "cost_recosted" => costs.cost_recosted, "cost_rerouted" => costs.cost_rerouted,
+        "carbon_recosted" => costs.cost_recosted, "carbon_rerouted" => costs.cost_rerouted)
+    @test PaperData.recosting_error(table, "x", 0.5, "kite") == 0.0
+    @test PaperData.recosting_error(table, "x", 0.5, "kite"; column="carbon") < 0.0
+end
+
 @testset "the explorer gives each input its value known today" begin
     io = IOBuffer()
     PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0, false))
@@ -5376,6 +5435,27 @@ end
     @test any(<(0), exported.columns.apparent_angle) &&
           any(>(0), exported.columns.apparent_angle)
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
+end
+
+@testset "a site passage is a routed round trip, out and back over the hours it spans" begin
+    design = ShipDesign(:methanol, 85.0; rotor_area=100.0)
+    routing = shared_route_table(design)
+    outbound, inbound = corridors
+    weather = SyntheticWeather()
+    departure = 24.0 * 31
+    out = route(outbound, routing, weather, departure; time_cost=300.0)
+    back_departure = departure +
+                     WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
+    back = route(inbound, routing, weather, back_departure; time_cost=300.0)
+    trip = (; out, back, departure, back_departure,
+        out_trace=LegTrace(routing.table, out, weather, departure),
+        back_trace=LegTrace(routing.table, back, weather, back_departure))
+    case = (; index=2, ship=Ship(design, assumptions), patterns=nothing)
+    recorded = PaperData.recorded_round_trip(case, trip, 3)
+    @test [leg.direction for leg in recorded.legs] == ["out", "back"]
+    @test all(leg.design == 2 && leg.departure == 2 for leg in recorded.legs)
+    @test [leg.start for leg in recorded.legs] == [departure, back_departure]
+    @test recorded.span == (departure, back_departure + back.duration)
 end
 
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
