@@ -5142,6 +5142,12 @@ end
     @test PaperData.shown_rigs(cells) == ["kite", "rotors", "suction"]
     @test PaperData.trailing_rigs(cells) ==
           [(rig="wings", saving=5.5, gap=0.5), (rig="lei", saving=2.0, gap=5.0)]
+    @test PaperData.trailing_summary(cells) ==
+          "The wing sails and the LEI kite trail the leader on every class, route and fuel"
+    @test startswith(PaperData.trailing_text(cells), "The wing sails save at most 6\\,\\% \
+        of the cost and come no closer to the best rig than 1 point: ")
+    @test occursin("The LEI kite saves at most 2\\,\\% of the cost and comes no closer to \
+        the best rig than 5 points: ", PaperData.trailing_text(cells))
 end
 
 "rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
