@@ -3663,17 +3663,16 @@ store_run(fidelity, trip_model; commit="a", only=nothing) =
     rotors = ShipDesign(:methanol, 85.0; rotor_area=200.0)
     routed(inputs) = round_trip(Ship(rotors, inputs), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], inputs)
-    at_high(name) = (; assumptions=with_value(assumptions, name,
-        assumptions.entries[name].high))
+    dearer(name) = (; assumptions=with_value(assumptions, name, 1.5assumptions[name]))
     directory = mktempdir()
     PaperRuns.stored_trip(() -> routed(assumptions), directory, (; assumptions))
-    dearer_canopy = at_high(:canopy_structure_cost)
+    dearer_canopy = dearer(:canopy_structure_cost)
     reused = PaperRuns.stored_entry(directory, dearer_canopy).trip
     rerouted = routed(dearer_canopy.assumptions)
     @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km
     @test reused.fuel_energy == rerouted.fuel_energy
-    @test ismissing(PaperRuns.stored_entry(directory, at_high(:rotor_unit_cost)))
-    @test ismissing(PaperRuns.stored_entry(directory, at_high(:market_price_factor)))
+    @test ismissing(PaperRuns.stored_entry(directory, dearer(:rotor_unit_cost)))
+    @test ismissing(PaperRuns.stored_entry(directory, dearer(:market_price_factor)))
 end
 
 @testset "only a draft outside its slice keeps round trips of older code" begin
@@ -4696,7 +4695,7 @@ end
 
 @testset "the explorer gives each input its value known today" begin
     io = IOBuffer()
-    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))
+    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0, false))
     @test occursin("\"today\":1200.0", String(take!(io)))
 end
 
@@ -4744,54 +4743,23 @@ end
         Dict(key => deleteat!(copy(values), lost) for (key, values) in table))
 end
 
-@testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin
+@testset "the development study keeps 5 to 20 inputs ranged by data or goals, each with a \
+          reason" begin
     inputs = PaperData.development_inputs
     @test 5 <= length(inputs) <= 20
     @test allunique(entry.input for entry in inputs)
     for entry in inputs
         low, high = (PaperData.bound_assumptions(entry.input, bound)
                      for bound in (:low, :high))
-        @test any(name -> low[name] != high[name], keys(assumptions.entries))
+        moved = filter(name -> low[name] != high[name], collect(keys(assumptions.entries)))
+        @test !isempty(moved)
+        @test !any(name -> assumptions.entries[name].estimate, moved)
         @test !isempty(entry.reason)
     end
     for rig in PaperData.rig_names
         levers = [entry.lever for entry in inputs if rig in PaperData.lever_rigs(entry)]
-        @test "price" in levers && "force" in levers && "availability" in levers
+        @test "force" in levers && "availability" in levers
     end
-end
-
-@testset "the development study moves the kite's aspect ratio at the base kite's price" begin
-    @test :kite_aspect_ratio in (entry.input for entry in PaperData.development_inputs)
-    base = uniform_kite(Hull(140.0, assumptions), assumptions)
-    for bound in (:low, :high)
-        moved = PaperData.bound_assumptions(:kite_aspect_ratio, bound)
-        @test moved[:kite_aspect_ratio] ==
-              getfield(assumptions.entries[:kite_aspect_ratio], bound)
-        ratio = moved[:kite_aspect_ratio] / assumptions[:kite_aspect_ratio]
-        moved_kite = KiteRig(;
-            (name => getfield(base, name) for name in fieldnames(KiteRig))...,
-            tether_length=base.tether_length * sqrt(ratio))
-        @test collect(WindShipOpt.consumable_costs(moved_kite, moved)) ≈
-              collect(WindShipOpt.consumable_costs(base, assumptions))
-    end
-end
-
-@testset "the kite's weather window moves its five limits together, wide at its high end" begin
-    inputs = [entry.input for entry in PaperData.development_inputs]
-    limits = (:kite_launch_sea_wind, :kite_launch_min_wind, :kite_launch_max_wind,
-        :kite_landing_max_wind, :kite_max_wind)
-    @test :kite_weather_window in inputs && !any(in(inputs), limits)
-    narrow, wide = (PaperData.bound_assumptions(:kite_weather_window, bound)
-                    for bound in (:low, :high))
-    for limit in limits
-        entry = assumptions.entries[limit]
-        @test minmax(narrow[limit], wide[limit]) == (entry.low, entry.high)
-    end
-    @test wide[:kite_launch_sea_wind] < narrow[:kite_launch_sea_wind]
-    @test wide[:kite_launch_min_wind] < narrow[:kite_launch_min_wind]
-    @test wide[:kite_launch_max_wind] > narrow[:kite_launch_max_wind]
-    @test wide[:kite_landing_max_wind] > narrow[:kite_landing_max_wind]
-    @test wide[:kite_max_wind] > narrow[:kite_max_wind]
 end
 
 @testset "the model parts measured by the development study read only its inputs" begin
@@ -4851,11 +4819,10 @@ end
     @test rig.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
 end
 
-@testset "every rig has its name, life, availability and price inputs" begin
+@testset "every rig has its name, life and availability inputs" begin
     rigs = Set(PaperData.rig_names)
     for names in (PaperData.rig_keywords, PaperData.lifetime_inputs,
-        PaperData.out_of_service_inputs, PaperData.rig_price_inputs,
-        PaperData.rig_subjects, PaperData.rig_short_names)
+        PaperData.out_of_service_inputs, PaperData.rig_subjects, PaperData.rig_short_names)
         @test issubset(rigs, keys(names))
     end
     @test issubset(PaperData.deck_rig_names, PaperData.rig_names)
@@ -4878,11 +4845,19 @@ end
     @test isnan(gain) && isnan(loss)
 end
 
-@testset "the input table lists every ranged input once, in the order of its name" begin
-    names = first.(PaperData.ranged_inputs())
-    @test issorted(names) && allunique(names)
-    entries = (assumptions.entries[name] for name in names)
-    @test all(entry -> entry.low != entry.high, entries)
+@testset "the input table gives a range only where data do, and marks each estimate" begin
+    row(name) = sprint(PaperData.write_input_row, assumptions.entries[name], name)
+    @test occursin("\\textsuperscript{e} &  & ", row(:crew_cost))
+    @test occursin(r"& \S+--\S+ &", row(:canopy_life))
+    @test !occursin("textsuperscript", row(:canopy_life))
+end
+
+@testset "an input has a range only where data give one, and an estimate has none" begin
+    for (name, entry) in assumptions.entries
+        @test entry.low <= entry.value <= entry.high
+        @test !entry.estimate || entry.low == entry.high
+        startswith(entry.source, "Authors' estimate") && @test entry.estimate
+    end
 end
 
 @testset "every input names its source in one short line" begin
