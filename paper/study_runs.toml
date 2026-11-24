@@ -99,6 +99,6 @@ fidelity = "draft"
 run = "2026-11-06T2346"
 
 [wind_height]
-commit = "156d3705ff906ccc588ddfab947897e95d631e64"
+commit = "e08e0232fc82f2b6f84195f478727a41bafeeff6"
 fidelity = "draft"
-run = "2026-11-21T1442"
+run = "2026-11-24T1133"

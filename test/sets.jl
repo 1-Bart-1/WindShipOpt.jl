@@ -5197,30 +5197,19 @@ draft_leads = [lead_row("Container", "vlsfo", "leads", 4.1),
           "e-ammonia"
 end
 
-@testset "the advice gives the rigs for both fuels once, then where the fuel changes" begin
+@testset "the advice gives one sentence per fuel, the most ship types last" begin
     @test PaperData.advice_text(draft_leads) ==
-          "on both fuels use the kite on container ships, and either the kite or the " *
-          "rotors on car carriers and bulk carriers; on tankers use the kite on " *
-          "e-ammonia and either the kite or the rotors on fuel oil, and on general cargo " *
-          "ships the other way round"
+          "On e-ammonia, fit the kite on container ships and tankers and either the kite " *
+          "or the rotors on the other ship types. On fuel oil, fit the kite on container " *
+          "ships and general cargo ships and either the kite or the rotors on the other " *
+          "ship types."
     all_kite = [(; row..., verdict="leads") for row in draft_leads]
-    @test PaperData.advice_text(all_kite) == "on both fuels use the kite on every ship type"
-    ammonia = filter(row -> row.drive == "ammonia", draft_leads)
-    @test PaperData.advice_text(ammonia) ==
-          "on e-ammonia use the kite on container ships and tankers, and either the kite " *
-          "or the rotors on car carriers, bulk carriers and general cargo ships"
-end
-
-@testset "the brief advice names each ship type's rigs on any fuel, most types last" begin
-    @test PaperData.brief_advice_text(draft_leads) ==
-          "the kite on container ships and the kite or the rotors on the other ship types"
-    all_kite = [(; row..., verdict="leads") for row in draft_leads]
-    @test PaperData.brief_advice_text(all_kite) == "the kite on every ship type"
+    @test PaperData.advice_text(all_kite) == "On both fuels, fit the kite on every ship type."
     no_cars = [row.word == "CarCarrier" ? (; row..., verdict="none") : row
-               for row in draft_leads]
-    @test PaperData.brief_advice_text(no_cars) ==
-          "the kite on container ships, no rig on car carriers and the kite or the " *
-          "rotors on the other ship types"
+               for row in draft_leads if row.drive == "vlsfo"]
+    @test PaperData.advice_text(no_cars) ==
+          "On fuel oil, fit no rig on car carriers, the kite on container ships and " *
+          "general cargo ships, and either the kite or the rotors on the other ship types."
 end
 
 @testset "the answer gives the range of what the rig to fit saves a ship a year" begin
@@ -5246,9 +5235,10 @@ end
 end
 
 @testset "the highlight of the advice fits the journal for any kind of advice" begin
-    @test PaperData.highlight_text(draft_leads) ==
-          "On e-ammonia: kite on container ships and tankers, either kite or rotors " *
-          "elsewhere."
+    @test PaperData.highlight_text(draft_leads, "ammonia") ==
+          "On e-ammonia: kite on container ships and tankers, kite or rotors elsewhere."
+    @test PaperData.highlight_text(draft_leads, "vlsfo") ==
+          "On fuel oil: kite on 2 ship types, kite or rotors on 3."
     kinds = [("leads", "kite", "rotors"), ("leads", "rotors", "kite"),
         ("leads", "wings", "rotors"), ("level", "kite", "rotors"),
         ("level", "wings", "rotors"), ("none", "kite", "rotors")]
@@ -5258,8 +5248,9 @@ end
                       for (drive, kind) in (("vlsfo", length(kinds) + 1 - pick),
                           ("ammonia", pick))]
     outcomes = Iterators.product(fill(eachindex(kinds), length(words))...)
-    @test all(length(PaperData.highlight_text(outcome(picks))) <= PaperData.highlight_limit
-              for picks in outcomes)
+    @test all(length(PaperData.highlight_text(outcome(picks), drive)) <=
+              PaperData.highlight_limit
+              for picks in outcomes for drive in ("vlsfo", "ammonia"))
 end
 
 @testset "a ship type where the best rig does not clearly save has no leader" begin
