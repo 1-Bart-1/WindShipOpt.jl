@@ -3998,6 +3998,60 @@ end
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
+@testset "a session loading trips.jl names the inputs a step read at another value" begin
+    code = Dict("model" => "m")
+    entry = Dict{String, Any}("code" => code, "reads" => Dict(),
+        "inputs" => Dict("discount_rate" => assumptions[:discount_rate]))
+    @test isempty(JobTrips.step_reasons(entry, code))
+    entry["inputs"]["discount_rate"] += 0.01
+    @test JobTrips.step_reasons(entry, code) == ["inputs changed: discount_rate"]
+end
+
+"names of the functions script `file` defines at its top level"
+function defined_functions(file)
+    names = Set{Symbol}()
+    for definition in Meta.parseall(read(file, String)).args
+        definition isa Expr && definition.head === :macrocall &&
+            (definition = last(definition.args))
+        definition isa Expr && definition.head in (:function, :(=)) || continue
+        signature = first(definition.args)
+        while signature isa Expr && signature.head in (:where, :(::))
+            signature = first(signature.args)
+        end
+        signature isa Expr && signature.head === :call || continue
+        first(signature.args) isa Symbol && push!(names, first(signature.args))
+    end
+    return names
+end
+
+"the paths the `include` calls in `expression` name, by their last argument"
+function included_names(expression)
+    expression isa Expr || return String[]
+    if expression.head === :call && first(expression.args) === :include
+        path = last(expression.args)
+        return [path isa Expr ? last(path.args) : path]
+    end
+    return reduce(vcat, included_names.(expression.args); init=String[])
+end
+
+"script `file` and every script it includes, directly or through the ones it includes"
+function included_scripts(file, found=Set{String}())
+    file in found && return found
+    push!(found, file)
+    for name in included_names(Meta.parseall(read(file, String)))
+        included_scripts(joinpath(dirname(file), name), found)
+    end
+    return found
+end
+
+@testset "no two scripts loaded together define a function of the same name" begin
+    scripts = joinpath(pkgdir(WindShipOpt), "scripts")
+    for script in filter(endswith(".jl"), readdir(scripts; join=true))
+        names = reduce(vcat, collect.(defined_functions.(included_scripts(script))))
+        @test isempty([name for name in unique(names) if count(==(name), names) > 1])
+    end
+end
+
 @testset "a round trip resumed from its stored departures routes only those missing" begin
     JobTrips.paper_run = JobTrips.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("git_commit" => "a", "git_dirty" => false), nothing,
@@ -4826,7 +4880,7 @@ end
 @testset "a change of only what a route costs is recosted on the base route, its fuel \
           kept" begin
     longer = with_value(assumptions, :canopy_life, 6000.0)
-    @test PaperData.changed_inputs(longer) == [:canopy_life]
+    @test PaperData.off_base_inputs(longer) == [:canopy_life]
     @test PaperData.cost_only(longer)
     @test !PaperData.cost_only(with_value(assumptions, :kite_max_force_per_area, 1.0))
     @test !PaperData.cost_only(with_value(assumptions, :rotor_out_of_service, 0.1))
