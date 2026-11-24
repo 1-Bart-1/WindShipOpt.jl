@@ -4330,7 +4330,7 @@ end
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
     model, force, _, airframe = WindShipOpt.rigid_kite_model(54.0, assumptions)
     @test force ≈ 300e3 rtol=0.01
-    @test airframe.mass ≈ 1852 rtol=0.01
+    @test airframe.mass ≈ 1854 rtol=0.01
     @test model.tether_length ≈ 300 rtol=0.01
     @test model.min_turn_radius ≈ 90 rtol=0.01
     @test airframe.hover_power ≈ 0.87e6 rtol=0.02
