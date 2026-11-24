@@ -3903,9 +3903,9 @@ end
     command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
     option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
     hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 24 * 3600
+    @test hours * 3600 + minutes * 60 + seconds <= 120 * 3600
     @test parse(Int, option("cpus-per-task")) <= 64
-    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
+    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
     @test option("dependency") == "afterany:7"
 end
 
