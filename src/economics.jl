@@ -1158,10 +1158,10 @@ function departure_passages(routing::DepartureRouting, outbound, inbound, weathe
     end
     passages = Union{Nothing, Passages}[]
     for state in routing.states
-        passage = isnothing(state) ? nothing :
-                  state_passages(state, outbound, inbound, weather, departure, forecast;
+        isnothing(state) && (push!(passages, nothing); continue)
+        passage = state_passages(state, outbound, inbound, weather, departure, forecast;
             schedule)
-        isnothing(passage) && !isnothing(state) && return nothing
+        isnothing(passage) && return nothing
         push!(passages, passage)
     end
     return passages
