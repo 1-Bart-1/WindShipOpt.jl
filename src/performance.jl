@@ -79,8 +79,7 @@ end
     LinearTable
 
 Values on a grid of three or four knot vectors, interpolated linearly in each dimension and
-held flat beyond the grid. Called on as many coordinates or on their
-[`KnotWeight`](@ref)s.
+held flat beyond the grid.
 """
 struct LinearTable{N}
     knots::NTuple{N, Knots}
@@ -89,22 +88,6 @@ end
 
 LinearTable(knots::NTuple{N, AbstractVector}, values::Array{Float64, N}) where {N} =
     LinearTable(map(Knots, knots), values)
-
-(table::LinearTable)(coordinates::Real...) =
-    table(map(KnotWeight, table.knots, coordinates)...)
-
-function (table::LinearTable{3})(x::KnotWeight, y::KnotWeight, z::KnotWeight)
-    (; values) = table
-    return x.upper * plane_value(view(values, x.index + 1, :, :), y, z) +
-           x.lower * plane_value(view(values, x.index, :, :), y, z)
-end
-
-function (table::LinearTable{4})(x::KnotWeight, y::KnotWeight, z::KnotWeight,
-        layer::KnotWeight)
-    (; values) = table
-    return x.upper * layer_value(view(values, x.index + 1, :, :, :), y, z, layer) +
-           x.lower * layer_value(view(values, x.index, :, :, :), y, z, layer)
-end
 
 """
     layer_value(values, y, z, layer)
