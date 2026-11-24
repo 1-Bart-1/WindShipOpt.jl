@@ -1746,8 +1746,10 @@ end
     down = last(last(states))
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
-    passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
-                    [24.0 * 31, 24.0 * 200], assumptions, hourly, nothing, nothing)
+    routed(ship) = WindShipOpt.StateRouting(ship, outbound, assumptions, hourly, nothing)
+    passages = [[WindShipOpt.state_passages(routed(ship), outbound, inbound,
+                     SyntheticWeather(), departure, nothing)
+                 for departure in (24.0 * 31, 24.0 * 200)]
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
@@ -1765,6 +1767,22 @@ end
     @test fast_out.duration < slow_out.duration
     @test fast_back.duration == slow_back.duration
     @test fast_back.fuel_energy == slow_back.fuel_energy
+end
+
+@testset "departures routed apart combine to the round trip routed whole" begin
+    changed = with_value(assumptions, :kite_out_of_service, 0.2)
+    ship = Ship(ShipDesign(:ammonia, ship_classes()["feeder container ship"];
+        kite_area=800.0), changed)
+    departures = [24.0 * 31, 24.0 * 200]
+    whole = round_trip(ship, corridors..., SyntheticWeather(), departures, changed)
+    apart = [WindShipOpt.departure_passages(
+                 WindShipOpt.DepartureRouting(ship, first(corridors), changed),
+                 corridors..., SyntheticWeather(), departure) for departure in departures]
+    combined = WindShipOpt.combine_departures(ship, corridors..., departures, changed, apart)
+    @test !isnothing(WindShipOpt.DepartureRouting(ship, first(corridors), changed).schedule)
+    @test count(!isnothing, first(apart)) == 2
+    @test all(getfield(combined, name) == getfield(whole, name)
+              for name in fieldnames(RoundTrip))
 end
 
 @testset "departure costs with the year's ship average to the round trip's cost" begin
@@ -3751,9 +3769,9 @@ end
 """
     StubJobs
 
-Jobs computing in tasks of this process the square of each case's `label`: each launch on a
-shard in `wall` stores at most that many round trips and ends, as a job at its wall time
-does, and a shard in `left` has a task a stopped run left running on it.
+Jobs routing in tasks of this process the square of each case's `label` for each departure:
+each launch on a shard in `wall` stores at most that many departures and ends, as a job at
+its wall time does, and a shard in `left` has a task a stopped run left running on it.
 """
 struct StubJobs
     wall::Dict{Int, Int}
@@ -3776,13 +3794,15 @@ PaperRuns.left_running(jobs::StubJobs, batch, shard) = get(jobs.left, shard, not
 """
     store_squares(jobs, batch, todo)
 
-Task storing the square of the `label` of the cases `todo` of the batch file `batch`,
-counted in `jobs.computed`.
+Task storing the square of the `label` of the case of each departure `todo` of the batch
+file `batch`, counted in `jobs.computed`.
 """
 function store_squares(jobs, batch, todo)
     return Threads.@spawn for k in todo
-        PaperRuns.stored_trip(() -> batch.cases[k].label^2, batch.directories[k],
-            batch.cases[k])
+        case, departure = PaperRuns.departure_case(batch, k)
+        PaperRuns.stored_trip(() -> batch.cases[case].label^2,
+            PaperRuns.departure_directory(batch.directories[case],
+                batch.departures[departure]), batch.cases[case])
         Threads.atomic_add!(jobs.computed, 1)
     end
 end
@@ -3796,21 +3816,27 @@ end
 
 handed_cases = [(; assumptions, label) for label in 1:10]
 
+"what the case store holds for the departure at 24 h of each case of `directories`"
+stored_departures(directories) =
+    [PaperRuns.departure_entry(PaperRuns.departure_directory(directory, 24.0), case).trip
+     for (case, directory) in zip(handed_cases, directories)]
+
 @testset "a job ended at its wall time is launched again until its shard is stored" begin
     store_run(:draft, "code")
     jobs = StubJobs(Dict(1 => 1, 3 => 1), 0)
     directories = [mktempdir() for _ in handed_cases]
-    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
-    @test [entry.trip for entry in entries] == (1:10) .^ 2
-    @test jobs.launches == Dict(1 => 3, 2 => 1, 3 => 2, 4 => 1)
+    PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test stored_departures(directories) == (1:10) .^ 2
+    @test jobs.launches == Dict(1 => 2, 2 => 1, 3 => 2, 4 => 1)
     batch = only(filter(endswith(".bin"),
         readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory); join=true)))
     @test PaperRuns.stored_count(batch) == 10
-    foreach(rm, readdir(directories[2]; join=true))
+    foreach(rm, filter(isfile, readdir(directories[2]; join=true)))
+    foreach(rm, readdir(PaperRuns.departure_directory(directories[2], 24.0); join=true))
     @test PaperRuns.stored_count(batch) == 9
 end
 
-@testset "a batch whose job stores nothing stops the run naming the cases it lacks" begin
+@testset "a batch whose job stores nothing stops the run naming the departures it lacks" begin
     store_run(:draft, "code")
     jobs = StubJobs(Dict(2 => 0), 1)
     directories = [mktempdir() for _ in handed_cases]
@@ -3819,18 +3845,19 @@ end
     catch error
         error.msg
     end
-    @test contains(lacking, "for 3 cases") && contains(lacking, "label=6\nlabel=10")
+    @test contains(lacking, "for 3 departures") &&
+          contains(lacking, "label=4 departure=24.0\nlabel=5 departure=24.0")
     @test jobs.launches[2] == 2
 end
 
-@testset "a resumed run computes only the round trips its stopped run did not store" begin
+@testset "a resumed run routes only the departures its stopped run did not store" begin
     store_run(:draft, "code")
     directories = [mktempdir() for _ in handed_cases]
     @test_throws ErrorException PaperRuns.job_trips(StubJobs(Dict(2 => 0), 0),
         handed_cases, directories, [24.0])
     jobs = StubJobs(Dict{Int, Int}(), 0)
-    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
-    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test stored_departures(directories) == (1:10) .^ 2
     @test jobs.computed[] == 3 && jobs.launches == Dict(2 => 1)
 end
 
@@ -3838,12 +3865,29 @@ end
     store_run(:draft, "code")
     directories = [mktempdir() for _ in handed_cases]
     left = StubJobs(Dict{Int, Int}(), 0)
-    batch = (; cases=handed_cases, directories)
+    batch = (; cases=handed_cases, directories, departures=[24.0])
     jobs = StubJobs(Dict{Int, Int}(), 0;
         left=Dict(3 => store_squares(left, batch, PaperRuns.shard_missing(batch, 3, 4))))
-    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
-    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test stored_departures(directories) == (1:10) .^ 2
     @test !haskey(jobs.launches, 3) && left.computed[] == 2
+end
+
+@testset "a shard holds the departures of a few cases, each departure in one shard" begin
+    batch = (; cases=handed_cases, departures=[24.0, 48.0, 72.0])
+    shards = [PaperRuns.shard_departures(batch, shard, 4) for shard in 1:4]
+    @test reduce(vcat, shards) == 1:30
+    @test all(shard -> length(shard) in (7, 8), shards)
+    cases(shard) = unique(first(PaperRuns.departure_case(batch, k)) for k in shard)
+    @test all(shard -> length(cases(shard)) <= 4, shards)
+end
+
+@testset "a stored round trip leaves its departures unrouted" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    batch = (; cases=handed_cases, directories, departures=[24.0])
+    PaperRuns.stored_trip(() -> 1.0, directories[1], handed_cases[1])
+    @test PaperRuns.shard_missing(batch, 1, 4) == [2]
 end
 
 @testset "a final run takes only round trips computed on its own processor" begin
@@ -3925,6 +3969,27 @@ end
 @testset "a job computing round trips loads their code without the plotting packages" begin
     @test !any(package -> nameof(package) == :CairoMakie, Base.loaded_modules_array())
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
+end
+
+@testset "a round trip resumed from its stored departures routes only those missing" begin
+    JobTrips.paper_run = JobTrips.PaperRun(mktempdir(), :draft,
+        Dict{String, Any}("git_commit" => "a", "git_dirty" => false), nothing,
+        Dict{Symbol, Vector{Any}}(), "code", JobTrips.StepTally())
+    case = JobTrips.trip_case(ShipDesign(:vlsfo, 100.0; rotor_area=200.0); scale=8.0)
+    departures = JobTrips.departures[1:2]
+    directory = mktempdir()
+    whole = only(JobTrips.compute_trips([case], [directory], departures))
+    kept, lost = (only(readdir(JobTrips.departure_directory(directory, departure);
+                      join=true)) for departure in departures)
+    made = mtime(kept)
+    foreach(rm, filter(isfile, readdir(directory; join=true)))
+    rm(lost)
+    resumed = only(JobTrips.compute_trips([case], [directory], departures))
+    @test mtime(kept) == made && isfile(lost)
+    @test resumed.inputs == whole.inputs && resumed.files == whole.files
+    routed = JobTrips.case_trip(case, departures)
+    @test all(getfield(resumed.trip, name) == getfield(whole.trip, name) ==
+              getfield(routed, name) for name in fieldnames(RoundTrip))
 end
 
 @testset "a run's estimate counts the cases of each data step of the draft run" begin

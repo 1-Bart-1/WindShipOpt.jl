@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Hands the round trips of a run to Slurm jobs that compute them into the case store, the
-# run's own job computing one share. The run waits for the store, launches a job again that
-# ended with round trips missing, takes over the jobs a stopped run left running, and stops
-# naming the cases still missing once jobs store nothing more. Included by paper_runs.jl;
-# cluster.jl starts the jobs.
+# Hands the departures of a run's round trips to Slurm jobs that route them into the case
+# store, the run's own job routing one share. The run waits for the store, launches a job
+# again that ended with departures missing, takes over the jobs a stopped run left running,
+# and stops naming the departures still missing once jobs store nothing more. Included by
+# paper_runs.jl; cluster.jl starts the jobs.
 
 """
     SlurmJobs
@@ -18,7 +18,7 @@ struct SlurmJobs
     settings::Dict{String, Any}
 end
 
-"where the run in use hands its missing round trips, or nothing to compute them itself"
+"where the run in use hands the departures of its missing round trips, or nothing"
 case_jobs = nothing
 
 cores(jobs::SlurmJobs) = jobs.settings["cores"]
@@ -36,7 +36,7 @@ cluster_settings(path=joinpath(@__DIR__, "cluster.toml")) = TOML.parsefile(path)
 """
     handed_out(jobs, count)
 
-Whether `count` round trips go to `jobs`: there are jobs, and more round trips than the run
+Whether `count` departures go to `jobs`: there are jobs, and more departures than the run
 has threads.
 """
 handed_out(jobs, count) = !isnothing(jobs) && count > Threads.nthreads()
@@ -44,7 +44,7 @@ handed_out(jobs, count) = !isnothing(jobs) && count > Threads.nthreads()
 """
     shard_count(jobs, count)
 
-Shards `count` round trips are split into: one per `cores(jobs)` of them, at most
+Shards `count` departures are split into: one per `cores(jobs)` of them, at most
 `job_count(jobs)`, the run's own job included.
 """
 shard_count(jobs, count) = clamp(cld(count, cores(jobs)), 1, job_count(jobs))
@@ -53,7 +53,7 @@ shard_count(jobs, count) = clamp(cld(count, cores(jobs)), 1, job_count(jobs))
     write_batch(cases, directories, departures)
 
 Write the `cases` with their case-store `directories` over `departures`, and what a job
-needs of the run in use to store their round trips as it would, to a batch file in the run's
+needs of the run in use to store their departures as it would, to a batch file in the run's
 [`jobs_directory`](@ref), unless a stopped run on the same commit and round-trip code wrote
 it already; return its path.
 """
@@ -80,7 +80,7 @@ jobs_directory(run_directory) =
 """
     batch_run(batch)
 
-The run a job computes the round trips of `batch` ([`write_batch`](@ref)) in: the run that
+The run a job routes the departures of `batch` ([`write_batch`](@ref)) in: the run that
 wrote it, without its definitions.
 """
 batch_run(batch) = PaperRun(batch.directory, batch.fidelity, batch.record, batch.only,
@@ -89,56 +89,93 @@ batch_run(batch) = PaperRun(batch.directory, batch.fidelity, batch.record, batch
 """
     stored_count(path)
 
-Number of the round trips of the batch file `path` ([`write_batch`](@ref)) that the run
-which wrote it finds in the case store.
+Number of the departures of the batch file `path` ([`write_batch`](@ref)) that the run
+which wrote it no longer has to route.
 """
 function stored_count(path)
     batch = deserialize(path)
     global paper_run = batch_run(batch)
-    return length(batch.cases) - length(shard_missing(batch, 1, 1))
+    return departure_count(batch) - length(shard_missing(batch, 1, 1))
 end
+
+"number of departures of the round trips of `batch`, those of each case in turn"
+departure_count(batch) = length(batch.cases) * length(batch.departures)
+
+"index in `batch` of the case and of the departure of its `k`-th departure"
+departure_case(batch, k) = divrem(k - 1, length(batch.departures)) .+ 1
+
+"""
+    shard_departures(batch, shard, shards)
+
+The departures of `batch` in shard `shard` of `shards`: one run of them in turn, so that a
+shard holds the departures of few cases.
+"""
+shard_departures(batch, shard, shards) =
+    (div((shard - 1) * departure_count(batch), shards) + 1):div(
+        shard * departure_count(batch), shards)
 
 """
     shard_missing(batch, shard, shards)
 
-Indices of the cases of `batch` in shard `shard` of `shards` whose round trip the run in use
-does not find in the case store.
+Those departures of `batch` in shard `shard` of `shards` that the run in use still has to
+route: of a case whose round trip it does not find in the case store, with no entry of its
+own there.
 """
-shard_missing(batch, shard, shards) =
-    filter(k -> ismissing(stored_entry(batch.directories[k], batch.cases[k])),
-        shard:shards:length(batch.cases))
+shard_missing(batch, shard, shards) = filter(shard_departures(batch, shard, shards)) do k
+    case, departure = departure_case(batch, k)
+    directory = batch.directories[case]
+    return ismissing(stored_entry(directory, batch.cases[case])) &&
+           ismissing(departure_entry(departure_directory(directory,
+               batch.departures[departure]), batch.cases[case]))
+end
+
+"labels of the case of the `k`-th departure of `batch`, and the departure [h]"
+function departure_labels(batch, k)
+    case, departure = departure_case(batch, k)
+    return string(case_labels(batch.cases[case]), " departure=", batch.departures[departure])
+end
 
 """
     shard_trips(path, shard, shards)
 
-Compute into the case store, in the run in use, the missing round trips of shard `shard` of
-`shards` of the batch file `path`.
+Route into the case store, in the run in use, the missing departures of shard `shard` of
+`shards` of the batch file `path`, those of each case on one routing.
 """
 function shard_trips(path, shard, shards)
     batch = deserialize(path)
     todo = shard_missing(batch, shard, shards)
-    println(length(todo), " round trips to compute")
-    compute_trips(batch.cases[todo], batch.directories[todo], batch.departures)
+    println(length(todo), " departures to route")
+    by_case = Dict{Int, Vector{Float64}}()
+    for k in todo
+        case, departure = departure_case(batch, k)
+        push!(get!(by_case, case, Float64[]), batch.departures[departure])
+    end
+    Threads.@threads :greedy for (case, picked) in collect(by_case)
+        departure_entries(batch.cases[case], picked,
+            departure_directory.(batch.directories[case], picked))
+    end
 end
 
 """
     job_trips(jobs, cases, directories, departures)
 
-Case-store entries of the round trips of `cases` in `directories` over `departures`,
-computed by `jobs`: one shard of the cases per job, every `k`-th case to the `k`-th job, a
-job that a stopped run left on a shard waited for rather than launched again. A job that
-ends with round trips of its shard missing is launched again until `retries(jobs)` launches
-in a row stored none; then this throws an error naming the cases still missing.
+Store the departures of the round trips of `cases` in `directories` over `departures` that
+the case store lacks, routed by `jobs`: one shard of the departures per job, a run of them
+in turn each, a job that a stopped run left on a shard waited for rather than launched
+again. A job that ends with departures of its shard missing is launched again until
+`retries(jobs)` launches in a row stored none; then this throws an error naming the
+departures still missing.
 """
 function job_trips(jobs, cases, directories, departures)
     batch = write_batch(cases, directories, departures)
-    shards = shard_count(jobs, length(cases))
-    todo = [shard_missing((; cases, directories), shard, shards) for shard in 1:shards]
+    handed = (; cases, directories, departures)
+    shards = shard_count(jobs, departure_count(handed))
+    todo = [shard_missing(handed, shard, shards) for shard in 1:shards]
     handles = Any[isempty(todo[shard]) ? nothing : take_over(jobs, batch, shard, shards)
                   for shard in 1:shards]
     fruitless = zeros(Int, shards)
-    println("  ", sum(length, todo), " of ", length(cases), " round trips handed to ",
-        count(!isnothing, handles), " jobs")
+    println("  ", sum(length, todo), " of ", departure_count(handed),
+        " departures handed to ", count(!isnothing, handles), " jobs")
     lacking = Int[]
     while any(!isnothing, handles)
         sleep(poll_seconds(jobs))
@@ -146,7 +183,7 @@ function job_trips(jobs, cases, directories, departures)
         for shard in 1:shards
             handle = handles[shard]
             (isnothing(handle) || handle in alive) && continue
-            missed = shard_missing((; cases, directories), shard, shards)
+            missed = shard_missing(handed, shard, shards)
             fruitless[shard] =
                 length(missed) < length(todo[shard]) ? 0 : fruitless[shard] + 1
             todo[shard] = missed
@@ -155,11 +192,9 @@ function job_trips(jobs, cases, directories, departures)
             isnothing(handles[shard]) && append!(lacking, missed)
         end
     end
-    isempty(lacking) || error("no round trip in the case store for ",
-        length(lacking), " cases of batch ", batch, ":\n",
-        join(case_labels.(cases[sort(lacking)]), "\n"))
-    return Any[stored_entry(directory, case)
-               for (case, directory) in zip(cases, directories)]
+    isempty(lacking) || error("no entry in the case store for ", length(lacking),
+        " departures of batch ", batch, ":\n",
+        join(departure_labels.(Ref(handed), sort(lacking)), "\n"))
 end
 
 """
@@ -185,7 +220,7 @@ job_command(cores, arguments...) = `$(Base.julia_cmd()) --project=$(@__DIR__) -t
 """
     launch(jobs, batch, shard, shards)
 
-Start computing the missing round trips of shard `shard` of `shards` of the batch file
+Start routing the missing departures of shard `shard` of `shards` of the batch file
 `batch`: the first shard in a task of this process, the run's own job, every other in a job
 of its own whose id goes to its [`job_file`](@ref); return the task or job id.
 """
@@ -242,7 +277,7 @@ end
     stalled_run_jobs(fidelity)
 
 Run jobs in a row, the one calling this included, that found the latest unfinished run at
-`fidelity` with no more steps done or round trips of its batches stored than the run job
+`fidelity` with no more steps done or departures of its batches stored than the run job
 before it did; 0 without such a run.
 """
 function stalled_run_jobs(fidelity)
