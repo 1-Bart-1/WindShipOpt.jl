@@ -94,10 +94,10 @@ end
 Hull of the given main dimensions [m] and block coefficient on `length`, with the form
 ratios of the reference coaster, its centre of buoyancy [% of length] unless given, and
 the factor on its calm-water resistance, and the factor `hull_side_force_factor` on its
-side-force slope and its cubic term `hull_side_force_cubic`. Its form terms take `waterline_length` and stop at
-the prismatic coefficient `holtrop_max_prismatic`, while its displacement stays that of
-`block`; `deck_cargo_height` [m] of containers stand on its deck, and its bridge front
-stands `bridge_distance` [m] aft of the bow.
+side-force slope and its cubic term `hull_side_force_cubic`. Its form terms take
+`waterline_length` and stop at the prismatic coefficient `holtrop_max_prismatic`, while
+its displacement stays that of `block`; `deck_cargo_height` [m] of containers stand on its
+deck, and its bridge front stands `bridge_distance` [m] aft of the bow.
 """
 function Hull(length, beam, draft, block, assumptions::Assumptions;
         centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0,

@@ -2140,10 +2140,12 @@ fidelity_parts() = [
         error="limits are design rules, not measured", effect=switched(:limits)),
     (part="Rudder drag", varied="removed",
         model="lifting line carrying the yaw moment in the wake and propeller slipstream",
-        error="wake fraction from CFD of two cargo ships; drag within 10\\,\\% at no thrust",
+        error="wake fraction from CFD of two cargo ships; " *
+              "drag within 10\\,\\% at no thrust",
         effect=switched(:rudder)),
     (part="Leeway and rudder drag", varied="both removed",
-        model="side force fitted to tank tests of a tanker; induced drag of a slender wing and cross flow",
+        model="side force fitted to tank tests of a tanker; " *
+              "induced drag of a slender wing and cross flow",
         error="one conventional hull tested, not these hulls",
         effect=switched(:side_force)),
     (part="Hull side-force slope", varied="at its low bound",

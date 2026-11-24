@@ -124,7 +124,7 @@ end
           WindShipOpt.lateral_centre(ship.hull)
 end
 
-@testset "the hull's side force is as large and acts as far forward as tank tests show" begin
+@testset "the hull's side force is as large and acts as far forward as tests show" begin
     path = joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv")
     tests = [parse.(Float64, WindShipOpt.csv_fields(line)[2:8])
              for line in readlines(path)[2:end]]
@@ -149,11 +149,12 @@ end
     force = RigForce(2e5, 3e5, 3e6, -2e6)
     balance = WindShipOpt.HullBalance(ship, 6.0, force, 0.0)
     free_stream = 0.5ship.env.water_density * 6.0^2 * ship.rudder_area
-    @test balance.rudder_drag ≈ balance.rudder_side_force^2 /
-                                (free_stream * (wake / 6.0)^2 * π * ship.rudder_aspect_ratio)
+    wake_pressure = free_stream * (wake / 6.0)^2
+    @test balance.rudder_drag ≈
+          balance.rudder_side_force^2 / (wake_pressure * π * ship.rudder_aspect_ratio)
 end
 
-@testset "a weaker hull side-force slope drifts and costs more, and acts further forward" begin
+@testset "a weaker hull side force drifts and costs more, and acts further forward" begin
     hull = Hull(140.0, assumptions)
     weak = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
         side_force_factor=hull.side_force_factor / 2)
@@ -1245,7 +1246,7 @@ end
     @test isnothing(layout(2, 1, 20000.0))
 end
 
-@testset "a kite tows from its bow mast, and towing further aft of the lateral centre loads the rudder more" begin
+@testset "a kite tows from its bow mast; a tow further aft loads the rudder more" begin
     hull = Hull(140.0, assumptions)
     design = ShipDesign(:methanol, 140.0; kite_area=800.0)
     bow = Ship(design, assumptions)

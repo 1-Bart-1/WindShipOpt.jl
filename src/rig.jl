@@ -250,7 +250,8 @@ height above the waterline [m], centre of effort forward of midship [m] (units a
 each other alone stand at the hull's lateral centre, or as far forward as the deck lets
 them), column offset from the centreline [m], interference factor, [`array_factor`](@ref)
 in line times that of a pair abreast, which loses the unit's abreast loss times as much.
-`nothing` where units stand closer than the closest spacing. Suction sails stand and interfere as wing sails do.
+`nothing` where units stand closer than the closest spacing. Suction sails stand and
+interfere as wing sails do.
 """
 function column_layout(columns, in_column, total_area, unit, hull::Hull,
         assumptions::Assumptions, forward_reserve)
@@ -269,8 +270,8 @@ function column_layout(columns, in_column, total_area, unit, hull::Hull,
         array_factor(in_column, deck_length / in_column / width, amplitude, decay) *
         array_factor(columns, 2column_offset / width,
             arrangement(:_abreast_loss) * amplitude, decay)
-    centre_position = in_column == 1 ?
-                      min(lateral_centre(hull), (deck_length - clearance - forward_reserve) / 2) :
+    forward_slot = (deck_length - clearance - forward_reserve) / 2
+    centre_position = in_column == 1 ? min(lateral_centre(hull), forward_slot) :
                       -forward_reserve / 2
     return (; count, columns, height, foot_height=foot_height(hull, assumptions),
         centre_position, column_offset, interference_factor, pedestal_height=0.0,
@@ -905,7 +906,8 @@ end
 
 Rigid VTOL kite of `area` [m^2] on `hull` with a pattern table over `courses` [rad] and
 `side_weights`, towing from the hull's lateral centre, or from the launch mast where the
-centre lies ahead of it or containers stand on its deck; `nothing` where it is larger than [`largest_rigid_kite_area`](@ref).
+centre lies ahead of it or containers stand on its deck; `nothing` where it is larger than
+[`largest_rigid_kite_area`](@ref).
 """
 function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
@@ -920,8 +922,8 @@ function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         rigid_wind_limits(lowest_wind, assumptions)..., max_force,
         attach_height=assumptions[:kite_attach_height] * hull.length /
                       assumptions[:reference_length],
-        attach_position=hull.deck_cargo_height > 0 ? launch_mast_position(hull, assumptions) :
-                        min(lateral_centre(hull), launch_mast_position(hull, assumptions)),
+        attach_position=min(launch_mast_position(hull, assumptions),
+            hull.deck_cargo_height > 0 ? Inf : lateral_centre(hull)),
         wind_speeds=RIGID_WIND_SPEEDS, courses, side_weights, forces, airframe)
 end
 

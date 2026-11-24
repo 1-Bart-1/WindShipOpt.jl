@@ -182,7 +182,8 @@ Height [mm] above midship that the bow, the arrows, their labels and the tether 
 function panel_top(panel)
     heads = [arrow_ends(force)[2][2] for force in panel.forces]
     labels = [label_top(force, panel.forces) for force in panel.forces]
-    return max(maximum(heads), maximum(labels), paper_ship.stem * force_balance_scale.length,
+    return max(maximum(heads), maximum(labels),
+        paper_ship.stem * force_balance_scale.length,
         tether_end(panel.ship.rig, panel.forces)[2])
 end
 

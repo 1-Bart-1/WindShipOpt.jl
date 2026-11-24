@@ -429,8 +429,8 @@ end
 with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coefficients,
     ship.seakeeping, ship.propeller, ship.powertrain, rig, ship.fuel, ship.windage,
     ship.righting_stiffness, ship.heel_limit,
-    ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio, ship.rudder_wake_fraction,
-    ship.rudder_max_lift,
+    ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio,
+    ship.rudder_wake_fraction, ship.rudder_max_lift,
     ship.max_speed)
 
 """
@@ -577,9 +577,9 @@ function HullBalance(ship::Ship, speed, force::RigForce, drag)
                  side_force_slope(hull)
     hull_moment = 2pressure * hull.length * hull.draft^2
     load = -force.side - 2force.yaw_moment / hull.length
+    stiffness = side_force + 2hull_moment / hull.length
     leeway = isfinite(side_force) ?
-             cubic_root(side_force * hull.side_force_cubic,
-        side_force + 2hull_moment / hull.length, load) : 0.0
+             cubic_root(side_force * hull.side_force_cubic, stiffness, load) : 0.0
     rudder_force = 2(force.yaw_moment + hull_moment * leeway) / hull.length
     hull_force = -(force.side + rudder_force)
     induced = leeway_drag(hull, hull_force, leeway)

@@ -99,7 +99,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
     _, force, trim = best_trim(ship, flown ? ship.rig : standing, speed, wind_speed,
         angle, added)
-    windage = wind_force(ship.windage, ship.env, wind_speed, angle, speed)
+    condition = TrimOutput(ship, nothing, speed, wind_speed, angle, added)
     aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind)
     available = standing === ship.rig || aloft ?
                 best_trim(ship, ship.rig, speed, wind_speed, angle, added).force.thrust :
@@ -120,8 +120,8 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     push!(trace.rig_thrust, force.thrust)
     push!(trace.available_thrust, available)
     push!(trace.fuel_power, flown ? point.flown : point.stowed)
-    drag = resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) + added
-    push!(trace.leeway, HullBalance(ship, speed, force + windage, drag).leeway)
+    push!(trace.leeway,
+        HullBalance(ship, speed, force + condition.windage, condition.drag).leeway)
     push!(trace.flying, flying)
     push!(trace.launched, launched)
     push!(trace.landed, landed)
