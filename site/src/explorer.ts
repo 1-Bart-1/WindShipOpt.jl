@@ -22,17 +22,6 @@ export type Design = {
   nodes: { cost: number; saving: number | null; ammonia_saving: number | null; vlsfo_saving: number | null };
 };
 
-export type Check = {
-  design: number;
-  label: string;
-  changes: Record<string, number>;
-  cargo_factor: number;
-  /** cost per tonne-km [USD] on the base routes, by the model */
-  recosted: number;
-  /** cost per tonne-km [USD] with the voyages routed again */
-  rerouted: number;
-};
-
 /** The explorer data the Julia model exports: explorer.json. */
 export type ExplorerData = {
   fidelity: string;
@@ -46,10 +35,15 @@ export type ExplorerData = {
   canopy_price: { node: number; value: number };
   designs: Design[];
   nodes: RecordedNode[];
-  checks: Check[];
+  /** each recorded input at its high bound, with the cost per tonne-km [USD] the model gives each design there */
+  check: { changes: Record<string, number>; costs: number[] };
 };
 
-export const rigs = ["wings", "rotors", "suction", "kite", "vtol"] as const;
+export const rigs = ["wings", "rotors", "suction", "kite", "lei", "vtol"] as const;
+
+/** The rigs of `rigs` that `data` holds a design of: those the paper compares. */
+export const shownRigs = (data: ExplorerData) =>
+  rigs.filter((rig) => data.designs.some((design) => design.rig === rig));
 export const drives = ["vlsfo", "ammonia"] as const;
 
 /** Name of the recorded input of the cargo value of class `name`. */

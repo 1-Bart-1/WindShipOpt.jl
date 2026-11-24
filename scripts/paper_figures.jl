@@ -74,7 +74,7 @@ than `least["colour"]` in normal or in some colour-blind vision.
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
-    groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol", "suction"])),
+    groups = (("rig", style_colour.(collect(rig_names))),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
         ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors",
@@ -1665,7 +1665,7 @@ Cost saving of the best size of each rig for every ship class and the mean of th
 with a free deck and of those with cargo on deck, a [`savings_panel!`](@ref) per drive.
 """
 function class_comparison_figure()
-    table = class_table()
+    table = compared_table()
     groups = [[(name, [name]) for name in class_order(table)];
               [("mean, $label", names) for (label, names) in deck_groups(table)]]
     figure = Figure(size=(page_width, 400))
@@ -1928,7 +1928,7 @@ named upright in the rig's colour and just wide enough to keep the names apart, 
 """
 function unit_count_axis(cell, rigs, row_limits)
     return Axis(cell; width=length(rigs) * (text_size + tick_gap),
-        xlabel="number of units", xticks=(eachindex(rigs), last.(rigs)),
+        xlabel="number\nof units", xticks=(eachindex(rigs), last.(rigs)),
         xticksvisible=false, xticklabelrotation=π / 2,
         xticklabelcolor=palette[first.(rigs)],
         yticksvisible=false, yticklabelsvisible=false, yreversed=true,
@@ -1944,7 +1944,7 @@ dashed line named in the legend, and beside each panel the median number of unit
 rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
-    table = read_table(data_file("classes.csv"))
+    table = compared_table()
     names = class_order(table)
     routes_seen = unique(table["route"])
     figure = Figure(size=(page_width, 285))
@@ -1990,7 +1990,7 @@ leads, hatched in the colours of the two best where they are level and grey wher
 clearly saves, and labelled with the best cost saving [%].
 """
 function winner_map_figure()
-    table = class_table()
+    table = compared_table()
     groups = deck_groups(table)
     route_names_seen = route_order
     bands = Set{String}()
@@ -2219,7 +2219,7 @@ The yearly cost of carrying the fleet's cargo split by the rig that lowers it mo
 and the yearly cost the rigs save there split by rig (b), a bar per drive with its total.
 """
 function fleet_share_figure()
-    table = class_table()
+    table = compared_table()
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
     figure = Figure(size=(page_width, 250))
     classes = length(first(fleet_work()))
@@ -2517,7 +2517,7 @@ displaces costs, pale, which together make the saving if the ship carried its ca
 without a rig.
 """
 function cargo_cost_figure()
-    table = read_table(data_file("classes.csv"))
+    table = compared_table()
     groups = deck_groups(table)
     rigs = study_rigs(table)
     figure = Figure(size=(page_width, 235))
@@ -3126,7 +3126,7 @@ function abatement_figure()
 end
 
 "markers of the rigs, in the order of `rig_names`, told apart by shape"
-rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle)
+rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle, :hexagon)
 
 "marker size [figure units] of a rig of `area` [m²], growing with its logarithm"
 area_marker_size(area) = pt(1.5) + pt(0.9) * log2(area / 100)
@@ -3149,13 +3149,15 @@ end
 rig_label(rig) = get(rig_short_names, rig, rig)
 
 """
-    development_panel!(axis, table, ships, levers, rig, column)
+    development_panel!(axis, table, bias, ships, levers, rig, column)
 
 Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
 bound of each of `levers`, one per ship in the colours of `category_colours`, with the
-high bound marked, and a tick in the ship's colour where neither bound moves it.
+high bound marked, a one-sided whisker at a recosted bound for what routing anew would
+gain by the recosting bias table `bias` ([`recosting_error`](@ref)), and a tick in the
+ship's colour where neither bound moves it.
 """
-function development_panel!(axis, table, ships, levers, rig, column)
+function development_panel!(axis, table, bias, ships, levers, rig, column)
     reference_line!(axis; vertical=true)
     for (k, entry) in enumerate(levers), (j, ship) in enumerate(ships)
         low, high = bound_changes(table, ship, rig, string(entry.input); column)
@@ -3169,6 +3171,13 @@ function development_panel!(axis, table, ships, levers, rig, column)
         barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
             color=category_colours[j])
         scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
+        for (change, bound) in ((low, :low), (high, :high))
+            gain = recosting_error(bias, string(entry.input),
+                bound_change(entry.input, bound), rig; column)
+            abs(gain) > 0.005 || continue
+            errorbars!(axis, [change], [y], [max(-gain, 0.0)], [max(gain, 0.0)];
+                direction=:x, color=:black, whiskerwidth=pt(3), linewidth=rule_width)
+        end
     end
 end
 
@@ -3181,10 +3190,12 @@ input_row_height = pt(12)
 Where development pays: for each rig of the study the inputs of
 [`development_inputs`](@ref) it varied for that rig, largest effect on top, with the change
 of its saving of cost per tonne-km (left) and of CO2 per tonne-km (right) between the
-bounds of each input on each ship of the study, on one scale per column.
+bounds of each input on each ship of the study, on one scale per column, and at a recosted
+bound the one-sided gain of routing anew.
 """
 function sensitivity_figure()
     table = read_table(data_file("sensitivity.csv"))
+    bias = read_table(data_file("recosting_bias.csv"))
     ships = unique(table["ship"])
     rigs = last.(study_rigs(table))
     panels = [filter(entry -> rig in lever_rigs(entry) &&
@@ -3218,14 +3229,16 @@ function sensitivity_figure()
                 xlabel=row == length(rigs) ? label : "",
                 xticks=step * (ceil(low / step):floor(high / step)),
                 limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
-            development_panel!(axis, table, ships, levers, rig, name)
+            development_panel!(axis, table, bias, ships, levers, rig, name)
             rowsize!(figure.layout, row, Fixed(length(levers) * input_row_height))
         end
     end
     Legend(figure[length(rigs) + 1, 1:2],
         [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
-            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
-        [short_ship.(ships); "high end of range"]; orientation=:horizontal)
+            [MarkerElement(marker=:vline, color=:black, markersize=pt(7)),
+                LineElement(color=:black, linewidth=rule_width)]],
+        [short_ship.(ships); "high end of range"; "gain of routing anew"];
+        orientation=:horizontal)
     resize_to_layout!(figure)
     save_figure("sensitivity", figure)
 end
@@ -3674,21 +3687,37 @@ rigid_mass_bounds() = [with_value(with_value(assumptions, :rigid_mass,
                        for mass in (:low, :high), exponent in (:low, :high)]
 
 """
+    lei_kite_mass(area, inputs)
+
+Mass [kg] of a leading-edge inflatable kite of projected `area` [m^2] without its tether, at
+`inputs`.
+"""
+lei_kite_mass(area, inputs) = WindShipOpt.soft_kite_mass(area, inputs[:lei_aspect_ratio],
+    1e3inputs[:lei_max_force_per_area] * area, inputs, WindShipOpt.TubeFrame())
+
+"the assumptions at each bound of the leading-edge inflatable kite's force limit per area"
+lei_mass_bounds() = [with_value(assumptions, :lei_max_force_per_area,
+                         getfield(assumptions.entries[:lei_max_force_per_area], bound))
+                     for bound in (:low, :high)]
+
+"""
     kite_mass_figure()
 
-Mass per area against area of VTOL kites and soft kites without their tether: each law at
-base inputs between its bounds, dashed beyond the largest soft kite flown and beyond MX2,
-which the VTOL kite's law is scaled from, and the published wings and kites of
-data/kite_masses.csv, its `kind`, `status`, `area` [m^2] and `mass_low` to `mass_high` [kg].
+Mass per area against area of VTOL kites, ram-air kites and leading-edge inflatable kites
+without their tether: each law at base inputs between its bounds, dashed beyond the largest
+kite of its kind flown and beyond MX2, which the VTOL kite's law is scaled from, and the
+published wings and kites of data/kite_masses.csv, its `kind`, `status`, `area` [m^2] and
+`mass_low` to `mass_high` [kg].
 """
 function kite_mass_figure()
     published = read_table(joinpath(root, "data", "kite_masses.csv"))
-    rigid_colour, soft_colour = style_colour("vtol"), palette[1]
+    rigid_colour, soft_colour, lei_colour = style_colour("vtol"), palette[1],
+    style_colour("lei")
     figure = Figure(size=(column_width, 200))
     axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 2048; base=0.125)...,
+        doubling_axis(:y, 0.125, 8192; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 3000)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 12000)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
     rigid_areas = exp.(range(log(10), log(2000); length=50))
@@ -3702,9 +3731,15 @@ function kite_mass_figure()
     mass_law!(axis, soft_areas, per_area(assumptions), per_area(soft_mass_bound(true)),
         per_area(soft_mass_bound(false)), maximum(published["area"][flew .& soft]),
         soft_colour)
+    lei_per_area(inputs) = lei_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
+    lei_bounds = lei_per_area.(lei_mass_bounds())
+    mass_law!(axis, soft_areas, lei_per_area(assumptions), min.(lei_bounds...),
+        max.(lei_bounds...), maximum(published["area"][published["kind"] .== "lei"]),
+        lei_colour)
+    kind_colours = Dict("soft" => soft_colour, "lei" => lei_colour,
+        "propellers" => rigid_colour)
     for row in eachindex(published["name"])
-        color = published["kind"][row] == "soft" ? soft_colour :
-                published["kind"][row] == "propellers" ? rigid_colour : category_colours[2]
+        color = get(kind_colours, published["kind"][row], category_colours[2])
         area = published["area"][row]
         low, high = published["mass_low"][row], published["mass_high"][row]
         rangebars!(axis, [area], [low / area], [high / area]; color)
@@ -3714,10 +3749,11 @@ function kite_mass_figure()
     statuses = ["flown", "built", "designed"]
     markers = [MarkerElement(color=:black, marker=status_markers[status])
                for status in statuses]
-    entries = [LineElement(color=rigid_colour),
-        LineElement(color=soft_colour), LineElement(color=:black, linestyle=:dash),
+    entries = [LineElement(color=rigid_colour), LineElement(color=soft_colour),
+        LineElement(color=lei_colour), LineElement(color=:black, linestyle=:dash),
         markers...]
-    axislegend(axis, entries, ["VTOL kite", "soft kite", "extrapolated", statuses...];
+    axislegend(axis, entries,
+        ["VTOL kite", "ram-air kite", "LEI kite", "extrapolated", statuses...];
         position=:lt, nbanks=3, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)

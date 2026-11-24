@@ -1,5 +1,5 @@
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{2.6cm}rrrr>{\raggedright\arraybackslash}p{3.4cm}@{}}
-\caption{\stale{sensitivity}{} The inputs of the development study by the rig whose developer can change them: base value and range; the gain of a rig's saving at the better end of the range and its loss at the worse end, in percentage points, in cost per tonne-km on each ship and the largest of each in CO\textsubscript{2} per tonne-km over the ships; and why the input is in the study. Each range comes from data, or for a goal (g) from what is known today; inputs that are the authors' estimates have no range and are not in the study. Values to two digits, and the gains and losses model output, to a tenth of a point; \cref{tab:goals} gives what is known today against each goal. \savingerror}
+\caption{\stale{sensitivity}{} The inputs of the development study by the rig whose developer can change them: base value and range; the gain of a rig's saving at the better end of the range and its loss at the worse end, in percentage points, in cost per tonne-km on each ship and the largest of each in CO\textsubscript{2} per tonne-km over the ships; and why the input is in the study. Each range comes from data, or for a goal (g) from what is known today; inputs that are the authors' estimates have no range and are not in the study. Values to two digits, and the gains and losses model output, to a tenth of a point, in red where the study took another base value or range of its input; \cref{tab:goals} gives what is known today against each goal. \savingerror}
 \label{tab:development}\\
 \toprule
  & & \multicolumn{3}{c}{Cost saving} & & \\
@@ -16,19 +16,24 @@ Input & Value (range) & 140 m & Kamsarmax & Neo-Panamax & CO\textsubscript{2} & 
 \endhead
 \bottomrule
 \endfoot
-\multicolumn{7}{@{}l}{\textit{Kite}}\\*
-Canopy life & \num{3000}\textsuperscript{g} (\num{1500}--\num{4000}) flight hours & \tbd{+3.8/$-$10.1} & \tbd{+2.1/$-$5.5} & \tbd{+1.6/$-$4.3} & \tbd{0.0/0.0} & What a flight hour of the canopy costs; unmeasured, so what development has to prove. \\
-Kite launch mast mass & \num{0.86} (\num{0.54}--\num{1.4}) t/m & -- & -- & -- & -- & Its design sets the mass of the launch mast and docking head, the largest part of the kite's hardware price. \\
+\multicolumn{7}{@{}l}{\textit{Both soft kites}}\\*
+Canopy life & \num{3000}\textsuperscript{g} (\num{1500}--\num{4000}) flight hours & +2.6/$-$7.4 & +0.7/$-$3.2 & +0.4/$-$2.4 & +3.2/$-$12.1 & What a flight hour of the canopy costs; unmeasured, so what development has to prove. \\
+Kite launch mast mass & \num{0.86} (\num{0.54}--\num{1.4}) t/m & +0.8/$-$1.0 & +0.4/$-$0.8 & +0.1/$-$0.3 & +1.7/$-$1.3 & Its design sets the mass of the launch mast and docking head, the largest part of the kite's hardware price. \\
 Kites lost per launch & \num{0.0001}\textsuperscript{g} (\num{0.0001}--\num{0.0025}) & -- & -- & -- & -- & What its launch and landing system's reliability is worth: from today's record to the goal. \\
-Kite force limit per area & \num{0.9} (\num{0.5}--\num{1.3}) kN/m\textsuperscript{2} & \tbd{+0.6/$-$6.3} & \tbd{0.0/$-$3.8} & \tbd{+0.4/$-$4.5} & \tbd{+0.6/$-$12.1} & Its structure decides the force each m\textsuperscript{2} may carry; cloth, seams, tether and winch grow with it. \\
-Kite smallest turn radius & \num{2.3} (\num{1.5}--\num{4.3}) & \tbd{+1.1/$-$5.9} & \tbd{+2.2/$-$4.3} & \tbd{+0.8/$-$3.0} & \tbd{+6.0/$-$13.0} & Steering and control decide how tight, and so how powerful, a pattern can be. \\
+Kite smallest turn radius & \num{2.3} (\num{1.5}--\num{4.3}) & +1.7/$-$3.7 & +0.8/$-$3.3 & +0.6/$-$2.9 & +4.4/$-$8.8 & Steering and control decide how tight, and so how powerful, a pattern can be. \\
+\addlinespace
+\multicolumn{7}{@{}l}{\textit{Kite}}\\*
+Kite force limit per area & \num{0.9} (\num{0.5}--\num{1.3}) kN/m\textsuperscript{2} & \tbd{+3.0/$-$8.5} & \tbd{+0.1/$-$3.0} & \tbd{+0.2/$-$3.2} & \tbd{+8.7/$-$22.5} & Its structure decides the force each m\textsuperscript{2} may carry; cloth, seams, tether and winch grow with it. \\
+\addlinespace
+\multicolumn{7}{@{}l}{\textit{LEI kite}}\\*
+LEI kite force limit per area & \num{0.5} (\num{0.3}--\num{0.57}) kN/m\textsuperscript{2} & -- & -- & -- & -- & Its structure decides the force each m\textsuperscript{2} may carry; cloth, seams, tubes, tether and winch grow with it. \\
 \addlinespace
 \multicolumn{7}{@{}l}{\textit{Wing sails}}\\*
-Wing sail maximum lift & \num{2} (\num{1.6}--\num{2.5}) & \tbd{+2.7/$-$2.5} & \tbd{+0.4/$-$0.7} & \tbd{+1.6/$-$1.6} & \tbd{+6.1/$-$11.2} & Flap and section design decide a wing's force. \\
+Wing sail maximum lift & \num{2} (\num{1.6}--\num{2.5}) & +2.6/$-$2.7 & +2.1/$-$1.7 & +1.7/$-$1.5 & +8.6/$-$9.1 & Flap and section design decide a wing's force. \\
 \addlinespace
 \multicolumn{7}{@{}l}{\textit{Rotors}}\\*
-Rotor lift & \num{0.96} (\num{0.89}--\num{1}) & \tbd{0.0/$-$3.8} & \tbd{0.0/$-$2.6} & \tbd{0.0/$-$2.2} & \tbd{0.0/$-$7.5} & Rotor design sets the lift at a given spin; CFD and full-scale data bound it. \\
-Rotor highest wind & \num{20} (\num{15}--\num{25}) m/s & \tbd{0.0/$-$1.0} & \tbd{0.0/$-$0.1} & \tbd{0.0/$-$0.8} & \tbd{0.0/$-$1.4} & Up to which wind its drive and structure let a rotor keep spinning. \\
+Rotor lift & \num{0.96} (\num{0.89}--\num{1}) & \tbd{0.0/$-$2.6} & \tbd{0.0/$-$2.5} & \tbd{0.0/$-$1.7} & \tbd{0.0/$-$5.3} & Rotor design sets the lift at a given spin; CFD and full-scale data bound it. \\
+Rotor highest wind & \num{20} (\num{15}--\num{25}) m/s & 0.0/$-$1.1 & 0.0/$-$0.8 & +0.2/$-$2.4 & +0.6/$-$7.0 & Up to which wind its drive and structure let a rotor keep spinning. \\
 \addlinespace
 \multicolumn{7}{@{}l}{\textit{Suction sails}}\\*
 Suction sail maximum lift & \num{4.9} (\num{4.8}--\num{6}) & -- & -- & -- & -- & Section, slots and fan decide how far the flow stays attached. \\
@@ -42,5 +47,5 @@ Out of service & 3 inputs, \cref{tab:inputs} & -- & -- & -- & -- & What a maker'
 \addlinespace
 \multicolumn{7}{@{}l}{\textit{Conditions}}\\*
 Fuel price & 2 inputs, \cref{tab:inputs} & -- & -- & -- & -- & Not for a developer to change: the fuel bill a rig cuts, with the prices of e-ammonia and fuel oil moved together. \\
-Wind shear exponent & \num{0.05} (\num{0.05}--\num{0.09}) & -- & -- & -- & -- & Not for a developer to change: how much stronger the wind blows at a kite's height than on deck, which sets what flying high is worth. \\
+Wind shear exponent & \num{0.05} (\num{0.05}--\num{0.09}) & \tbd{+5.4/$-$1.4} & \tbd{+2.7/$-$1.0} & \tbd{+2.7/$-$1.0} & \tbd{+13.0/$-$5.2} & Not for a developer to change: how much stronger the wind blows at a kite's height than on deck, which sets what flying high is worth. \\
 \end{longtable}

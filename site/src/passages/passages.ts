@@ -3,7 +3,7 @@
 
 /** One rig on a passage: the ship's hull and, where carried, the rig's geometry. */
 export interface PassageDesign {
-  rig: "none" | "kite" | "wings" | "rotors" | "suction" | "vtol";
+  rig: "none" | "kite" | "wings" | "rotors" | "suction" | "vtol" | "lei";
   area: number;
   length: number;
   beam: number;
@@ -239,6 +239,7 @@ export class Timeline {
 export const RIG_LABELS: Record<PassageDesign["rig"], string> = {
   none: "No rig",
   kite: "Towing kite",
+  lei: "LEI kite",
   wings: "Wing sails",
   rotors: "Flettner rotors",
   suction: "Suction sails",
@@ -253,6 +254,7 @@ export const RIG_BRAND: Record<PassageDesign["rig"], string> = {
   rotors: "rust",
   suction: "mustard",
   vtol: "mid",
+  lei: "orange-light",
 };
 
 /** CSS value drawing `rig` in its brand colour. */
