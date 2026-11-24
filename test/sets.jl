@@ -4779,6 +4779,11 @@ end
     end
 end
 
+@testset "the development table shows every input of the development study" begin
+    @test all(entry -> entry.rig in first.(PaperData.development_groups),
+        PaperData.development_inputs)
+end
+
 @testset "the model parts measured by the development study read only its inputs" begin
     PaperData.eval(:(departures = 1:8760))
     @test !isempty(PaperData.fidelity_parts())

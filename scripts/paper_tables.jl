@@ -341,7 +341,7 @@ end
 
 "heading of each group of the development table, by the rig of its inputs"
 development_groups = ["soft kites" => "Both soft kites", "kite" => "Kite",
-    "wings" => "Wing sails", "rotors" => "Rotors",
+    "lei" => "LEI kite", "wings" => "Wing sails", "rotors" => "Rotors",
     "suction" => "Suction sails", "vtol" => "VTOL kite", "every rig" => "Every rig",
     "condition" => "Conditions"]
 
