@@ -583,6 +583,14 @@ function draw_side_rig!(axis, rig, hull, form, offset)
 end
 
 """
+    launch_mast_height(area)
+
+Drawn height [m] of the launch mast of a kite of projected `area` [m^2], as the SkySails
+and Airseas masts: 1.3 times the square root of the area, up to Airseas' 35 m.
+"""
+launch_mast_height(area) = min(1.3sqrt(area), 35.0)
+
+"""
     side_kite(area, hull)
 
 Heights [m] above the waterline and span [m] of the side view of a kite of projected
@@ -592,7 +600,7 @@ its control unit, drawn just above the mast, and the top of its canopy.
 function side_kite(area, hull)
     span = sqrt(area * design_aspect_ratio)
     deck = assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
-    mast_top = deck + WindShipOpt.launch_mast_height(area, assumptions)
+    mast_top = deck + launch_mast_height(area)
     foot = mast_top + 20
     return (; span, deck, mast_top, foot, top=foot + last(kite_extent) * span)
 end
@@ -638,7 +646,7 @@ end
 """
     ship_classes_figure()
 
-The standard ship classes in deadweight order, side by side to one scale, each with the
+The standard ship classes in [`class_order`](@ref), side by side to one scale, each with the
 geometric mean over the routes of the best size on VLSFO of each rig the class study holds,
 laid out as the model lays them out.
 """
@@ -683,7 +691,7 @@ function ship_classes_figure()
         centre = (column - 1) * (longest + gap) + longest / 2
         text!(axis, centre, 10; text=title, align=(:center, :bottom))
     end
-    bar = Point2f(-0.25width, -last(tops) + 10)
+    bar = Point2f(-0.25width, 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)
