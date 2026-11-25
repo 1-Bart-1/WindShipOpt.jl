@@ -3380,8 +3380,8 @@ function tank_coefficient(test, speed)
         test.centre_of_buoyancy, test.midship, test.waterline_length)
     env = Environment(assumptions)
     dynamic_pressure = 0.5env.water_density * speed^2
-    correlation = dynamic_pressure * WindShipOpt.wetted_surface(hull) *
-                  WindShipOpt.correlation_allowance(hull, WindShipOpt.WaveCoefficients(hull))
+    allowance = WindShipOpt.correlation_allowance(hull, WindShipOpt.WaveCoefficients(hull))
+    correlation = dynamic_pressure * WindShipOpt.wetted_surface(hull) * allowance
     return (WindShipOpt.resistance(hull, env, speed) - correlation) /
            (dynamic_pressure * test.wetted_surface)
 end
@@ -3486,7 +3486,8 @@ function side_force_panels!(force_cell, drag_cell)
     names = [test.hull; [fit.hull for fit in fits]]
     axislegend(force, [LineElement(color=category_colours[k]) for k in eachindex(names)],
         names; position=:lt)
-    axislegend(drag, [LineElement(color=:black), LineElement(color=:black, linestyle=:dash)],
+    axislegend(drag,
+        [LineElement(color=:black), LineElement(color=:black, linestyle=:dash)],
         ["model", "towing-tank fit"]; position=:lt)
     return force, drag
 end
