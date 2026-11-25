@@ -1227,7 +1227,8 @@ end
     canopy_tension_figure()
 
 From tether force to cloth tension on the reference kite: (a) the force balance at the force
-limit, (b) tether force and cloth tension over one optimal cycle, with its mean and peak.
+limit, (b) the strength margin of new cloth over the peak tension against the force limit,
+(c) tether force and cloth tension over one optimal cycle, with its mean and peak.
 """
 function canopy_tension_figure()
     area = Dict(reference_rigs)["kite"]
@@ -1239,19 +1240,19 @@ function canopy_tension_figure()
     skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
     strength = assumptions[:canopy_cloth_specific_strength] *
-               WindShipOpt.cloth_weight(assumptions) / 1e3
-    figure = Figure(size=(page_width, 185))
+               assumptions[:canopy_cloth_weight] / 1e3
+    figure = Figure(size=(page_width, 330))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
     draw_force_balance!(balance, area, limit, skin_radius)
-    force_axis = Axis(figure[1, 2]; xlabel="time in the cycle [s]",
+    force_axis = Axis(figure[2, 1:2]; xlabel="time in the cycle [s]",
         ylabel="tether force [MN]",
-        title=@sprintf("(b) one cycle, %.0f m/s, %.0f° off downwind", table["wind"][1],
+        title=@sprintf("(c) one cycle, %.0f m/s, %.0f° off downwind", table["wind"][1],
             table["course"][1]))
-    cloth_axis = Axis(figure[1, 2]; ylabel="cloth tension [kN/m]", yaxisposition=:right)
+    cloth_axis = Axis(figure[2, 1:2]; ylabel="cloth tension [kN/m]", yaxisposition=:right)
     hidespines!(cloth_axis)
     hidexdecorations!(cloth_axis)
-    lowest, highest = 0.9minimum(forces), 1.12peak_force
+    lowest, highest = 0.9minimum(forces), 1.2peak_force
     ylims!(force_axis, lowest, highest)
     ylims!(cloth_axis, tension(lowest), tension(highest))
     hlines!(force_axis, mean_force; color=category_colours[1], linestyle=:dash)
@@ -1270,8 +1271,38 @@ function canopy_tension_figure()
             estimate_text(strength / tension(peak_force))),
         fontsize=note_size, align=(:left, :bottom), color=category_colours[2],
         offset=clear_offset((:left, :bottom), pt(2)))
-    colsize!(figure.layout, 1, Relative(0.52))
+    draw_cloth_margin!(Axis(figure[1, 2]; xlabel="force limit [kN/m²]",
+            ylabel="new strength / peak tension", yscale=log10,
+            title="(b) strength margin of new cloth"), strength, skin_radius)
+    colsize!(figure.layout, 1, Relative(0.55))
     save_figure("canopy_tension", figure)
+end
+
+"""
+    draw_cloth_margin!(axis, strength, radius)
+
+Draw on `axis` the margin of cloth of `strength` [kN/m] on cells bulging to `radius` [m]
+over its peak tension against the force limit: at the canopy's mean pressure and on the top
+skin near the leading edge, with the force limits of the study and the margin of new
+paraglider cloth at 5.6 times the pressure of normal flight.
+"""
+function draw_cloth_margin!(axis, strength, radius)
+    entry = assumptions.entries[:kite_max_force_per_area]
+    leading_edge = 1 + 1 / 0.8
+    limits = range(0.3, 2.0; length=50)
+    margin = strength ./ (limits .* radius)
+    vspan!(axis, entry.low, entry.high; color=(:gray, 0.15))
+    hspan!(axis, 3.94, 6.0; color=(category_colours[2], 0.2),
+        label="new paraglider cloth")
+    lines!(axis, limits, margin; color=palette[1], label="mean pressure")
+    lines!(axis, limits, margin ./ leading_edge; color=palette[1], linestyle=:dash,
+        label="top skin, leading edge")
+    axislegend(axis; position=:rt)
+    text!(axis, (entry.low + entry.high) / 2, 2.6; text="studied", fontsize=note_size,
+        align=(:center, :bottom), color=:gray40)
+    xlims!(axis, first(limits), last(limits))
+    ylims!(axis, 2.5, 600.0)
+    axis.yticks = [3, 5, 10, 20, 50, 100, 200]
 end
 
 "the indices of the longest unbroken run of `true` in `flags`"

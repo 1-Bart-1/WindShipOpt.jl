@@ -326,13 +326,13 @@ end
     @test heavy_wind > light_wind
 end
 
-@testset "a kite built for more force gets cloth and reinforcements in proportion" begin
+@testset "a kite built for more force keeps its cloth and grows its reinforcements" begin
     stronger = with_value(assumptions, :kite_max_force_per_area,
         2assumptions[:kite_max_force_per_area])
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
-    @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
-    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
+    @test strong_canopy.mass_per_area ≈
+          base_canopy.mass_per_area + assumptions[:canopy_mass_overhead]
+    @test strong_canopy.cost_per_area ≈ base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
@@ -4635,7 +4635,7 @@ soft_mass_per_area(area, inputs) =
 @testset "a soft kite's mass per area grows with its chord, in its ribs" begin
     @test soft_mass_per_area(3000.0, assumptions) >
           1.1soft_mass_per_area(200.0, assumptions)
-    skins = 1e-3WindShipOpt.cloth_weight(assumptions) *
+    skins = 1e-3assumptions[:canopy_cloth_weight] *
             assumptions[:canopy_flat_area_ratio] * assumptions[:canopy_skin_cloth_ratio]
     ribs(area) = WindShipOpt.Canopy(assumptions, area, 3.0).mass_per_area -
                  assumptions[:canopy_mass_overhead] - skins
@@ -4649,7 +4649,6 @@ end
         @test WindShipOpt.cloth_area_ratio(assumptions, chord) ≈
               1.17 * (2.05 + 0.101 * chord / 0.5)
     end
-    @test WindShipOpt.cloth_weight(assumptions) ≈ assumptions[:canopy_cloth_weight]
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
@@ -5241,7 +5240,7 @@ end
     frame, area = WindShipOpt.TubeFrame(), 200.0
     rating = assumptions[:lei_max_force_per_area] /
              assumptions[:canopy_cloth_reference_force]
-    weight = assumptions[:canopy_cloth_weight] * rating
+    weight = assumptions[:canopy_cloth_weight]
     tubes = WindShipOpt.tube_mass(assumptions, area)
     surface = assumptions[:lei_tube_surface]
     canopy = WindShipOpt.Canopy(assumptions, area, frame)
@@ -5299,7 +5298,7 @@ end
     canopy = WindShipOpt.Canopy(assumptions, 500.0, WindShipOpt.SingleSkin())
     rating = WindShipOpt.force_rating(assumptions)
     skin = assumptions[:canopy_flat_area_ratio]
-    weight = WindShipOpt.cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     @test canopy.mass_per_area ≈ 1e-3skin * weight +
                                  assumptions[:single_skin_line_ratio] *
                                  assumptions[:canopy_mass_overhead] * rating
