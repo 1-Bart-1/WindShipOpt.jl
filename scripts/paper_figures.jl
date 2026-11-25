@@ -3483,25 +3483,37 @@ lei_mass_bounds() = [with_value(assumptions, :lei_max_force_per_area,
                      for bound in (:low, :high)]
 
 """
+    single_skin_mass(area, inputs)
+
+Mass [kg] of a single-skin kite of projected `area` [m^2] without its tether, at `inputs`.
+"""
+single_skin_mass(area, inputs) = WindShipOpt.soft_kite_mass(area,
+    inputs[:kite_aspect_ratio], 1e3inputs[:kite_max_force_per_area] * area, inputs,
+    WindShipOpt.SingleSkin())
+
+"""
     kite_mass_figure()
 
-Mass per area against area of VTOL kites, ram-air kites and leading-edge inflatable kites
-without their tether: each law at base inputs between its bounds, dashed beyond the largest
-kite of its kind flown and beyond MX2, which the VTOL kite's law is scaled from, and the
+(a) Mass per area against area of VTOL kites and the three soft kites without their tether:
+each law at base inputs between its bounds where it has them, dashed beyond the largest kite
+of its kind flown and beyond MX2, which the VTOL kite's law is scaled from, and the
 published wings and kites of data/kite_masses.csv, its `kind`, `status`, `area` [m^2] and
-`mass_low` to `mass_high` [kg].
+`mass_low` to `mass_high` [kg]. (b) Price per area of each soft kite's canopy at base
+inputs.
 """
 function kite_mass_figure()
     published = read_table(joinpath(root, "data", "kite_masses.csv"))
     rigid_colour, soft_colour, lei_colour = style_colour("vtol"), palette[1],
     style_colour("lei")
-    figure = Figure(size=(column_width, 200))
-    axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 8192; base=0.125)...,
+    figure = Figure(size=(page_width, 210))
+    axis = Axis(figure[1, 1]; title="(a) mass", doubling_axis(:x, 2.5, 5120; base=2.5)...,
+        doubling_axis(:y, 0.125, 65536; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 12000)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 100000)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
+    largest_soft = maximum(published["area"][flew .& soft])
+    largest_lei = maximum(published["area"][published["kind"] .== "lei"])
     rigid_areas = exp.(range(log(10), log(2000); length=50))
     rigid_per_area(inputs) = WindShipOpt.rigid_kite_mass.(rigid_areas, Ref(inputs)) ./
                              rigid_areas
@@ -3511,13 +3523,13 @@ function kite_mass_figure()
     soft_areas = exp.(range(log(5), log(5000); length=50))
     per_area(inputs) = soft_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
     mass_law!(axis, soft_areas, per_area(assumptions), per_area(soft_mass_bound(true)),
-        per_area(soft_mass_bound(false)), maximum(published["area"][flew .& soft]),
-        soft_colour)
+        per_area(soft_mass_bound(false)), largest_soft, soft_colour)
     lei_per_area(inputs) = lei_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
     lei_bounds = lei_per_area.(lei_mass_bounds())
     mass_law!(axis, soft_areas, lei_per_area(assumptions), min.(lei_bounds...),
-        max.(lei_bounds...), maximum(published["area"][published["kind"] .== "lei"]),
-        lei_colour)
+        max.(lei_bounds...), largest_lei, lei_colour)
+    single = single_skin_mass.(soft_areas, Ref(assumptions)) ./ soft_areas
+    lines!(axis, soft_areas, single; color=soft_colour, linestyle=:dot)
     kind_colours = Dict("soft" => soft_colour, "lei" => lei_colour,
         "propellers" => rigid_colour)
     for row in eachindex(published["name"])
@@ -3532,12 +3544,35 @@ function kite_mass_figure()
     markers = [MarkerElement(color=:black, marker=status_markers[status])
                for status in statuses]
     entries = [LineElement(color=rigid_colour), LineElement(color=soft_colour),
-        LineElement(color=lei_colour), LineElement(color=:black, linestyle=:dash),
-        markers...]
-    axislegend(axis, entries,
-        ["VTOL kite", "ram-air kite", "LEI kite", "extrapolated", statuses...];
+        LineElement(color=lei_colour), LineElement(color=soft_colour, linestyle=:dot),
+        LineElement(color=:black, linestyle=:dash), markers...]
+    axislegend(axis, entries, ["VTOL kite", "ram-air kite", "LEI kite", "single-skin kite",
+            "extrapolated", statuses...];
         position=:lt, nbanks=3, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
+    price_axis = Axis(figure[1, 2]; title="(b) canopy price",
+        doubling_axis(:x, 20, 20480; base=20)...,
+        xlabel=square_metres("projected area [", "]"),
+        ylabel=square_metres("price per area [USD/", "]"), limits=((14, 30000), (0, 800)))
+    price_areas = exp.(range(log(14), log(30000); length=60))
+    for (frame, aspect_ratio, largest, color, linestyle) in (
+        (nothing, assumptions[:kite_aspect_ratio], largest_soft, soft_colour, :solid),
+        (WindShipOpt.TubeFrame(), assumptions[:lei_aspect_ratio], largest_lei, lei_colour,
+            :solid),
+        (WindShipOpt.SingleSkin(), assumptions[:kite_aspect_ratio], largest_soft,
+            soft_colour, :dot))
+        price = WindShipOpt.canopy_price.(Ref(assumptions), price_areas, aspect_ratio,
+            Ref(frame))
+        built = price_areas .<= largest
+        lines!(price_axis, price_areas, ifelse.(built, price, NaN); color, linestyle)
+        lines!(price_axis, price_areas, ifelse.(built, NaN, price); color,
+            linestyle=linestyle == :solid ? :dash : :dot)
+    end
+    axislegend(price_axis, [LineElement(color=soft_colour), LineElement(color=lei_colour),
+            LineElement(color=soft_colour, linestyle=:dot),
+            LineElement(color=:black, linestyle=:dash)],
+        ["ram-air kite", "LEI kite", "single-skin kite", "extrapolated"]; position=:lt,
+        rowgap=0, patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
 end
 
@@ -3623,4 +3658,58 @@ function canopy_cells_figure()
     axislegend(axis, entries, [kinds..., "model", "kites searched"]; position=:lt,
         nbanks=2, rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
     save(joinpath(figures, "canopy_cells.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    variant_curve!(axis, table, rig, variant, color, linestyle)
+
+Cost saving [%] over area of `rig` in its `variant` (`nothing` for any) of `table`, against
+the ship without a rig of the same table, as a line with a marker at each size routed.
+"""
+function variant_curve!(axis, table, rig, variant, color, linestyle)
+    bare = only(rows(table, "rig" => "none"))
+    chosen = isnothing(variant) ? rows(table, "rig" => rig) :
+             rows(table, "rig" => rig, "variant" => variant)
+    chosen = chosen[sortperm(table["area"][chosen])]
+    saving = 100 .* (1 .- table["cost"][chosen] ./ table["cost"][bare])
+    lines!(axis, table["area"][chosen], saving; color, linestyle)
+    scatter!(axis, table["area"][chosen], saving; color)
+end
+
+"""
+    rig_variant_figure()
+
+Cost saving over area of the rig variants of the development case, each panel from its
+method study's recorded run: (a) the ram-air, single-skin and leading-edge inflatable kites
+of the soft-kite study, (b) the rigid and fabric wing sails of the fabric-wing study beside
+the kite and the rotors of the same run.
+"""
+function rig_variant_figure()
+    kites = read_table(study_file(:soft_kites, "devcase12.csv"))
+    wings = read_table(study_file(:fabric_wing, "fabric_wing.csv"))
+    figure = Figure(size=(page_width, 175))
+    panel(column, title) = Axis(figure[1, column]; title,
+        doubling_axis(:x, 400, 3200; base=400)..., xlabel=square_metres("rig area [", "]"),
+        ylabel=column == 1 ? "cost saving [%]" : "", limits=((330, 3500), (0, 36)))
+    soft = panel(1, "(a) soft kites")
+    kite, lei = style_colour("kite"), style_colour("lei")
+    variant_curve!(soft, kites, "kite", nothing, kite, :solid)
+    variant_curve!(soft, kites, "single", nothing, kite, :dash)
+    variant_curve!(soft, kites, "lei", nothing, lei, :solid)
+    clear_axislegend(figure, [soft],
+        [LineElement(color=kite), LineElement(color=kite, linestyle=:dash),
+            LineElement(color=lei)], ["ram-air kite", "single-skin kite", "LEI kite"];
+        rowgap=0, patchsize=(pt(12), pt(6)))
+    sails = panel(2, "(b) wing sails")
+    wing, rotor = style_colour("wings"), style_colour("rotors")
+    variant_curve!(sails, wings, "kite", "base", kite, :solid)
+    variant_curve!(sails, wings, "rotors", "base", rotor, :solid)
+    variant_curve!(sails, wings, "wings", "base", wing, :solid)
+    variant_curve!(sails, wings, "wings", "fabric", wing, :dash)
+    clear_axislegend(figure, [sails],
+        [LineElement(color=kite), LineElement(color=rotor), LineElement(color=wing),
+            LineElement(color=wing, linestyle=:dash)],
+        ["ram-air kite", "rotors", "rigid wing sails", "fabric wing sails"];
+        rowgap=0, patchsize=(pt(12), pt(6)))
+    save_figure("rig_variants", figure)
 end
