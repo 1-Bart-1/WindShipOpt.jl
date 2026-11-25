@@ -538,6 +538,22 @@ end
     @test force_at(6.1).thrust != 0
 end
 
+@testset "a kite flies from the lowest wind its patterns fly in, between table rows" begin
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    rig = KiteRig(1600.0, aspect_ratio, Hull(140.0, assumptions), assumptions;
+        courses=[π / 2])
+    model, max_force, _ = WindShipOpt.kite_model(1600.0, aspect_ratio, assumptions)
+    flies(wind) = isfinite(WindShipOpt.lowest_flying_wind([wind],
+        WindShipOpt.pattern_table(model, max_force, assumptions, [wind], [π / 2],
+            WindShipOpt.SIDE_WEIGHTS)))
+    @test flies(rig.min_flight_wind)
+    @test !flies(rig.min_flight_wind - WindShipOpt.FLYING_WIND_TOLERANCE)
+    env = Environment(assumptions)
+    wind = (rig.min_flight_wind + 0.01) / WindShipOpt.wind_at_height(env, 1.0,
+        rig.reference_height)
+    @test WindShipOpt.rig_force(rig, env, wind, π / 2, 0.0, 0.0).thrust > 0
+end
+
 @testset "no pattern flies under the launch wind" begin
     for area in (800.0, 3200.0)
         model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)

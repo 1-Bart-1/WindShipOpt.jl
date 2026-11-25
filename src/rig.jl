@@ -869,6 +869,38 @@ function lowest_flying_wind(wind_speeds, forces)
     return isnothing(flying) ? Inf : wind_speeds[flying]
 end
 
+"apparent wind [m/s] to within which a kite's pattern table resolves its lowest flying wind"
+const FLYING_WIND_TOLERANCE = 0.05
+
+"""
+    flying_pattern_table(model, max_force, assumptions, wind_speeds, courses, side_weights)
+
+Wind speeds [m/s] and [`pattern_table`](@ref) of `wind_speeds` with a row added at the
+lowest wind at which the kite flies on any course, bisected to within
+`FLYING_WIND_TOLERANCE` below the lowest of `wind_speeds` at which it flies.
+"""
+function flying_pattern_table(model::KiteModel, max_force, assumptions::Assumptions,
+        wind_speeds, courses, side_weights)
+    forces = pattern_table(model, max_force, assumptions, wind_speeds, courses, side_weights)
+    first_flying = findfirst(==(lowest_flying_wind(wind_speeds, forces)), wind_speeds)
+    something(first_flying, 1) == 1 && return wind_speeds, forces
+    low, high = wind_speeds[first_flying - 1], wind_speeds[first_flying]
+    lowest = nothing
+    while high - low > FLYING_WIND_TOLERANCE
+        middle = (low + high) / 2
+        row = pattern_table(model, max_force, assumptions, [middle], courses, side_weights)
+        if isfinite(lowest_flying_wind([middle], row))
+            high, lowest = middle, row
+        else
+            low = middle
+        end
+    end
+    isnothing(lowest) && return wind_speeds, forces
+    return insert!(copy(wind_speeds), first_flying, high),
+    cat(view(forces, 1:(first_flying - 1), :, :), lowest,
+        view(forces, first_flying:lastindex(wind_speeds), :, :); dims=1)
+end
+
 """
     rigid_wind_limits(lowest_wind, assumptions)
 
@@ -910,9 +942,9 @@ function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
     area <= largest_rigid_kite_area(hull, assumptions) || return nothing
     model, max_force, tether_diameter, airframe = rigid_kite_model(area, assumptions)
-    forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
-        side_weights)
-    lowest_wind = max(lowest_flying_wind(RIGID_WIND_SPEEDS, forces),
+    wind_speeds, forces = flying_pattern_table(model, max_force, assumptions,
+        RIGID_WIND_SPEEDS, courses, side_weights)
+    lowest_wind = max(lowest_flying_wind(wind_speeds, forces),
         crosswind_min_wind(model, deg2rad(assumptions[:kite_min_elevation])))
     return KiteRig(; area, aspect_ratio=assumptions[:rigid_aspect_ratio], tether_diameter,
         model.tether_length, reference_height=model.tether_length * sin(deg2rad(25)),
@@ -921,7 +953,7 @@ function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
                       assumptions[:reference_length],
         attach_position=min(launch_mast_position(hull, assumptions),
             hull.deck_cargo_height > 0 ? Inf : lateral_centre(hull)),
-        wind_speeds=RIGID_WIND_SPEEDS, courses, side_weights, forces, airframe)
+        wind_speeds, courses, side_weights, forces, airframe)
 end
 
 """
@@ -972,8 +1004,8 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions, frame)
     tether_length = model.tether_length
-    wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
-    forces = pattern_table(model, max_force, assumptions, wind_speeds, courses, SIDE_WEIGHTS)
+    wind_speeds, forces = flying_pattern_table(model, max_force, assumptions,
+        [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0], courses, SIDE_WEIGHTS)
     return KiteRig(; area, aspect_ratio, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
