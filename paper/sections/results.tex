@@ -35,7 +35,7 @@ These averages hide the seasons: on the \given{\SI{140}{m}} e-ammonia ship every
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{class_comparison}
-\caption{Cost saving of the best size of each rig for the thirteen ship classes and for the mean of the classes with a free deck and of those with cargo on deck, with a VLSFO (a) and an e-ammonia (b) drive, in percent of the cost per tonne-kilometre of the same ship without a rig on the same fuel. Each rig has a line of its own in every row: the mean over the six routes (marker) and the range over them (bar). Beside each row, by the rule of \cref{sec:res_robustness}, stands the rig that leads on cost with its lead over the next rig in points, or the two rigs that are level.}
+\caption{Cost saving of the best size of each rig for the thirteen ship classes and for the mean of the classes with a free deck and of those with cargo on deck, with a VLSFO (a) and an e-ammonia (b) drive, in percent of the cost per tonne-kilometre of the same ship without a rig on the same fuel. Each rig has a line of its own in every row whose classes it was routed on: the mean over the six routes (marker) and the range over them (bar). Beside each row, by the rule of \cref{sec:res_robustness}, stands the rig that leads on cost with its lead over the next rig in points, or the two rigs that are level.}
 \label{fig:class_comparison}
 \end{figure*}
 
@@ -202,7 +202,7 @@ Each price is routed again, since the router sets speed and the kite's flying by
 \label{fig:fuels}
 \end{figure*}
 
-\subsection{Kite and rotors together add little}
+\subsection{Kite and rotors together}
 \label{sec:res_combination}
 
-\stale{combination_data,classes,base_kite}{The pairing looks promising: kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck. Flown together on the Handysize and the Kamsarmax bulk carriers to Guadeloupe and Bilbao, though, a kite added to rotors is worth 1 and 2 points of cost saving on e-ammonia on the Kamsarmax and the Handysize, clear of the noise only on the Handysize to Guadeloupe, and nothing on VLSFO. In a moderate wind either rig alone covers most of the power the ship needs at the speed the router picks, while each keeps its full capital and yearly cost.}
+The pairing looks promising: kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and on a container ship the kite's launch mast stands at the bow, clear of the rotor pairs raised above the stacks. We flew both together with the model the Method describes, in \NumCombinationRun{}, on the four container classes on both fuels, \NumCombinationCases{} cases, each on the route where the kite leads or is level and both rigs save most, with three pairs of sizes around the size the class study finds best for each rig alone. Only on \NumCombinationLeading{} does the best pair save clearly more than either rig alone, \NumCombinationBestGain{} of cost saving more than the better of the two. Elsewhere it adds \NumCombinationOtherGains{} points, within the error of the comparison: in a moderate wind either rig alone covers most of the power the ship needs at the speed the router picks, while each keeps its full capital and yearly cost. Where the pair leads, the class study routes it as a rig of its own on every route of that class and fuel, with its kite and its rotors each sized for the lowest cost (\cref{app:derivations}), and does not route it elsewhere. \stale{classes}{The class run behind the Results predates the pair, so it does not yet appear in their figures as a rig.}
