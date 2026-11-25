@@ -779,11 +779,12 @@ end
     aspect_ratio = assumptions[:kite_aspect_ratio]
     _, _, tether_diameter = WindShipOpt.kite_model(area, aspect_ratio, assumptions)
     tether_length = assumptions[:tether_length_ratio] * sqrt(aspect_ratio * area)
+    @test tether_length ≈ 980 rtol = 0.005
     tether = WindShipOpt.rope_mass(tether_diameter, tether_length, assumptions)
     @test tether ≈ assumptions[:tether_rope_density] * force * tether_length /
                    assumptions[:tether_stress]
-    @test tether ≈ 7.6e3 rtol = 0.005
-    @test assumptions[:tether_price] * tether ≈ 7.1e5 rtol = 0.005
+    @test tether ≈ 5.86e3 rtol = 0.005
+    @test assumptions[:tether_price] * tether ≈ 5.45e5 rtol = 0.005
 end
 
 @testset "the paper's worked examples of a wing sail, suction sails and raised rotors \
@@ -1752,7 +1753,9 @@ end
 @testset "kite inputs give the SkySails kites at their projected areas" begin
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
     @test small.min_turn_radius ≈ 45.0 rtol = 0.05
-    large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
+    longest = WindShipOpt.with_value(assumptions, :tether_length_ratio,
+        assumptions.entries[:tether_length_ratio].high)
+    large, = WindShipOpt.kite_model(250.0, 3.0, longest)
     @test large.tether_length ≈ 360.0 rtol = 0.05
 end
 
