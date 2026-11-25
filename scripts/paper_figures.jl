@@ -3449,6 +3449,95 @@ function canopy_cells_figure()
 end
 
 """
+    input_source_panels
+
+Panels of [`input_sources_figure`](@ref): a title, the column, each input with the name of
+its row of this paper, the axis label, the scale of the values shown, and the ticks of a
+logarithmic axis or `nothing` for a linear one.
+"""
+input_source_panels = [
+    (title="(a) wing sail, highest lift coefficient", column=1,
+        inputs=[:wing_max_lift_coefficient => "this paper"], xlabel=L"C_{L,\max}",
+        scale=1, ticks=nothing),
+    (title="(b) exponent of mass over height", column=1,
+        inputs=[:rotor_mass_exponent => "rotors, this paper",
+            :wing_mass_exponent => "wing sails, this paper",
+            :suction_mass_exponent => "suction sails, this paper",
+            :rigid_mass_exponent => "VTOL kite, this paper"], xlabel=L"exponent $k$, $n$",
+        scale=1, ticks=nothing),
+    (title="(c) single-skin kite, share of the glide ratio", column=1,
+        inputs=[:single_skin_glide_factor => "this paper"], xlabel="share of a double skin",
+        scale=1, ticks=nothing),
+    (title="(d) kite, projected aspect ratio", column=2,
+        inputs=[:kite_aspect_ratio => "this paper"], xlabel="aspect ratio", scale=1,
+        ticks=nothing),
+    (title="(e) kite, tether length", column=2,
+        inputs=[:tether_length_ratio => "this paper"], xlabel="spans", scale=1,
+        ticks=nothing),
+    (title="(f) canopy life", column=2, inputs=[:canopy_life => "goal, this paper"],
+        xlabel="flight hours [thousands]", scale=1e-3, ticks=nothing),
+    (title="(g) tether life in creep", column=2,
+        inputs=[:tether_lifetime => "this paper"], xlabel="flight hours [thousands]",
+        scale=1e-3, ticks=[5, 10, 20, 40]),
+    (title="(h) tether bends at launch and landing", column=2,
+        inputs=[:tether_bend_life => "this paper"], xlabel="bends [millions]",
+        scale=1e-6, ticks=[0.5, 1, 2])]
+
+"""
+    input_sources_figure()
+
+Each input of [`input_source_panels`](@ref) with its base value and range beside the
+published values in data/input_sources.csv it rests on, its `low` and `high` [unit of the
+input], and `bound` `upper` for a value given only as an upper bound.
+"""
+function input_sources_figure()
+    published = read_table(joinpath(root, "data", "input_sources.csv"))
+    model_colour = style_colour("accent")
+    figure = Figure(size=(page_width, 400))
+    columns = [GridLayout(figure[1, column]; valign=:top) for column in 1:2]
+    row_height = pt(9)
+    for panel in input_source_panels
+        layout = columns[panel.column]
+        names, lows, highs, colours, markers = String[], Float64[], Float64[], [], Symbol[]
+        bases, starts = Float64[], Int[]
+        for (input, name) in panel.inputs
+            push!(starts, length(names) + 1)
+            entry = assumptions.entries[input]
+            push!(names, name); push!(bases, entry.value)
+            push!(lows, entry.low); push!(highs, entry.high)
+            push!(colours, model_colour); push!(markers, :diamond)
+            for row in findall(==(String(input)), published["input"])
+                push!(names, published["name"][row])
+                low, high = published["low"][row], published["high"][row]
+                push!(bases, (low + high) / 2); push!(lows, low); push!(highs, high)
+                push!(colours, :black)
+                push!(markers, published["bound"][row] == "upper" ? :ltriangle : :circle)
+            end
+        end
+        rows = eachindex(names)
+        values = (bases, lows, highs) .* panel.scale
+        axis = Axis(layout[length(layout.content) + 1, 1]; title=panel.title,
+            xlabel=panel.xlabel, xscale=isnothing(panel.ticks) ? identity : log10,
+            xticks=isnothing(panel.ticks) ? Makie.automatic :
+                   (panel.ticks, [@sprintf("%g", tick) for tick in panel.ticks]),
+            yticks=(rows, names), yreversed=true, height=length(rows) * row_height,
+            limits=(nothing, (0.4, length(rows) + 0.6)))
+        length(starts) > 1 &&
+            hlines!(axis, starts[2:end] .- 0.5; color=:gray70, linewidth=rule_width)
+        spread = values[2] .< values[3]
+        rangebars!(axis, rows[spread], values[2][spread], values[3][spread];
+            direction=:x, color=colours[spread], linewidth=goal_width,
+            whiskerwidth=whisker_width)
+        point = .!spread .| (markers .== :diamond)
+        scatter!(axis, values[1][point], rows[point]; color=colours[point],
+            marker=markers[point],
+            markersize=ifelse.(markers[point] .== :ltriangle, 1.5marker_size, marker_size))
+    end
+    resize_to_layout!(figure)
+    save_figure("input_sources", figure)
+end
+
+"""
     variant_curve!(axis, table, rig, variant, color, linestyle)
 
 Cost saving [%] over area of `rig` in its `variant` (`nothing` for any) of `table`, against
