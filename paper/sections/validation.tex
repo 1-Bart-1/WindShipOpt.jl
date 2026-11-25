@@ -12,7 +12,7 @@ This appendix sets the model beside the strongest published measurements it can 
 \caption{\given{Each check of the model against measurement: what is compared, the measurement and its source, and the gap, the model less the measurement. Where a model value was set from the same measurement, the row says so and the gap shows only how far single units scatter about it.}}
 \label{tab:validation}
 \given{%
-\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{4.6cm}>{\raggedright\arraybackslash}p{5.4cm}>{\raggedright\arraybackslash}p{4.4cm}@{}}
+\begin{tabular}{@{}l>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{5.4cm}>{\raggedright\arraybackslash}p{4.4cm}@{}}
 \toprule
 Part & Compared & Measured & Gap \\
 \midrule
@@ -31,23 +31,17 @@ Ship & Calm-water resistance & tank tests of a bulk carrier, a tanker and a cont
  & Hull side force at leeway & tank tests of two hulls without a skeg \citep{vanderkolk2021} & $+40$ to $+70$\,\% \\
  & Drag of the leeway & the same tests, carried to full scale \citep{kramer2022b} & about $-50$\,\% \\
  & Centre of the hull's side force & captive tests of a tanker \citep{toxopeus2011} & within the scatter of repeated runs \\
- & Rudder drag & lifting-line model against CFD \citep{kramer2022b} & within 10\,\% sailing straight, 25\,\% on average \\
- & Hull forces at heel & CFD of a cargo ship heeled \SI{20}{\degree} \citep{kramer2022b} & none modelled; side force 7 to 20\,\% lower there \\
  & Engine fuel at part load & MAN L21/31 test-bed fuel curves \citep{man2024l2131} & $+1$ to $+7$\,\% at 50 to 85\,\% load \\
- & Share of the fuel saving the side force takes & ships with rotors and sails modelled with it \citep{tillig2019,kramer2022} & \cref{sec:val_drift} \\
 \addlinespace
 Rigs & Wing sail highest lift & wind tunnel and CFD of a two-element wing \citep{wright2024wingsail} & $+5$ to $+11$\,\%, the flap held \\
  & Suction sail force & strain gauges on two VentiFoils at sea \citep{ghorbani2024suction}, which set it & 0 \\
- & Rotor lift & ShipCLEAN fit to the Copenhagen's trial \citep{tillig2020} & $-4$\,\% \\
  & Losses between deck rigs & wind tunnel and CFD of 2 to 5 units \citep{bordogna2020,mboumba2022,guzelbulut2024arrangement} & $-7$ to $+8$ points of thrust kept \\
  & Kite glide ratio & a soft kite in flight \citep{oehler2019} & $-3$\,\% \\
- & Kite flying height & SkySails' ship kites \citep{noaa2009} & inside their 100 to \SI{300}{m} \\
  & VTOL kite lowest wind & Makani's Wing~7 power curve \citep{vanderlind2013} & $+1.2$\,m/s \\
 \addlinespace
 Mass & Rotor mass per area & 5 Norsepower rotors \citep{norsepower2025}, which set it & $-12$ to $+3$\,\% \\
  & Wing sail mass per area & 3 wing sails built \citep{oceanwings2026web,riviera2024windwing,oceanbird2026wing560} & $-30$ to $+102$\,\% \\
  & Suction sail mass per area & 3 suction sails built \citep{conoship2022econowind,econowind2026vf3,econowind2026vf5} & 0 to $+116$\,\% \\
- & Wing sail foundation & the GT Wings sail of the Vectis Progress \citep{fednav2025gtwings} & about $-20$\,\% \\
  & Soft kite mass & SkySails kites of 160 and \SI{320}{kN} \citep{paulig2013} & $+4$ and $-4$\,\% \\
  & LEI kite mass & the TU Delft V2 kite \citep{schwoll2012}, whose tubes set it & $-37$\,\% \\
  & VTOL kite mass over size & wings built and designed \citep{sommerfeld2022scaling,vanhagen2023,noth2008} & exponent 2.4 to 2.6, inside their 2.2 to 3.1 \\
