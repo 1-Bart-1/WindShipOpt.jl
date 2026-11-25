@@ -14,7 +14,7 @@ style_colour(name; table="colours") =
 "white, the background of every figure"
 white = Makie.RGBf(1, 1, 1)
 "colour of each rig, in the order of `rig_names`"
-palette = style_colour.(collect(rig_names))
+palette = style_colour.(collect(class_rigs))
 """
     rig_offset(slot, count, step)
 
@@ -74,7 +74,7 @@ than `least["colour"]` in normal or in some colour-blind vision.
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
-    groups = (("rig", style_colour.(collect(rig_names))),
+    groups = (("rig", style_colour.(collect(class_rigs))),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
         ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors",
@@ -460,7 +460,7 @@ function figure_style_file()
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
         println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,",
-            "decorations.pathreplacing}")
+            "decorations.pathreplacing,decorations.markings}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -483,12 +483,14 @@ function figure_style_file()
             "{\\tikzinputsegmentsupportb}{\\tikzinputsegmentlast}}}}},")
         println(io, "  force/.style={->, line width=", tex_size("force"), ", recorded},")
         println(io, "  flow/.style={->, line width=", tex_size("flow"), ", recorded},")
+        broken_arrow_style(io)
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
         println(io, "  icon line/.style={line width=", tex_size("icon"),
             ", line cap=round, line join=round},")
-        println(io, "  hull face/.style={line width=", tex_size("seam"), ", line join=round},")
+        println(io, "  hull face/.style={line width=", tex_size("seam"),
+            ", line join=round},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -514,6 +516,26 @@ function figure_style_file()
         println(io, "}")
         println(io, "\\input{figure_pics}")
     end
+end
+
+"""
+    broken_arrow_style(io)
+
+Write to `io` the TikZ style `broken=<position>` of an arrow shortened to fit its figure:
+two slanted strokes cut its shaft at `position`, a share of its length, 0.5 by default.
+"""
+function broken_arrow_style(io)
+    sizes = figure_style["sizes"]
+    gap, rise = sizes["break_gap"] / 2, sizes["arrow_width"] / 2
+    corner(along, across) = @sprintf("(%.2fpt,%.2fpt)", along + across / 2, across)
+    tail_stroke = (corner(-gap, -rise), corner(-gap, rise))
+    head_stroke = (corner(gap, -rise), corner(gap, rise))
+    println(io, "  broken/.style={postaction={decorate, decoration={markings, ",
+        "mark=at position #1 with {\\fill[white] ",
+        join([tail_stroke..., reverse(head_stroke)...], " -- "), " -- cycle; ",
+        "\\draw[line width=", tex_size("rule"), "] ", join(tail_stroke, " -- "), " ",
+        join(head_stroke, " -- "), ";}}}},")
+    println(io, "  broken/.default=0.5,")
 end
 
 """
@@ -570,6 +592,8 @@ column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
 print_scale = 468 / page_width
+"width [mm] of the paper's text, which a page-wide figure fills"
+text_width = page_width * print_scale * 25.4 / 72.27
 "figure units of a size [pt] as printed"
 pt(size) = size / print_scale
 "path of the paper's typeface, TeX Gyre Termes, in `style`"
@@ -989,8 +1013,6 @@ Rich text of `before`, the unit square metre as m with a raised digit 2, and `af
 """
 square_metres(before, after="") = rich(before, "m", superscript("2"), after)
 
-"`text` with its leading hyphen set as `minus`, by default the one the axes print"
-typeset_minus(text, minus="−") = replace(text, r"^-" => minus)
 "the [`study_drives`](@ref) with their names in figure labels"
 drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia")[drive]
                 for drive in study_drives]
@@ -1003,9 +1025,10 @@ trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
 """
     kite_figure()
 
-The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above,
-leading edge at the top, and from ahead, and its lift and drag coefficients (b) and glide
-ratio (c) in the design shape over angle of attack, without bridle and tether.
+The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above, the
+apparent wind coming onto its leading edge, and from ahead, and its lift and drag
+coefficients (b) and glide ratio (c) in the design shape over angle of attack, without
+bridle and tether.
 """
 function kite_figure()
     aspect_ratio = isinteger(design_aspect_ratio) ? Int(design_aspect_ratio) :
@@ -1020,20 +1043,23 @@ function kite_figure()
         Point2f.(reverse(geometry["te_y"]), -reverse(geometry["te_x"]))]
     poly!(shape, above; color=palette[1], strokecolor=:black, strokewidth=0.8)
     span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
-    trailing = -maximum(geometry["te_x"])
+    leading, trailing = -minimum(geometry["le_x"]), -maximum(geometry["te_x"])
     text!(shape, 0, trailing; text="span $(round(span; digits=1)) m",
         align=(:center, :top), offset=(0, -pt(2)), fontsize=note_size)
     margin = 1
-    wind = Point2f(0.5span + 1.5margin, -minimum(geometry["le_x"]))
-    arrows2d!(shape, [wind], [Vec2f(0, trailing - wind[2])]; color=:black,
+    text!(shape, Point2f.(0.5span, [leading, trailing]);
+        text=["leading edge", "trailing edge"], align=(:left, :center), offset=(pt(2), 0),
+        fontsize=note_size)
+    wind = Point2f(0, leading + 5margin)
+    arrows2d!(shape, [wind], [Vec2f(0, leading + 0.5margin - wind[2])]; color=:black,
         shaftwidth=flow_width)
-    text!(shape, wind; text="wind", align=(:center, :bottom), offset=(0, pt(1)),
+    text!(shape, wind; text="apparent wind", align=(:left, :center), offset=(pt(2), 0),
         fontsize=note_size)
     front = trailing - 4margin
     lines!(shape, -geometry["le_y"], geometry["le_z"] .+ front; color=palette[1],
         linewidth=3)
-    limits!(shape, -0.5span - margin, wind[1] + 1.5margin,
-        front + minimum(geometry["le_z"]) - margin, wind[2] + 2.5margin)
+    limits!(shape, -0.5span - margin, 0.5span + 10margin,
+        front + minimum(geometry["le_z"]) - margin, wind[2] + 2margin)
     angle = "angle of attack [°]"
     coefficients = Axis(figure[1, 2]; xlabel=angle, ylabel="coefficient",
         title="(b) lift and drag")
@@ -1045,7 +1071,7 @@ function kite_figure()
     glide = Axis(figure[1, 3]; xlabel=angle, ylabel=L"G = C_L/C_D",
         title="(c) glide ratio")
     lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=palette[1])
-    colsize!(figure.layout, 1, Relative(0.3))
+    colsize!(figure.layout, 1, Relative(0.36))
     save_figure("kite", figure)
 end
 
@@ -1085,66 +1111,6 @@ end
 Geometric mean of the positive numbers `values`.
 """
 geometric_mean(values) = exp(sum(log, values) / length(values))
-
-"""
-    deck_rig_figure()
-
-Write paper/figures/deck_rigs.pdf: the model of the deck rigs, (a) the lift over drag of
-wing sails and suction sails at each trim, attached and stalled, (b) the rotor's lift, drag
-and spin power over spin ratio, and (c) the thrust factor of wings and rotors in one row
-and in two columns over their number, at the closest spacing.
-"""
-function deck_rig_figure()
-    figure = Figure(size=(page_width, 170))
-    polar = Axis(figure[1, 1]; xlabel=L"C_D", ylabel=L"C_L",
-        title="(a) wing and suction sails, over their trim")
-    for rig in ("wings", "suction")
-        ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size(rig, 800.0)...), assumptions)
-        trims = WindShipOpt.trim_ranges(ship.rig, ship.env, 10.0, π / 2, 5.0)
-        for (trim, style) in zip(trims, (:solid, :dash))
-            settings = WindShipOpt.trim_setting.(Ref(ship.rig), Ref(trim),
-                range(trim.low, trim.high; length=100))
-            lines!(polar, last.(settings), first.(settings); color=rig_colour(rig),
-                linestyle=style)
-        end
-    end
-    axislegend(polar, [LineElement(; color=rig_colour("wings")),
-            LineElement(; color=rig_colour("suction")), LineElement(; color=:black),
-            LineElement(; color=:black, linestyle=:dash)],
-        ["wing", "suction", "attached", "stalled"]; position=(0.98, 0.12))
-    spins = range(0, WindShipOpt.MAX_SPIN_RATIO; length=100)
-    coefficients = WindShipOpt.rotor_coefficients.(spins)
-    rotor = Axis(figure[1, 2]; xlabel=L"spin ratio $\alpha$", ylabel="coefficient",
-        title="(b) rotor, over its spin")
-    lift = assumptions[:rotor_lift_factor] .* first.(coefficients)
-    lines!(rotor, spins, lift; color=palette[3], label=L"C_L")
-    lines!(rotor, spins, getindex.(coefficients, 2); color=palette[3], linestyle=:dash,
-        label=L"C_D")
-    lines!(rotor, spins, last.(coefficients); color=palette[3], linestyle=:dot,
-        label=L"C_{P,\mathrm{spin}}")
-    axislegend(rotor; position=:lt)
-    shading = Axis(figure[1, 3]; xlabel=L"units $n$", ylabel=L"thrust factor $f$",
-        title="(c) shading at the closest spacing", xticks=2:2:8,
-        limits=(nothing, (0.45, 1.0)))
-    for (unit, colour) in ((:wing, palette[2]), (:rotor, palette[3]))
-        setting(name) = assumptions[Symbol(unit, name)]
-        spacing, decay = setting(:_spacing), setting(:_interference_decay)
-        amplitude = setting(:_interference_amplitude)
-        abreast = setting(:_abreast_loss) * amplitude
-        counts = 2:2:8
-        row = WindShipOpt.array_factor.(counts, spacing, amplitude, decay)
-        columns = WindShipOpt.array_factor.(counts .÷ 2, spacing, amplitude, decay) .*
-                  WindShipOpt.array_factor(2, spacing, abreast, decay)
-        scatterlines!(shading, counts, row; color=colour, markersize=marker_size)
-        scatterlines!(shading, counts, columns; color=colour, linestyle=:dash,
-            markersize=marker_size)
-    end
-    elements = [LineElement(; color=palette[2]), LineElement(; color=palette[3]),
-        LineElement(; color=:black), LineElement(; color=:black, linestyle=:dash)]
-    axislegend(shading, elements, ["wing sails", "rotors", "one row", "two columns"];
-        position=:lb)
-    save_figure("deck_rigs", figure)
-end
 
 """
     pattern_figure()
@@ -1634,6 +1600,7 @@ function savings_panel!(axis, table, groups, drive)
         iseven(i) && hspan!(axis, i - 0.5, i + 0.5; color=(:gray, 0.12))
         for (slot, (j, kind)) in enumerate(rigs)
             y = i + rig_offset(slot, length(rigs), lane_offset)
+            routed_on(table, kind, classes, drive) || continue
             values = route_savings(table, "cost", classes, drive, kind)
             isempty(values) && continue
             rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
@@ -1643,7 +1610,8 @@ function savings_panel!(axis, table, groups, drive)
         end
     end
     span = extrema([reduce(vcat, [route_savings(table, "cost", classes, drive, kind)
-                                  for (_, classes) in groups, (_, kind) in rigs]); 0])
+                                  for (_, classes) in groups, (_, kind) in rigs
+                                  if routed_on(table, kind, classes, drive)]); 0])
     width = span[2] - span[1]
     low, high = span[1] - 0.04width, span[2] + 0.5width
     for (i, (_, classes)) in enumerate(groups)
@@ -1752,7 +1720,7 @@ function class_size_figure()
             yticks=(eachindex(names), names), yreversed=true,
             yticklabelsvisible=column == 1, limits=((100, area_limit), row_limits))
         vlines!(axis, kite_bound; color=palette[1], linestyle=:dash, linewidth=rule_width)
-        rigs = study_rigs(table)
+        rigs = single_rigs(table)
         counts = unit_count_axis(figure[1, 2 * column], rigs, row_limits)
         colgap!(figure.layout, 2 * column - 1, pt(4))
         for (slot, (j, kind)) in enumerate(rigs), (i, name) in enumerate(names)
@@ -1895,7 +1863,7 @@ function fleet_total_label(name, split, measure)
 end
 
 "colour of the rig `rig` of [`rig_names`](@ref)"
-rig_colour(rig) = palette[findfirst(==(rig), rig_names)]
+rig_colour(rig) = palette[findfirst(==(rig), class_rigs)]
 
 """
     level_fill(rig, other; background=(rig_colour(rig), 0.55))
@@ -1927,7 +1895,7 @@ fill_entry(fill::NamedTuple) = hatched_entry(fill.background, fill.stripe)
 band_entry(band) = fill_entry(fleet_colours()[band])
 
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
-fleet_colours() = Dict((rig => rig_colour(rig) for rig in rig_names)...,
+fleet_colours() = Dict((rig => rig_colour(rig) for rig in class_rigs)...,
     "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
 "pitch [figure units] of the stripes of [`hatch!`](@ref)"
@@ -2031,7 +1999,7 @@ function fleet_share_figure()
     shown = [band for band in fleet_bands
              if any(getfield(split[band], measure) > 0
                     for (_, split) in splits, (measure, _, _) in panels)]
-    names = Dict((rig => rig_label(rig) for rig in rig_names)...,
+    names = Dict((rig => rig_label(rig) for rig in class_rigs)...,
         "level" => "two rigs level within the error",
         "none" => "no rig saves beyond the error")
     Legend(figure[3, 1], [band_entry(band) for band in shown],
@@ -2289,7 +2257,7 @@ without a rig.
 function cargo_cost_figure()
     table = compared_table()
     groups = deck_groups(table)
-    rigs = study_rigs(table)
+    rigs = single_rigs(table)
     figure = Figure(size=(page_width, 235))
     largest = maximum(length.(last.(groups)))
     cells = [figure[1, 1], GridLayout(figure[1, 2])]
@@ -2330,7 +2298,7 @@ wings built, and the median number of wing and rotor units against the most roto
 service, the geometric mean over the routes and its range for the area.
 """
 function large_rigs_figure()
-    table = read_table(data_file("classes.csv"))
+    table = read_classes(data_file("classes.csv"))
     names = class_order(table)
     routes_seen = unique(table["route"])
     flat_per_projected = 160 / 125
@@ -2411,12 +2379,12 @@ end
     capital_figure()
 
 Capital of an 85 m and a 170 m ship split into the hull with its basic drive, the extra
-cost of a dual-fuel e-ammonia engine, and the rig, with the range of each part over the
-bounds of the inputs one at a time; the fuel tank, sized by the route, is left out.
+cost of a dual-fuel e-ammonia engine, and each rig at half its size on the 140 m ship
+([`reference_rigs`](@ref)), with the range of each part over the bounds of the inputs one
+at a time; the fuel tank, sized by the route, is left out.
 """
 function capital_figure()
-    areas = Dict("kite" => 1600.0, "wings" => 800.0, "rotors" => 400.0,
-        "suction" => 400.0, "vtol" => 100.0)
+    areas = Dict(rig => area / 2 for (rig, area) in reference_rigs)
     cases = [("VLSFO", :vlsfo, (;)); ("e-ammonia", :ammonia, (;));
         [("+ $(rig_label(rig)) $(round(Int, areas[rig])) ", :ammonia,
           rig_size(rig, areas[rig])) for rig in rig_names]]
@@ -2896,7 +2864,7 @@ function abatement_figure()
 end
 
 "markers of the rigs, in the order of `rig_names`, told apart by shape"
-rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle, :hexagon)
+rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle, :hexagon, :star5)
 
 "marker size [figure units] of a rig of `area` [m²], growing with its logarithm"
 area_marker_size(area) = pt(1.5) + pt(0.9) * log2(area / 100)

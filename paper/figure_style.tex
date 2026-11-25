@@ -2,7 +2,7 @@
 \pdfinclusioncopyfonts=1
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,decorations.pathreplacing}
+\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,decorations.pathreplacing,decorations.markings}
 \definecolor{accent}{HTML}{D55E00}
 \definecolor{accenttext}{HTML}{C05500}
 \definecolor{deck}{HTML}{E6E1D6}
@@ -17,6 +17,8 @@
 \definecolor{keeltext}{HTML}{2B2B2B}
 \definecolor{kite}{HTML}{0072B2}
 \definecolor{kitetext}{HTML}{0072B2}
+\definecolor{lei}{HTML}{56B4E9}
+\definecolor{leitext}{HTML}{3A7A9E}
 \definecolor{loss}{HTML}{B2182B}
 \definecolor{losstext}{HTML}{B2182B}
 \definecolor{purple}{HTML}{6B42A3}
@@ -180,6 +182,8 @@
   recorded/.style={postaction={decorate, decoration={show path construction, lineto code={\figurestylesegment{\tikzinputsegmentfirst}{\tikzinputsegmentlast}}, curveto code={\figurestylecurve{\tikzinputsegmentfirst}{\tikzinputsegmentsupporta}{\tikzinputsegmentsupportb}{\tikzinputsegmentlast}}}}},
   force/.style={->, line width=1.3pt, recorded},
   flow/.style={->, line width=0.6pt, recorded},
+  broken/.style={postaction={decorate, decoration={markings, mark=at position #1 with {\fill[white] (-1.60pt,-1.60pt) -- (0.00pt,1.60pt) -- (1.60pt,1.60pt) -- (0.00pt,-1.60pt) -- cycle; \draw[line width=0.5pt] (-1.60pt,-1.60pt) -- (0.00pt,1.60pt) (0.00pt,-1.60pt) -- (1.60pt,1.60pt);}}}},
+  broken/.default=0.5,
   dimension/.style={<->, guide, line width=0.4pt},
   leader/.style={guide, line width=0.4pt},
   icon line/.style={line width=1pt, line cap=round, line join=round},
