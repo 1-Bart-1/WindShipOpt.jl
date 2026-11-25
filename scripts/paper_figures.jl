@@ -14,7 +14,7 @@ style_colour(name; table="colours") =
 "white, the background of every figure"
 white = Makie.RGBf(1, 1, 1)
 "colour of each rig, in the order of `rig_names`"
-palette = style_colour.(collect(rig_names))
+palette = style_colour.(collect(class_rigs))
 """
     rig_offset(slot, count, step)
 
@@ -74,7 +74,7 @@ than `least["colour"]` in normal or in some colour-blind vision.
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
-    groups = (("rig", style_colour.(collect(rig_names))),
+    groups = (("rig", style_colour.(collect(class_rigs))),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
         ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors",
@@ -1600,6 +1600,7 @@ function savings_panel!(axis, table, groups, drive)
         iseven(i) && hspan!(axis, i - 0.5, i + 0.5; color=(:gray, 0.12))
         for (slot, (j, kind)) in enumerate(rigs)
             y = i + rig_offset(slot, length(rigs), lane_offset)
+            routed_on(table, kind, classes, drive) || continue
             values = route_savings(table, "cost", classes, drive, kind)
             isempty(values) && continue
             rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
@@ -1609,7 +1610,8 @@ function savings_panel!(axis, table, groups, drive)
         end
     end
     span = extrema([reduce(vcat, [route_savings(table, "cost", classes, drive, kind)
-                                  for (_, classes) in groups, (_, kind) in rigs]); 0])
+                                  for (_, classes) in groups, (_, kind) in rigs
+                                  if routed_on(table, kind, classes, drive)]); 0])
     width = span[2] - span[1]
     low, high = span[1] - 0.04width, span[2] + 0.5width
     for (i, (_, classes)) in enumerate(groups)
@@ -1718,7 +1720,7 @@ function class_size_figure()
             yticks=(eachindex(names), names), yreversed=true,
             yticklabelsvisible=column == 1, limits=((100, area_limit), row_limits))
         vlines!(axis, kite_bound; color=palette[1], linestyle=:dash, linewidth=rule_width)
-        rigs = study_rigs(table)
+        rigs = single_rigs(table)
         counts = unit_count_axis(figure[1, 2 * column], rigs, row_limits)
         colgap!(figure.layout, 2 * column - 1, pt(4))
         for (slot, (j, kind)) in enumerate(rigs), (i, name) in enumerate(names)
@@ -1861,7 +1863,7 @@ function fleet_total_label(name, split, measure)
 end
 
 "colour of the rig `rig` of [`rig_names`](@ref)"
-rig_colour(rig) = palette[findfirst(==(rig), rig_names)]
+rig_colour(rig) = palette[findfirst(==(rig), class_rigs)]
 
 """
     level_fill(rig, other; background=(rig_colour(rig), 0.55))
@@ -1893,7 +1895,7 @@ fill_entry(fill::NamedTuple) = hatched_entry(fill.background, fill.stripe)
 band_entry(band) = fill_entry(fleet_colours()[band])
 
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
-fleet_colours() = Dict((rig => rig_colour(rig) for rig in rig_names)...,
+fleet_colours() = Dict((rig => rig_colour(rig) for rig in class_rigs)...,
     "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
 "pitch [figure units] of the stripes of [`hatch!`](@ref)"
@@ -1997,7 +1999,7 @@ function fleet_share_figure()
     shown = [band for band in fleet_bands
              if any(getfield(split[band], measure) > 0
                     for (_, split) in splits, (measure, _, _) in panels)]
-    names = Dict((rig => rig_label(rig) for rig in rig_names)...,
+    names = Dict((rig => rig_label(rig) for rig in class_rigs)...,
         "level" => "two rigs level within the error",
         "none" => "no rig saves beyond the error")
     Legend(figure[3, 1], [band_entry(band) for band in shown],
@@ -2255,7 +2257,7 @@ without a rig.
 function cargo_cost_figure()
     table = compared_table()
     groups = deck_groups(table)
-    rigs = study_rigs(table)
+    rigs = single_rigs(table)
     figure = Figure(size=(page_width, 235))
     largest = maximum(length.(last.(groups)))
     cells = [figure[1, 1], GridLayout(figure[1, 2])]
@@ -2296,7 +2298,7 @@ wings built, and the median number of wing and rotor units against the most roto
 service, the geometric mean over the routes and its range for the area.
 """
 function large_rigs_figure()
-    table = read_table(data_file("classes.csv"))
+    table = read_classes(data_file("classes.csv"))
     names = class_order(table)
     routes_seen = unique(table["route"])
     flat_per_projected = 160 / 125
@@ -2377,12 +2379,12 @@ end
     capital_figure()
 
 Capital of an 85 m and a 170 m ship split into the hull with its basic drive, the extra
-cost of a dual-fuel e-ammonia engine, and the rig, with the range of each part over the
-bounds of the inputs one at a time; the fuel tank, sized by the route, is left out.
+cost of a dual-fuel e-ammonia engine, and each rig at half its size on the 140 m ship
+([`reference_rigs`](@ref)), with the range of each part over the bounds of the inputs one
+at a time; the fuel tank, sized by the route, is left out.
 """
 function capital_figure()
-    areas = Dict("kite" => 1600.0, "wings" => 800.0, "rotors" => 400.0,
-        "suction" => 400.0, "vtol" => 100.0)
+    areas = Dict(rig => area / 2 for (rig, area) in reference_rigs)
     cases = [("VLSFO", :vlsfo, (;)); ("e-ammonia", :ammonia, (;));
         [("+ $(rig_label(rig)) $(round(Int, areas[rig])) ", :ammonia,
           rig_size(rig, areas[rig])) for rig in rig_names]]
@@ -2862,7 +2864,7 @@ function abatement_figure()
 end
 
 "markers of the rigs, in the order of `rig_names`, told apart by shape"
-rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle, :hexagon)
+rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle, :hexagon, :star5)
 
 "marker size [figure units] of a rig of `area` [m²], growing with its logarithm"
 area_marker_size(area) = pt(1.5) + pt(0.9) * log2(area / 100)
