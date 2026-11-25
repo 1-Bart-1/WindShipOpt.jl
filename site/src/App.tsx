@@ -29,6 +29,7 @@ import {
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
 import { GridView } from "./grid/GridView";
+import { Commit } from "./Commit";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
@@ -80,12 +81,11 @@ function Explorer({ data }: { data: ExplorerData }) {
           today to see what each rig saves now, on the routes found at the goals. Changed inputs are recosted on the
           paper's routes; routing again would at most save a little more.
         </p>
-        {data.fidelity !== "final" && (
-          <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
-            Draft results ({data.fidelity} run, commit {data.git_commit.slice(0, 7)}): coarser routing than the
-            paper's final numbers.
-          </p>
-        )}
+        <p className={`rounded-[14px] px-3 py-2 text-sm text-ink ${data.fidelity === "final" ? "bg-ink/5" : "bg-mustard/30"}`}>
+          The numbers come from the run the paper shows: the {data.fidelity} run at commit{" "}
+          <Commit hash={data.git_commit} />.
+          {data.fidelity !== "final" && " Draft results: coarser routing than a final run's."}
+        </p>
       </header>
 
       <section className="flex flex-wrap gap-4">
