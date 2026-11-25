@@ -3271,25 +3271,37 @@ lei_mass_bounds() = [with_value(assumptions, :lei_max_force_per_area,
                      for bound in (:low, :high)]
 
 """
+    single_skin_mass(area, inputs)
+
+Mass [kg] of a single-skin kite of projected `area` [m^2] without its tether, at `inputs`.
+"""
+single_skin_mass(area, inputs) = WindShipOpt.soft_kite_mass(area,
+    inputs[:kite_aspect_ratio], 1e3inputs[:kite_max_force_per_area] * area, inputs,
+    WindShipOpt.SingleSkin())
+
+"""
     kite_mass_figure()
 
-Mass per area against area of VTOL kites, ram-air kites and leading-edge inflatable kites
-without their tether: each law at base inputs between its bounds, dashed beyond the largest
-kite of its kind flown and beyond MX2, which the VTOL kite's law is scaled from, and the
+(a) Mass per area against area of VTOL kites and the three soft kites without their tether:
+each law at base inputs between its bounds where it has them, dashed beyond the largest kite
+of its kind flown and beyond MX2, which the VTOL kite's law is scaled from, and the
 published wings and kites of data/kite_masses.csv, its `kind`, `status`, `area` [m^2] and
-`mass_low` to `mass_high` [kg].
+`mass_low` to `mass_high` [kg]. (b) Price per area of each soft kite's canopy at base
+inputs.
 """
 function kite_mass_figure()
     published = read_table(joinpath(root, "data", "kite_masses.csv"))
     rigid_colour, soft_colour, lei_colour = style_colour("vtol"), palette[1],
     style_colour("lei")
-    figure = Figure(size=(column_width, 200))
-    axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 8192; base=0.125)...,
+    figure = Figure(size=(page_width, 210))
+    axis = Axis(figure[1, 1]; title="(a) mass", doubling_axis(:x, 2.5, 5120; base=2.5)...,
+        doubling_axis(:y, 0.125, 65536; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 12000)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 100000)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
+    largest_soft = maximum(published["area"][flew .& soft])
+    largest_lei = maximum(published["area"][published["kind"] .== "lei"])
     rigid_areas = exp.(range(log(10), log(2000); length=50))
     rigid_per_area(inputs) = WindShipOpt.rigid_kite_mass.(rigid_areas, Ref(inputs)) ./
                              rigid_areas
@@ -3299,13 +3311,13 @@ function kite_mass_figure()
     soft_areas = exp.(range(log(5), log(5000); length=50))
     per_area(inputs) = soft_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
     mass_law!(axis, soft_areas, per_area(assumptions), per_area(soft_mass_bound(true)),
-        per_area(soft_mass_bound(false)), maximum(published["area"][flew .& soft]),
-        soft_colour)
+        per_area(soft_mass_bound(false)), largest_soft, soft_colour)
     lei_per_area(inputs) = lei_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
     lei_bounds = lei_per_area.(lei_mass_bounds())
     mass_law!(axis, soft_areas, lei_per_area(assumptions), min.(lei_bounds...),
-        max.(lei_bounds...), maximum(published["area"][published["kind"] .== "lei"]),
-        lei_colour)
+        max.(lei_bounds...), largest_lei, lei_colour)
+    single = single_skin_mass.(soft_areas, Ref(assumptions)) ./ soft_areas
+    lines!(axis, soft_areas, single; color=soft_colour, linestyle=:dot)
     kind_colours = Dict("soft" => soft_colour, "lei" => lei_colour,
         "propellers" => rigid_colour)
     for row in eachindex(published["name"])
@@ -3320,12 +3332,35 @@ function kite_mass_figure()
     markers = [MarkerElement(color=:black, marker=status_markers[status])
                for status in statuses]
     entries = [LineElement(color=rigid_colour), LineElement(color=soft_colour),
-        LineElement(color=lei_colour), LineElement(color=:black, linestyle=:dash),
-        markers...]
-    axislegend(axis, entries,
-        ["VTOL kite", "ram-air kite", "LEI kite", "extrapolated", statuses...];
+        LineElement(color=lei_colour), LineElement(color=soft_colour, linestyle=:dot),
+        LineElement(color=:black, linestyle=:dash), markers...]
+    axislegend(axis, entries, ["VTOL kite", "ram-air kite", "LEI kite", "single-skin kite",
+            "extrapolated", statuses...];
         position=:lt, nbanks=3, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
+    price_axis = Axis(figure[1, 2]; title="(b) canopy price",
+        doubling_axis(:x, 20, 20480; base=20)...,
+        xlabel=square_metres("projected area [", "]"),
+        ylabel=square_metres("price per area [USD/", "]"), limits=((14, 30000), (0, 800)))
+    price_areas = exp.(range(log(14), log(30000); length=60))
+    for (frame, aspect_ratio, largest, color, linestyle) in (
+        (nothing, assumptions[:kite_aspect_ratio], largest_soft, soft_colour, :solid),
+        (WindShipOpt.TubeFrame(), assumptions[:lei_aspect_ratio], largest_lei, lei_colour,
+            :solid),
+        (WindShipOpt.SingleSkin(), assumptions[:kite_aspect_ratio], largest_soft,
+            soft_colour, :dot))
+        price = WindShipOpt.canopy_price.(Ref(assumptions), price_areas, aspect_ratio,
+            Ref(frame))
+        built = price_areas .<= largest
+        lines!(price_axis, price_areas, ifelse.(built, price, NaN); color, linestyle)
+        lines!(price_axis, price_areas, ifelse.(built, NaN, price); color,
+            linestyle=linestyle == :solid ? :dash : :dot)
+    end
+    axislegend(price_axis, [LineElement(color=soft_colour), LineElement(color=lei_colour),
+            LineElement(color=soft_colour, linestyle=:dot),
+            LineElement(color=:black, linestyle=:dash)],
+        ["ram-air kite", "LEI kite", "single-skin kite", "extrapolated"]; position=:lt,
+        rowgap=0, patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
 end
 
@@ -3364,6 +3399,245 @@ function deck_mass_figure()
         ["wing sail", "rotor", "suction sail", "extrapolated"]; position=:lt, nbanks=2,
         rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
     save_figure("deck_mass", figure)
+end
+
+"""
+    tank_coefficient(test, speed)
+
+Total resistance coefficient on the measured wetted surface of the model hull of the same
+dimensions, block and midship coefficients and centre of buoyancy as the towing-tank model
+`test`, a row
+of data/tank_tests.csv, at `speed` [m/s], without the correlation allowance only a
+full-size ship carries.
+"""
+function tank_coefficient(test, speed)
+    hull = Hull(test.length, test.beam, test.draft, test.block, assumptions;
+        test.centre_of_buoyancy, test.midship, test.waterline_length)
+    env = Environment(assumptions)
+    dynamic_pressure = 0.5env.water_density * speed^2
+    allowance = WindShipOpt.correlation_allowance(hull, WindShipOpt.WaveCoefficients(hull))
+    correlation = dynamic_pressure * WindShipOpt.wetted_surface(hull) * allowance
+    return (WindShipOpt.resistance(hull, env, speed) - correlation) /
+           (dynamic_pressure * test.wetted_surface)
+end
+
+"""
+    resistance_panel!(cell)
+
+Total resistance coefficient against Froude number on the waterline of each towing-tank
+model of data/tank_tests.csv, measured and of the model's hull, in the grid cell `cell`.
+"""
+function resistance_panel!(cell)
+    tests = read_rows(joinpath(root, "data", "tank_tests.csv"))
+    axis = Axis(cell; xlabel="Froude number", ylabel=L"C_T \times 10^3",
+        title="(a) calm-water resistance", limits=(nothing, (3.3, 7.0)))
+    froude(test, speed) = speed / sqrt(9.81test.waterline_length)
+    for (k, hull) in enumerate(unique(test.hull for test in tests))
+        measured = filter(test -> test.hull == hull, tests)
+        test, colour = first(measured), category_colours[k]
+        speeds = range(0.8minimum(t.speed for t in measured),
+            maximum(t.speed for t in measured); length=40)
+        lines!(axis, froude.(Ref(test), speeds),
+            1e3tank_coefficient.(Ref(test), speeds); color=colour, label=hull)
+        scatter!(axis, [froude(t, t.speed) for t in measured],
+            [t.total_coefficient for t in measured]; color=colour, label=hull)
+    end
+    axislegend(axis; position=:rt, merge=true)
+    return axis
+end
+
+"""
+    engine_panel!(cell)
+
+Specific fuel over that at full load against load of the curves of
+data/engine_part_load_tests.csv and of the model's part-load law, in the grid cell `cell`.
+"""
+function engine_panel!(cell)
+    curves = read_rows(joinpath(root, "data", "engine_part_load_tests.csv"))
+    axis = Axis(cell; xlabel="load [%]", ylabel="fuel per kWh over full load",
+        title="(b) engine at part load")
+    for name in unique(curve.curve for curve in curves)
+        points = filter(curve -> curve.curve == name, curves)
+        full = only(point.specific_fuel for point in points if point.load == 1)
+        scatterlines!(axis, [100point.load for point in points],
+            [point.specific_fuel / full for point in points]; color=:gray60,
+            markercolor=:gray60)
+    end
+    engine = WindShipOpt.Powertrain(; installed_power=1e6, unit_count=1,
+        peak_efficiency=1.0, part_load_penalty=assumptions[:part_load_penalty],
+        transmission_efficiency=1.0, hotel_load=0.0)
+    loads = range(0.25, 1; length=40)
+    lines!(axis, 100loads, inv.(WindShipOpt.unit_efficiency.(Ref(engine), loads));
+        color=:black)
+    axislegend(axis, [LineElement(color=:black),
+            [LineElement(color=:gray60), MarkerElement(color=:gray60, marker=:circle)]],
+        ["model", "MAN L21/31 test bed"]; position=:rt)
+    return axis
+end
+
+"""
+    side_force_panels!(force_cell, drag_cell)
+
+Side-force coefficient against leeway of the hulls of data/hull_centre_tests.csv, measured,
+and of data/hull_drift_tests.csv, as their fit, beside the model's hull of the same
+dimensions, in `force_cell`; the induced drag against side force of the latter, their fit
+and the model's, in `drag_cell`.
+"""
+function side_force_panels!(force_cell, drag_cell)
+    force = Axis(force_cell; xlabel="leeway [°]", ylabel=L"C_Y",
+        title="(c) hull side force")
+    drag = Axis(drag_cell; xlabel=L"C_Y", ylabel=L"C_X",
+        title="(d) drag of the leeway")
+    angles = range(0, 12; length=40)
+    captive = read_rows(joinpath(root, "data", "hull_centre_tests.csv"))
+    test = first(captive)
+    hull = Hull(test.length, test.beam, test.draft, test.block, assumptions)
+    colour = category_colours[1]
+    lines!(force, angles, WindShipOpt.side_force_coefficient.(Ref(hull), deg2rad.(angles));
+        color=colour)
+    scatter!(force, [run.leeway for run in captive], [run.side_force for run in captive];
+        color=colour)
+    fits = read_rows(joinpath(root, "data", "hull_drift_tests.csv"))
+    for (k, fit) in enumerate(fits)
+        hull = Hull(fit.length, fit.beam, fit.draft, fit.block, assumptions)
+        colour = category_colours[k + 1]
+        betas = deg2rad.(angles)
+        tested = fit.side_force_slope .* betas .+ fit.side_force_cubic .* betas .^ 3
+        lines!(force, angles, WindShipOpt.side_force_coefficient.(Ref(hull), betas);
+            color=colour)
+        lines!(force, angles, tested; color=colour, linestyle=:dash)
+        aspect_ratio = 2fit.effective_draft_ratio^2 * hull.draft / hull.length
+        model = [WindShipOpt.leeway_drag(hull, coefficient,
+                     WindShipOpt.side_force_leeway(hull, coefficient))
+                 for coefficient in tested]
+        lines!(drag, tested, model; color=colour)
+        lines!(drag, tested, tested .^ 2 ./ (π * aspect_ratio); color=colour,
+            linestyle=:dash)
+    end
+    names = [test.hull; [fit.hull for fit in fits]]
+    axislegend(force, [LineElement(color=category_colours[k]) for k in eachindex(names)],
+        names; position=:lt)
+    axislegend(drag,
+        [LineElement(color=:black), LineElement(color=:black, linestyle=:dash)],
+        ["model", "towing-tank fit"]; position=:lt)
+    return force, drag
+end
+
+"""
+    validation_ship_figure()
+
+The ship model beside measurements: calm-water resistance against towing-tank tests, the
+engine's fuel at part load against test-bed curves, and the hull's side force and the drag
+of the leeway against towing-tank and captive tests.
+"""
+function validation_ship_figure()
+    figure = Figure(size=(page_width, 330))
+    resistance_panel!(figure[1, 1])
+    engine_panel!(figure[1, 2])
+    side_force_panels!(figure[2, 1], figure[2, 2])
+    save_figure("validation_ship", figure)
+end
+
+"""
+    copenhagen_panel!(cell)
+
+Thrust coefficient of the Copenhagen's rotor against the apparent wind angle on its speed
+trial ([`copenhagen_trial`](@ref)): the trial report's fit and its points, and our rotor
+turning as on the trial, in the grid cell `cell`.
+"""
+function copenhagen_panel!(cell)
+    axis = Axis(cell; xlabel="apparent wind angle [°]", ylabel="thrust coefficient",
+        title="(a) rotor of the ferry Copenhagen")
+    rows = copenhagen_row.(range(25, 150; length=60))
+    apparent = [row[2] for row in rows]
+    lines!(axis, apparent, [row[5] for row in rows]; color=style_colour("rotors"))
+    fitted = range(20, 100; length=40)
+    lines!(axis, fitted, evalpoly.(fitted, Ref(copenhagen_trial.thrust_fit));
+        color=:black, linestyle=:dash)
+    points = copenhagen_row.(first.(copenhagen_trial.points))
+    scatter!(axis, [row[2] for row in points], [row[6] for row in points]; color=:black)
+    axislegend(axis, [LineElement(color=style_colour("rotors")),
+            [LineElement(color=:black, linestyle=:dash),
+                MarkerElement(color=:black, marker=:circle)]],
+        ["model", "speed trial"]; position=:lt)
+    return axis
+end
+
+"""
+    parity_panel!(cell)
+
+Fuel saving [%] of each ship measured at sea against ours, with its standard error over the
+departures, from the measured savings study, in the grid cell `cell`.
+"""
+function parity_panel!(cell)
+    axis = Axis(cell[1, 1]; xlabel="measured fuel saving [%]",
+        ylabel="model fuel saving [%]", title="(b) ships at sea",
+        limits=((0, 16), (0, 16)), xticks=0:4:16, yticks=0:4:16)
+    lines!(axis, [0, 16], [0, 16]; color=:gray60)
+    voyages = read_table(study_file(:measured_savings, "measured_savings.csv"))
+    beluga = read_table(study_file(:measured_savings, "beluga.csv"))
+    ships = [[(name, rig, parse.(Float64, split(first(measured_reports[source]), "--")),
+                  first(measured_voyage(voyages, source)))
+              for (source, name, _, rig) in measured_ships];
+        [("Beluga SkySails, $(round(Int, area)) m² kite", "kite", [2.5],
+             first(beluga_voyage(beluga, area)))
+         for area in beluga_crossing.areas]]
+    markers = [:circle, :rect, :utriangle, :diamond, :dtriangle, :star5]
+    entries = []
+    for ((name, rig, measured, savings), marker) in zip(ships, markers)
+        x, y = mean(measured), mean(savings)
+        error = std(savings) / sqrt(length(savings))
+        colour = style_colour(rig)
+        rangebars!(axis, [x], [y - error], [y + error]; color=colour, whiskerwidth=0,
+            linewidth=goal_width)
+        length(measured) > 1 && rangebars!(axis, [y], [minimum(measured)],
+            [maximum(measured)]; direction=:x, color=colour, whiskerwidth=0,
+            linewidth=goal_width)
+        scatter!(axis, [x], [y]; color=colour, marker)
+        push!(entries, MarkerElement(; color=colour, marker))
+    end
+    Legend(cell[1, 2], entries, first.(ships); tellheight=false)
+    return axis
+end
+
+"""
+    buoy_quantile_panel!(cell, quantity, title, unit)
+
+Quantiles of ERA5 against those measured at each of [`buoys`](@ref) over
+[`buoy_years`](@ref), of the 10 m wind where `quantity` is `:wind` and of the wave height
+where it is `:wave`, in the grid cell `cell`.
+"""
+function buoy_quantile_panel!(cell, quantity, title, unit)
+    axis = Axis(cell; xlabel="buoy $unit", ylabel="ERA5 $unit", title)
+    levels = range(0.01, 0.99; length=99)
+    top = 0.0
+    for (station, lat, lon, anemometer) in buoys
+        winds, heights = buoy_pairs(station, lat, lon, anemometer)
+        pairs = quantity == :wind ? winds : heights
+        measured = quantile(first.(pairs), levels)
+        lines!(axis, measured, quantile(last.(pairs), levels);
+            color=style_colour(quantity == :wind ? "wind" : "water"))
+        top = max(top, last(measured))
+    end
+    lines!(axis, [0, top], [0, top]; color=:gray60)
+    limits!(axis, 0, top, 0, top)
+    return axis
+end
+
+"""
+    validation_sea_figure()
+
+The whole model beside ships measured at sea and the weather beside buoys: the
+Copenhagen's rotor on its speed trial, the fuel saving of each ship of the measured savings
+study, and the quantiles of ERA5's wind and waves against the buoys on the routes.
+"""
+function validation_sea_figure()
+    figure = Figure(size=(page_width, 330))
+    copenhagen_panel!(figure[1, 1])
+    parity_panel!(figure[1, 2])
+    buoy_quantile_panel!(figure[2, 1], :wind, "(c) 10 m wind", "[m/s]")
+    buoy_quantile_panel!(figure[2, 2], :wave, "(d) wave height", "[m]")
+    save_figure("validation_sea", figure)
 end
 
 "marker of a published canopy of each `kind` in data/canopy_cells.csv"
@@ -3411,4 +3685,58 @@ function canopy_cells_figure()
     axislegend(axis, entries, [kinds..., "model", "kites searched"]; position=:lt,
         nbanks=2, rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
     save(joinpath(figures, "canopy_cells.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    variant_curve!(axis, table, rig, variant, color, linestyle)
+
+Cost saving [%] over area of `rig` in its `variant` (`nothing` for any) of `table`, against
+the ship without a rig of the same table, as a line with a marker at each size routed.
+"""
+function variant_curve!(axis, table, rig, variant, color, linestyle)
+    bare = only(rows(table, "rig" => "none"))
+    chosen = isnothing(variant) ? rows(table, "rig" => rig) :
+             rows(table, "rig" => rig, "variant" => variant)
+    chosen = chosen[sortperm(table["area"][chosen])]
+    saving = 100 .* (1 .- table["cost"][chosen] ./ table["cost"][bare])
+    lines!(axis, table["area"][chosen], saving; color, linestyle)
+    scatter!(axis, table["area"][chosen], saving; color)
+end
+
+"""
+    rig_variant_figure()
+
+Cost saving over area of the rig variants of the development case, each panel from its
+method study's recorded run: (a) the ram-air, single-skin and leading-edge inflatable kites
+of the soft-kite study, (b) the rigid and fabric wing sails of the fabric-wing study beside
+the kite and the rotors of the same run.
+"""
+function rig_variant_figure()
+    kites = read_table(study_file(:soft_kites, "devcase12.csv"))
+    wings = read_table(study_file(:fabric_wing, "fabric_wing.csv"))
+    figure = Figure(size=(page_width, 175))
+    panel(column, title) = Axis(figure[1, column]; title,
+        doubling_axis(:x, 400, 3200; base=400)..., xlabel=square_metres("rig area [", "]"),
+        ylabel=column == 1 ? "cost saving [%]" : "", limits=((330, 3500), (0, 36)))
+    soft = panel(1, "(a) soft kites")
+    kite, lei = style_colour("kite"), style_colour("lei")
+    variant_curve!(soft, kites, "kite", nothing, kite, :solid)
+    variant_curve!(soft, kites, "single", nothing, kite, :dash)
+    variant_curve!(soft, kites, "lei", nothing, lei, :solid)
+    clear_axislegend(figure, [soft],
+        [LineElement(color=kite), LineElement(color=kite, linestyle=:dash),
+            LineElement(color=lei)], ["ram-air kite", "single-skin kite", "LEI kite"];
+        rowgap=0, patchsize=(pt(12), pt(6)))
+    sails = panel(2, "(b) wing sails")
+    wing, rotor = style_colour("wings"), style_colour("rotors")
+    variant_curve!(sails, wings, "kite", "base", kite, :solid)
+    variant_curve!(sails, wings, "rotors", "base", rotor, :solid)
+    variant_curve!(sails, wings, "wings", "base", wing, :solid)
+    variant_curve!(sails, wings, "wings", "fabric", wing, :dash)
+    clear_axislegend(figure, [sails],
+        [LineElement(color=kite), LineElement(color=rotor), LineElement(color=wing),
+            LineElement(color=wing, linestyle=:dash)],
+        ["ram-air kite", "rotors", "rigid wing sails", "fabric wing sails"];
+        rowgap=0, patchsize=(pt(12), pt(6)))
+    save_figure("rig_variants", figure)
 end
