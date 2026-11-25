@@ -4780,6 +4780,7 @@ module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "size_search.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
@@ -5500,6 +5501,7 @@ function market_class_table()
         "rig" => column(case -> case.rig), "cost" => cost.(cases),
         "departure_costs" => departure_costs.(cases),
         "area" => column(case -> case.rig == "wings" ? 1500.0 : 1000.0),
+        "rotor_area" => zeros(length(cases)),
         "units" => column(case -> case.rig == "wings" ? 3.0 : 5.0),
         "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
         "carbon" => column(case -> case.rig == "none" ? 2.0 : 1.5),
@@ -5559,6 +5561,22 @@ end
     @test all(Set(keys(cell.savings)) == Set(("kite", "wings", "rotors")) for cell in cells)
     lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
     @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
+end
+
+@testset "the fleet split names a share for each rig the run routed on that drive \
+          alone" begin
+    (; table, class) = market_class_table()
+    held = findall(in(("none", "kite", "wings", "rotors")), table["rig"])
+    paired = findall(i -> table["class"][i] == class && table["rig"][i] == "rotors",
+        eachindex(table["rig"]))
+    both = Dict{String, Vector}(name => [column[held]; column[held]; column[paired]]
+                                for (name, column) in table)
+    both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
+    both["drive"][(length(held) + 1):end] .= "ammonia"
+    shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
+    bands = ["Kite", "Wings", "Rotors", "Level"]
+    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
+                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin
@@ -5824,18 +5842,77 @@ end
     end
 end
 
+"""
+    costed(cost)
+
+Round trips of size-search cases `(; key, area)` at `cost(key, area)` [USD/tkm], none
+where it is not finite.
+"""
+costed(cost) = cases -> [isfinite(cost(case.key, case.area)) ?
+                         (; cost_per_tonne_km=cost(case.key, case.area)) : nothing
+                         for case in cases]
+
+"size search of `key` over `grid` from `guess`, its cases the key and area tried"
+fake_search(key, grid, guess) =
+    (; grid, guess, sized=(area, round) -> (; key, area, round))
+
 @testset "a size search keeps apart classes of one name with cargo of different value" begin
     class = ship_classes()["Kamsarmax bulk carrier"]
     fields = (name => getfield(class, name) for name in fieldnames(ShipClass))
     cheap, dear = (ShipClass(; fields..., cargo_value=value) for value in (100.0, 15000.0))
-    search_key(ship) = (ship, "ammonia", "kite", "tubarao")
-    searches = Dict(search_key(ship) => Tuple{Float64, Float64}[] for ship in (cheap, dear))
-    cases = [(; design=(; class=ship), class=ship.name, drive="ammonia", rig="kite",
-                 route="tubarao", area)
-             for (ship, area) in ((cheap, 1000.0), (dear, 2000.0))]
-    PaperData.record_sizes!(searches, cases, [(; cost_per_tonne_km=1.0), nothing])
-    @test searches[search_key(cheap)] == [(1000.0, 1.0)]
-    @test searches[search_key(dear)] == [(2000.0, Inf)]
+    grid = PaperData.size_grid(500.0, 16000.0)
+    best = Dict(cheap => 1024.0, dear => 4096.0)
+    cost(key, area) = log2(area / best[first(key)])^2 + (area < 700 ? Inf : 0.0)
+    searches = Dict((ship, "kite") => fake_search((ship, "kite"), grid, 2000.0)
+                    for ship in (cheap, dear))
+    cases, trips = [], []
+    found = PaperData.search_sizes!(cases, trips, searches; routed=costed(cost))
+    @test found[(cheap, "kite")] == 1024.0 && found[(dear, "kite")] == 4096.0
+    @test length(cases) == length(trips) && first(cases).round == 0
+    @test any(isnothing, trips) == any(case -> case.area < 700, cases)
+end
+
+@testset "a kite over rotors is sized area by area until neither area alone gains" begin
+    grid = PaperData.size_grid(16.0, 1024.0)
+    for coupling in (0.5, 1.2)
+        cost(sizes) = (log2(sizes[1]) - 6)^2 + (log2(sizes[2]) - 5)^2 +
+                      coupling * (log2(sizes[1]) - 6) * (log2(sizes[2]) - 5)
+        passes = Ref(0)
+        function search(sizes, varied)
+            passes[] += 1
+            searches = Dict(key => fake_search(key, grid, start[varied])
+                            for (key, start) in sizes)
+            pair(key, area) = Base.setindex(sizes[key], area, varied)
+            return PaperData.search_sizes!([], [], searches;
+                routed=costed((key, area) -> cost(pair(key, area))))
+        end
+        found = PaperData.alternated_sizes(search, Dict(:ship => (512.0, 512.0)))[:ship]
+        steps = [PaperData.nearest_step(grid, area) for area in found]
+        @test all(cost(Base.setindex(found, grid[steps[k] + side], k)) > cost(found)
+                  for k in 1:2, side in (-1, 1))
+        @test passes[] > 2
+        coupling < 1 && @test found == (64.0, 32.0)
+    end
+end
+
+@testset "the kite over rotors is sized as a kite of one area over rotors of another" begin
+    @test PaperData.rig_size(PaperData.pair_rig, 4096.0, 3444.0) ==
+          (kite_area=4096.0, rotor_area=3444.0)
+    @test PaperData.rig_size("kite", 4096.0) == (kite_area=4096.0,)
+    @test PaperData.macro_word(PaperData.pair_rig) == "KiteRotors"
+end
+
+@testset "a rig routed on some fleet cells joins their band but no mean over others" begin
+    rigs(kite, rotors) = Dict("kite" => kite, "rotors" => rotors)
+    paired = fleet_cell(1.0, merge(rigs(10.0, 12.0), Dict(PaperData.pair_rig => 15.0)))
+    alone = fleet_cell(1.0, rigs(10.0, 12.0))
+    @test PaperData.fleet_band(paired) == PaperData.pair_rig
+    @test PaperData.pair_rig in PaperData.fleet_bands
+    savings = PaperData.fleet_savings([paired, alone])
+    @test !haskey(savings, PaperData.pair_rig) && savings["rotors"] == 12.0
+    @test PaperData.fleet_savings([paired])[PaperData.pair_rig] == 15.0
+    @test PaperData.shown_rigs([paired, alone]) == ["rotors", PaperData.pair_rig]
+    @test [row.rig for row in PaperData.trailing_rigs([paired, alone])] == ["kite"]
 end
 
 include("hot_path_checks.jl")
