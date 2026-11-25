@@ -1471,6 +1471,13 @@ function read_table(path)
     return table
 end
 
+"rows of the CSV file at `path` as named tuples of its columns ([`read_table`](@ref))"
+function read_rows(path)
+    table = read_table(path)
+    return [(; (Symbol(name) => table[name][k] for name in keys(table))...)
+            for k in eachindex(first(values(table)))]
+end
+
 """
     fleet_total(split, measure)
 

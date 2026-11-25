@@ -3386,10 +3386,6 @@ function tank_coefficient(test, speed)
            (dynamic_pressure * test.wetted_surface)
 end
 
-"rows of the table `table` as named tuples of its columns"
-table_rows(table) = [(; (Symbol(name) => table[name][k] for name in keys(table))...)
-                     for k in eachindex(first(values(table)))]
-
 """
     resistance_panel!(cell)
 
@@ -3397,7 +3393,7 @@ Total resistance coefficient against Froude number on the waterline of each towi
 model of data/tank_tests.csv, measured and of the model's hull, in the grid cell `cell`.
 """
 function resistance_panel!(cell)
-    tests = table_rows(read_table(joinpath(root, "data", "tank_tests.csv")))
+    tests = read_rows(joinpath(root, "data", "tank_tests.csv"))
     axis = Axis(cell; xlabel="Froude number", ylabel=L"C_T \times 10^3",
         title="(a) calm-water resistance", limits=(nothing, (3.3, 7.0)))
     froude(test, speed) = speed / sqrt(9.81test.waterline_length)
@@ -3422,7 +3418,7 @@ Specific fuel over that at full load against load of the curves of
 data/engine_part_load_tests.csv and of the model's part-load law, in the grid cell `cell`.
 """
 function engine_panel!(cell)
-    curves = table_rows(read_table(joinpath(root, "data", "engine_part_load_tests.csv")))
+    curves = read_rows(joinpath(root, "data", "engine_part_load_tests.csv"))
     axis = Axis(cell; xlabel="load [%]", ylabel="fuel per kWh over full load",
         title="(b) engine at part load")
     for name in unique(curve.curve for curve in curves)
@@ -3458,7 +3454,7 @@ function side_force_panels!(force_cell, drag_cell)
     drag = Axis(drag_cell; xlabel=L"C_Y", ylabel=L"C_X",
         title="(d) drag of the leeway")
     angles = range(0, 12; length=40)
-    captive = table_rows(read_table(joinpath(root, "data", "hull_centre_tests.csv")))
+    captive = read_rows(joinpath(root, "data", "hull_centre_tests.csv"))
     test = first(captive)
     hull = Hull(test.length, test.beam, test.draft, test.block, assumptions)
     colour = category_colours[1]
@@ -3466,7 +3462,7 @@ function side_force_panels!(force_cell, drag_cell)
         color=colour)
     scatter!(force, [run.leeway for run in captive], [run.side_force for run in captive];
         color=colour)
-    fits = table_rows(read_table(joinpath(root, "data", "hull_drift_tests.csv")))
+    fits = read_rows(joinpath(root, "data", "hull_drift_tests.csv"))
     for (k, fit) in enumerate(fits)
         hull = Hull(fit.length, fit.beam, fit.draft, fit.block, assumptions)
         colour = category_colours[k + 1]

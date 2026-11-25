@@ -2067,9 +2067,8 @@ printed_range(format, low, high) =
 Write to paper/sections/measured_numbers.tex, from the measured savings study, by how much
 our rotor's thrust departs from the Copenhagen's measured [%] at small apparent wind angles
 at most, abeam and aft, the range of points by which our fuel saving exceeds that measured
-with rotors, by how many it falls short of the Pyxis Ocean's, the fuel our
-Kamsarmax burns per day at sea without a rig [t], and the range of the shares of the hours
-at sea [%] the kite flies and of the fuel it saves per day at sea [t] on the Beluga
+with rotors, by how many it falls short of the Pyxis Ocean's, and the range of the shares
+of the hours at sea [%] the kite flies and of the fuel it saves per day at sea [t] on the Beluga
 crossing.
 """
 function measured_numbers_file()
@@ -2083,9 +2082,6 @@ function measured_numbers_file()
                   for (source, _, _, rig) in measured_ships if rig == "rotors"]
     pyxis_gap = parse(Float64, first(measured_reports["gcaptain2024pyxis"])) -
                 mean(first(measured_voyage(voyages, "gcaptain2024pyxis")))
-    bare = rows(voyages, "source" => "lr2025trlady", "rig" => "none")
-    bare_tonnes = mean(voyages["fuel_energy"][bare]) / voyages["days"][first(bare)] /
-                  assumptions[:vlsfo_heating_value]
     draft = TOML.parsefile(study_runs_path)["measured_savings"]["fidelity"] != "final"
     belugas = beluga_means()
     numbers = ["CopenhagenThrustBow" => @sprintf("%.0f", bow),
@@ -2093,7 +2089,6 @@ function measured_numbers_file()
         "CopenhagenThrustAft" => @sprintf("%.0f", by_angle[142.0]),
         "MeasuredRotorGap" => printed_range("%.0f", extrema(rotor_gaps)...),
         "MeasuredPyxisGap" => @sprintf("%.0f", pyxis_gap),
-        "MeasuredBareKamsarmax" => @sprintf("%.0f", bare_tonnes),
         "BelugaTonnes" => printed_range("%.1f", extrema(getfield.(belugas, :tonnes))...),
         "BelugaFlightShare" =>
             printed_range("%.0f", extrema(getfield.(belugas, :share))...)]
@@ -3117,7 +3112,7 @@ buoys = [("41049", 27.505, -62.271, 4.1),
 buoy_years = 2017:2019
 
 "folder the buoys' yearly files are downloaded to"
-buoy_folder = joinpath(root, "output", "ndbc")
+buoy_folder() = joinpath(root, "output", "ndbc")
 
 """
     buoy_records(station, year)
@@ -3127,7 +3122,7 @@ archive, downloaded once: (hours after `weather.origin`, wind speed [m/s] at the
 anemometer, significant wave height [m]), with `NaN` where the buoy gives none.
 """
 function buoy_records(station, year)
-    file = joinpath(mkpath(buoy_folder), "$(station)h$(year).txt.gz")
+    file = joinpath(mkpath(buoy_folder()), "$(station)h$(year).txt.gz")
     isfile(file) || Downloads.download("https://www.ndbc.noaa.gov/data/historical/" *
                                        "stdmet/$(station)h$(year).txt.gz", file)
     records = NTuple{3, Float64}[]
@@ -3197,7 +3192,7 @@ Our resistance over the measured less one [%] at each speed of the towing-tank m
 of data/tank_tests.csv ([`tank_coefficient`](@ref)).
 """
 function tank_gaps(hull)
-    tests = table_rows(read_table(joinpath(root, "data", "tank_tests.csv")))
+    tests = read_rows(joinpath(root, "data", "tank_tests.csv"))
     return [100(1e3tank_coefficient(test, test.speed) / test.total_coefficient - 1)
             for test in tests if test.hull == hull]
 end
