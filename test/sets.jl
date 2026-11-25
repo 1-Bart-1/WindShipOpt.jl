@@ -350,12 +350,11 @@ end
 end
 
 @testset "the part-load law burns 1 to 7 % more than MAN L21/31 curves at half to 85 % load" begin
-    # Specific fuel at 100, 85, 75, 50 and 25 % load [g/kWh], MAN L21/31, p. 137, Tables 1-4.
-    curves = ([192.1, 188.9, 188.8, 192.5, 206.2], [197.1, 194.6, 195.2, 201.7, 223.0],
-        [189.1, 185.4, 182.6, 186.5, 202.0], [192.7, 189.5, 187.1, 193.0, 214.0],
-        [193.1, 190.9, 191.7, 195.5, 215.3], [198.1, 196.6, 198.2, 204.8, 232.9],
-        [199.9, 197.6, 196.7, 198.2, 214.9])
-    loads = [1.0, 0.85, 0.75, 0.5, 0.25]
+    path = joinpath(pkgdir(WindShipOpt), "data", "engine_part_load_tests.csv")
+    rows = [WindShipOpt.csv_fields(line) for line in readlines(path)[2:end]]
+    loads = [parse(Float64, row[2]) for row in rows if row[1] == rows[1][1]]
+    curves = [[parse(Float64, row[3]) for row in rows if row[1] == name]
+              for name in unique(row[1] for row in rows)]
     engine = WindShipOpt.Powertrain(; installed_power=1e6, unit_count=1,
         peak_efficiency=0.44, part_load_penalty=assumptions[:part_load_penalty],
         transmission_efficiency=1.0, hotel_load=0.0)
