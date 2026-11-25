@@ -2068,8 +2068,8 @@ Write to paper/sections/measured_numbers.tex, from the measured savings study, b
 our rotor's thrust departs from the Copenhagen's measured [%] at small apparent wind angles
 at most, abeam and aft, the range of points by which our fuel saving exceeds that measured
 with rotors, by how many it falls short of the Pyxis Ocean's, and the range of the shares
-of the hours at sea [%] the kite flies and of the fuel it saves per day at sea [t] on the Beluga
-crossing.
+of the hours at sea [%] the kite flies and of the fuel it saves per day at sea [t] on the
+Beluga crossing.
 """
 function measured_numbers_file()
     copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
