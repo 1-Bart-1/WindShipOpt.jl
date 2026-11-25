@@ -897,6 +897,24 @@ function write_cases(run, name, made)
 end
 
 """
+    note_stores(run, directories)
+
+Add to cases/stores.csv in the directory of `run` the case stores `directories` its round
+trips are about to come from, with its round-trip code, so that a copy of the run taken
+before the step ends ([`run_entries`](@ref)) holds the round trips stored so far.
+"""
+function note_stores(run, directories)
+    isnothing(run.directory) && return
+    path = joinpath(mkpath(joinpath(run.directory, "cases")), "stores.csv")
+    @lock run.tally.lock open(path, "a") do io
+        position(io) == 0 && println(io, "store,trip_model")
+        for directory in unique(directories)
+            println(io, csv_field(basename(directory)), ",", csv_field(run.trip_model))
+        end
+    end
+end
+
+"""
     step_reasons(entry, code)
 
 Why the step of run-record `entry` is out of date against the code `code` it would run now
