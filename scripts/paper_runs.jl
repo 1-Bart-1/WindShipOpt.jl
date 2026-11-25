@@ -16,12 +16,12 @@ include("step_code.jl")
 include("case_jobs.jl")
 
 """
-Settings of each fidelity of the paper: the corridor scale, the step between sampled
-departures and that step in the sensitivity study.
+Settings of each fidelity of the paper: the corridor scale, the step through
+`paper_departures` of the departures sampled and that step in the sensitivity study.
 """
 fidelities = Dict(
-    :draft => (corridor_scale=1.0, departure_step=36, sensitivity_departure_step=12),
-    :final => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=6))
+    :draft => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=2),
+    :final => (corridor_scale=1.0, departure_step=1, sensitivity_departure_step=1))
 
 """
 Spread of a draft result about the final run's on the 140 m e-ammonia ship to Guadeloupe,
@@ -158,18 +158,19 @@ run_settings() = fidelities[paper_run.fidelity]
 """
     sampled_departures()
 
-The departures the studies average over: every `departure_step`-th one of the run's
-fidelity.
+The departures the studies average over: every `departure_step`-th one of
+`paper_departures` at the run's fidelity.
 """
-sampled_departures() = departures[1:run_settings().departure_step:end]
+sampled_departures() = paper_departures[1:run_settings().departure_step:end]
 
 """
     sensitivity_departures()
 
 The departures the sensitivity study averages over: every `sensitivity_departure_step`-th
-one of the run's fidelity.
+one of `paper_departures` at the run's fidelity.
 """
-sensitivity_departures() = departures[1:run_settings().sensitivity_departure_step:end]
+sensitivity_departures() =
+    paper_departures[1:run_settings().sensitivity_departure_step:end]
 
 """
     run_corridors(name)

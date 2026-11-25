@@ -1845,7 +1845,7 @@ forecast_result_plans = (false, :live)
     forecast_result_data()
 
 The paper's forecast result: the 140 m e-ammonia ship to Guadeloupe without a rig and with
-each rig, per departure of `forecast_departures`, for each of the
+each rig, per departure of `paper_departures`, for each of the
 [`forecast_result_plans`](@ref): forecast_result.csv; and per rig the share of its
 perfect-foresight saving it keeps on the live plan with its jackknife standard error over
 the departures: forecast_result_kept.csv.
@@ -1853,7 +1853,7 @@ the departures: forecast_result_kept.csv.
 function forecast_result_data()
     rigs = reference_rigs_and_none
     cases, trips = [], []
-    for departure in forecast_departures
+    for departure in paper_departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
                               forecast=plan, rig, plan=string(plan), departure)
                           for (rig, area) in rigs, plan in forecast_result_plans])
@@ -1868,14 +1868,14 @@ end
     write_kept_shares(name, cases, trips)
 
 Write `name`: per rig, the share of its perfect-foresight saving it keeps on the live plan,
-the ratio of the mean savings over the `forecast_departures` where all trips exist, with
+the ratio of the mean savings over the `paper_departures` where all trips exist, with
 its jackknife standard error.
 """
 function write_kept_shares(name, cases, trips)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error")
         for (rig, _) in reference_rigs
-            all_saved = [plan_savings(cases, trips, rig, plan, forecast_departures)
+            all_saved = [plan_savings(cases, trips, rig, plan, paper_departures)
                          for plan in (:live, false)]
             usable = complete_departures(all_saved)
             saved, perfect = [saved[usable] for saved in all_saved]
@@ -3423,11 +3423,12 @@ function today_routing_data()
              for (rig, area) in [("none", 0.0); rigs]]
     today = at_today(assumptions)
     cases = [goals; [merge(case, (; assumptions=today)) for case in goals]]
-    chosen = departures[1:fidelities[:final].departure_step:end]
-    trips = fetch.([Threads.@spawn round_trips(cases, [departure]) for departure in chosen])
+    trips = fetch.([Threads.@spawn round_trips(cases, [departure])
+                    for departure in paper_departures])
     open(run_file("today_routing.csv"), "w") do io
         println(io, "rig,area,departure,recosted,rerouted")
-        for (departure, routed) in zip(chosen, trips), (k, case) in enumerate(goals)
+        for (departure, routed) in zip(paper_departures, trips),
+                (k, case) in enumerate(goals)
             found, again = routed[k], routed[length(goals) + k]
             (isnothing(found) || isnothing(again)) && continue
             println(io, join([case.rig, csv_value(case.area), csv_value(departure),
@@ -3551,8 +3552,7 @@ function wind_height_data()
         [("profile", exponent, "kite",
           with_value(assumptions, :wind_shear_exponent, exponent), ProfileWind(weather))
          for exponent in exponents]]
-    chosen = departures[1:fidelities[:final].departure_step:end]
-    jobs = [(arm, departure) for arm in arms for departure in chosen]
+    jobs = [(arm, departure) for arm in arms for departure in paper_departures]
     outcomes = fetch.([Threads.@spawn wind_height_outcome(arm, departure, design)
                        for (arm, departure) in jobs])
     open(run_file("wind_height.csv"), "w") do io
