@@ -2310,29 +2310,10 @@ function base_kite_variants()
 end
 
 """
-    cargo_kite_variants()
-
-Variants of the kite that flew on cargo ships, as (name, projected area [m^2], changed
-inputs): the base, its flat size read as projected, no flight drag, and canopy wear and
-launches free, with those of [`noise_variants`](@ref).
-"""
-function cargo_kite_variants()
-    free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
-        kite_launch_loss_probability=0.0, kite_cycle_course_cost=0.0)
-    return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
-        ("no_flight_drag", 125.0, (; kite_flight_drag=0.0));
-        ("free_operation", 125.0, free);
-        [(name, 125.0, changes)
-         for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
-            assumptions[:kite_min_turn_radius])]]
-end
-
-"""
     base_kite_data(ships=sensitivity_ships())
 
 The base kite of `ships`, as those of [`sensitivity_ships`](@ref), at each of
-[`base_kite_variants`](@ref), and a 130 m VLSFO ship at each of
-[`cargo_kite_variants`](@ref), each with the ship without a rig: base_kite.csv.
+[`base_kite_variants`](@ref), each with the ship without a rig: base_kite.csv.
 """
 function base_kite_data(ships=sensitivity_ships())
     cases = []
@@ -2344,11 +2325,6 @@ function base_kite_data(ships=sensitivity_ships())
             push!(cases, trip_case(design; route, ship, variant,
                 assumptions=changed_assumptions(changes)))
         end
-    end
-    push!(cases, trip_case(ShipDesign(:vlsfo, 130.0); ship="130 m", variant="bare"))
-    for (variant, area, changes) in cargo_kite_variants()
-        push!(cases, trip_case(ShipDesign(:vlsfo, 130.0; kite_area=area); ship="130 m",
-            variant, assumptions=changed_assumptions(changes)))
     end
     write_trips("base_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :variant)
@@ -3221,15 +3197,55 @@ measured_ships = [
     ("mol2024shofu", "Shofu Maru", "Aframax tanker", "wings", 800.0, :tubarao)]
 
 """
+First Atlantic crossing of the Beluga SkySails with its kite, Bremen to Guanta from 22
+January to 5 February 2008 (VerkehrsRundschau 2008), on our ship nearest it that holds its
+speed: the month it sailed in, the kite areas [m^2] its nominal 160 m^2 may mean, flat or
+projected, our ship's length [m] and its service speed [kn].
+"""
+beluga_crossing = (month=1, areas=(125.0, 160.0), length=130.0, knots=10.5)
+
+"""
+    beluga_crossing_data()
+
+Each of the [`beluga_crossing`](@ref) ships, without a kite and with each kite area, held at
+its speed on the shortest course out to Guadeloupe from every departure in its month: the
+area [m^2], the departure [h], the fuel energy [GJ], hours at sea and hours the kite flies,
+beluga.csv.
+"""
+function beluga_crossing_data()
+    (; month, areas, length, knots) = beluga_crossing
+    paths = WindShipOpt.shortest_corridor.(run_corridors(:caribbean))
+    sailed = filter(departure -> Dates.month(weather.origin + Hour(departure)) == month,
+        departures)
+    open(run_file("beluga.csv"), "w") do io
+        println(io, "area,departure,fuel_energy,hours,flight_hours")
+        for area in (0.0, areas...)
+            case = trip_case(ShipDesign(:vlsfo, length; kite_area=area); route=:caribbean,
+                paths, course=:shortest, held_knots=knots)
+            state = first(case_routing(case).routing.states)
+            legs = fetch.([Threads.@spawn WindShipOpt.forecast_route(first(paths),
+                state.table, weather, departure; time_cost=first(state.hourly))
+                           for departure in sailed])
+            for (departure, leg) in zip(sailed, legs)
+                isnothing(leg) && continue
+                println(io, join((area, departure, leg.fuel_energy / 1e9, leg.duration,
+                        leg.flight_hours), ","))
+            end
+        end
+    end
+end
+
+"""
     measured_savings_data()
 
-Our model on the terms of rotors and wing sails measured at sea: the rotor of the ferry
-Copenhagen at the conditions of its speed trial, copenhagen.csv, and each of
-[`measured_ships`](@ref) with and without its rig on the shortest course at its class's
-operating speed, its fuel energy [GJ] per departure and its days at sea per round trip,
-measured_savings.csv.
+Our model on the terms of rigs measured at sea: the rotor of the ferry Copenhagen at the
+conditions of its speed trial, copenhagen.csv, the kite of the Beluga SkySails on its
+first crossing, [`beluga_crossing_data`](@ref), and each of [`measured_ships`](@ref) with
+and without its rig on the shortest course at its class's operating speed, its fuel energy
+[GJ] per departure and its days at sea per round trip, measured_savings.csv.
 """
 function measured_savings_data()
+    beluga_crossing_data()
     open(run_file("copenhagen.csv"), "w") do io
         println(io, "true_angle,apparent_angle,apparent_wind,spin_ratio,thrust_model,",
             "thrust_measured,spin_power")

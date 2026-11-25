@@ -25,6 +25,7 @@
 # pack the run's results into the companion website's data in the run directory, routing
 # nothing of their own. The LaTeX build is separate.
 using CairoMakie
+using Downloads
 
 include("trips.jl")
 include("map_plotting.jl")
@@ -105,6 +106,7 @@ output_steps = [:kite => kite_figure, :wind_load => wind_load_figure,
     :class_table => class_dimension_table,
     :drift_check_table => drift_check_table,
     :centre_check_table => centre_check_table,
+    :era5_buoy_table => era5_buoy_table,
     :split_table => split_table,
     :payback_table => payback_table, :market_table => market_table,
     :goals_table => goals_table,

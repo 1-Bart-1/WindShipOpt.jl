@@ -1988,6 +1988,25 @@ function measured_voyage(table, source)
 end
 
 """
+    beluga_voyage(table, area)
+
+Fuel saving [%], fuel saved per day at sea [t] and share of the hours at sea the kite flies
+[-] of the ship with `area` [m^2] of kite in the Beluga crossing `table`
+([`beluga_crossing_data`](@ref)), per departure in date order.
+"""
+function beluga_voyage(table, area)
+    row(kite_area, departure) = only(rows(table, "area" => kite_area,
+        "departure" => departure))
+    departures = sort(table["departure"][rows(table, "area" => area)])
+    bare = [table["fuel_energy"][row(0.0, day)] for day in departures]
+    kite = [row(area, day) for day in departures]
+    energy, hours = table["fuel_energy"][kite], table["hours"][kite]
+    savings = percent_saving.(energy, bare)
+    tonnes = 24(bare - energy) ./ hours ./ assumptions[:vlsfo_heating_value]
+    return savings, tonnes, table["flight_hours"][kite] ./ hours
+end
+
+"""
     copenhagen_net(row)
 
 Net power saving [%] our rotor gives at a point of [`copenhagen_trial`](@ref): the one
@@ -2007,10 +2026,10 @@ end
 """
     measured_table()
 
-Our model beside rotors and wing sails measured at sea: the thrust and net power saving of
-the Copenhagen's rotor at the points of its speed trial, and the fuel saving of each of
-[`measured_ships`](@ref) on the nearest of our ships at fixed speed and course, with its
-standard error over the departures: measured_table.tex.
+Our model beside rigs measured at sea: the thrust and net power saving of the Copenhagen's
+rotor at the points of its speed trial, and the fuel saving of each of
+[`measured_ships`](@ref) and of the Beluga SkySails' kite on the nearest of our ships at
+fixed speed and course, with its standard error over the departures: measured_table.tex.
 """
 function measured_table()
     copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
@@ -2046,9 +2065,22 @@ function measured_table()
                     @sprintf("%s %.0f", rig, area), percent, per_day,
                     error_text(savings), error_text(tonnes)), " & "), " \\\\")
         end
+        beluga = read_table(study_file(:measured_savings, "beluga.csv"))
+        for area in beluga_crossing.areas
+            savings, tonnes, _ = beluga_voyage(beluga, area)
+            println(io, join(("Beluga SkySails \\citep{verkehrsrundschau2008beluga}",
+                    @sprintf("%.0f m VLSFO ship", beluga_crossing.length),
+                    @sprintf("kite %.0f", area), "2.5", "0.5", error_text(savings),
+                    error_text(tonnes)), " & "), " \\\\")
+        end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+"mean share [%] of the hours at sea the kite flies on the Beluga crossing, per kite area"
+beluga_flight_shares() =
+    [100mean(last(beluga_voyage(read_table(study_file(:measured_savings, "beluga.csv")),
+        area))) for area in beluga_crossing.areas]
 
 """
     measured_numbers_file()
@@ -2056,8 +2088,9 @@ end
 Write to paper/sections/measured_numbers.tex, from the measured savings study, by how much
 our rotor's thrust departs from the Copenhagen's measured [%] at small apparent wind angles
 at most, abeam and aft, the range of points by which our fuel saving exceeds that measured
-with rotors, by how many it falls short of the Pyxis Ocean's, and the fuel our
-Kamsarmax burns per day at sea without a rig [t].
+with rotors, by how many it falls short of the Pyxis Ocean's, the fuel our
+Kamsarmax burns per day at sea without a rig [t], and the range of the shares of the hours
+at sea [%] the kite flies on the Beluga crossing.
 """
 function measured_numbers_file()
     copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
@@ -2080,7 +2113,9 @@ function measured_numbers_file()
         "MeasuredRotorGap" => join(
             unique(@sprintf("%.0f", gap) for gap in extrema(rotor_gaps)), " to "),
         "MeasuredPyxisGap" => @sprintf("%.0f", pyxis_gap),
-        "MeasuredBareKamsarmax" => @sprintf("%.0f", bare_tonnes)]
+        "MeasuredBareKamsarmax" => @sprintf("%.0f", bare_tonnes),
+        "BelugaFlightShare" => join(unique(@sprintf("%.0f", share) for share in
+                                           extrema(beluga_flight_shares())), " to ")]
     write_whole(joinpath(sections, "measured_numbers.tex")) do io
         for (name, text) in numbers
             print(io, number_macro(name, text, draft))
@@ -3084,6 +3119,116 @@ function premium_numbers(table)
     return ["PremiumNoRig" => whole_number(mean(without)),
         "PremiumBestRig" => whole_number(mean(with)),
         "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
+end
+
+"""
+NOAA National Data Buoy Center moored buoys near the routes: station, place, latitude and
+longitude [deg] and anemometer height above the sea [m].
+"""
+buoys = [("41049", "south of Bermuda", 27.505, -62.271, 4.1),
+    ("41047", "north-east of the Bahamas", 27.557, -71.480, 4.1),
+    ("41044", "north-east of the Antilles", 21.582, -58.630, 3.8),
+    ("41043", "north-east of Puerto Rico", 21.083, -64.853, 4.1),
+    ("41040", "tropical Atlantic", 14.568, -53.037, 4.1),
+    ("42002", "western Gulf of Mexico", 25.950, -93.780, 4.1)]
+
+"years of the ERA5 series the routes sail in"
+buoy_years = 2017:2019
+
+"folder the buoys' yearly files are downloaded to"
+buoy_folder = joinpath(root, "output", "ndbc")
+
+"""
+    buoy_records(station, year)
+
+Hourly-or-finer records of `station` in `year` from NDBC's standard meteorological
+archive, downloaded once: (hours after `weather.origin`, wind speed [m/s] at the
+anemometer, significant wave height [m]), with `NaN` where the buoy gives none.
+"""
+function buoy_records(station, year)
+    file = joinpath(mkpath(buoy_folder), "$(station)h$(year).txt.gz")
+    isfile(file) || Downloads.download("https://www.ndbc.noaa.gov/data/historical/" *
+                                       "stdmet/$(station)h$(year).txt.gz", file)
+    records = NTuple{3, Float64}[]
+    for line in eachline(pipeline(`gzip -dc $file`))
+        startswith(line, '#') && continue
+        fields = split(line)
+        time = DateTime(parse.(Int, fields[1:5])...)
+        wind, height = parse(Float64, fields[7]), parse(Float64, fields[9])
+        push!(records, (Dates.value(time - weather.origin) / 3.6e6,
+            wind < 99 ? wind : NaN, height < 99 ? height : NaN))
+    end
+    return records
+end
+
+"""
+    buoy_pairs(station, lat, lon, anemometer)
+
+For each record of `station` over [`buoy_years`](@ref): the buoy's 10 m wind [m/s], by the
+model's wind profile from its `anemometer` height [m], and wave height [m], beside the
+ERA5 wind and wave height the model samples at (`lat`, `lon`) at that time.
+"""
+function buoy_pairs(station, lat, lon, anemometer)
+    shear = (10 / anemometer)^assumptions[:wind_shear_exponent]
+    winds, heights = NTuple{2, Float64}[], NTuple{2, Float64}[]
+    for year in buoy_years, (time, wind, height) in buoy_records(station, year)
+        isnan(wind) || push!(winds, (shear * wind,
+            hypot(WindShipOpt.wind(weather, lat, lon, time)...)))
+        isnan(height) ||
+            push!(heights, (height, first(WindShipOpt.waves(weather, lat, lon, time))))
+    end
+    return winds, heights
+end
+
+"""
+    pair_statistics(pairs, strong)
+
+Of (measured, ERA5) `pairs`: the measured mean, ERA5's bias, their correlation, ERA5's
+mean square over the measured less one [%], and ERA5's mean over the measured less one [%]
+where the measured value is at least `strong`.
+"""
+function pair_statistics(pairs, strong)
+    measured, era5 = first.(pairs), last.(pairs)
+    high = measured .>= strong
+    return (; mean=mean(measured), bias=mean(era5 - measured),
+        correlation=cor(measured, era5),
+        square_bias=100(mean(abs2, era5) / mean(abs2, measured) - 1),
+        strong_bias=100(mean(era5[high]) / mean(measured[high]) - 1))
+end
+
+"10 m wind [m/s] from which [`era5_buoy_table`](@ref) counts a wind as strong"
+strong_wind = 12.0
+
+"wave height [m] from which [`era5_buoy_table`](@ref) counts a sea as high"
+strong_waves = 3.0
+
+"""
+    era5_buoy_table()
+
+For each of [`buoys`](@ref), the [`pair_statistics`](@ref) of the 10 m wind, with its mean
+square, and of the wave height, with their correlation, as a LaTeX table body:
+paper/sections/era5_buoy_table.tex.
+"""
+function era5_buoy_table()
+    write_whole(joinpath(sections, "era5_buoy_table.tex")) do io
+        println(io, "\\begin{tabular}{@{}llrrrrrrrr@{}}\n\\toprule")
+        println(io, " & & \\multicolumn{4}{c}{10\\,m wind} & \\multicolumn{4}{c}",
+            "{Wave height} \\\\\n\\cmidrule(lr){3-6}\\cmidrule(l){7-10}")
+        println(io, " & & mean & & mean & from & mean & & & from \\\\")
+        println(io, "Buoy & Where & [m/s] & bias & square & \\SI{$(Int(strong_wind))}{m/s} ",
+            "& [m] & bias & \$r\$ & \\SI{$(Int(strong_waves))}{m} \\\\\n\\midrule")
+        for (station, place, lat, lon, anemometer) in buoys
+            winds, heights = buoy_pairs(station, lat, lon, anemometer)
+            wind = pair_statistics(winds, strong_wind)
+            wave = pair_statistics(heights, strong_waves)
+            @printf(io, "%s & %s & %.1f & \\(%+.1f\\) & \\(%+.0f\\)\\,\\%% & ",
+                station, place, wind.mean, wind.bias, wind.square_bias)
+            @printf(io, "\\(%+.0f\\)\\,\\%% & %.1f & \\(%+.2f\\) & %.2f & ",
+                wind.strong_bias, wave.mean, wave.bias, wave.correlation)
+            @printf(io, "\\(%+.0f\\)\\,\\%% \\\\\n", wave.strong_bias)
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
 end
 
 "leeway angles [deg] at which [`drift_check_table`](@ref) compares the model with tests"
