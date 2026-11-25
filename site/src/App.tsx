@@ -75,6 +75,7 @@ function Explorer({ data }: { data: ExplorerData }) {
         <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails, Flettner rotors, suction sails and VTOL kites on cargo ships</h1>
         <p className="text-ink">
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
+          Every ship is a new one, designed and built with its rig, as the fleet of 2050 will be.
           Results read: if each rig reaches these goals, it saves this much. Set the goals to what is known
           today to see what each rig saves now, on the routes found at the goals. Changed inputs are recosted on the
           paper's routes; routing again would at most save a little more.
