@@ -779,11 +779,12 @@ end
     aspect_ratio = assumptions[:kite_aspect_ratio]
     _, _, tether_diameter = WindShipOpt.kite_model(area, aspect_ratio, assumptions)
     tether_length = assumptions[:tether_length_ratio] * sqrt(aspect_ratio * area)
+    @test tether_length ≈ 980 rtol = 0.005
     tether = WindShipOpt.rope_mass(tether_diameter, tether_length, assumptions)
     @test tether ≈ assumptions[:tether_rope_density] * force * tether_length /
                    assumptions[:tether_stress]
-    @test tether ≈ 7.6e3 rtol = 0.005
-    @test assumptions[:tether_price] * tether ≈ 7.1e5 rtol = 0.005
+    @test tether ≈ 5.86e3 rtol = 0.005
+    @test assumptions[:tether_price] * tether ≈ 5.45e5 rtol = 0.005
 end
 
 @testset "the paper's worked examples of a wing sail, suction sails and raised rotors \
@@ -951,10 +952,11 @@ end
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are a hand calculation worked independently of the code.
+# Expected forces are a hand calculation worked independently of the code, on 13 spans.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
-    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    worked = with_value(assumptions, :tether_length_ratio, 13.0)
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), worked).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
     @test force(5.8751, 26.6411).thrust ≈ -177 atol = 5
     @test force(5.8751, 26.6411).side ≈ 63758 rtol = 1e-3
@@ -1752,7 +1754,9 @@ end
 @testset "kite inputs give the SkySails kites at their projected areas" begin
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
     @test small.min_turn_radius ≈ 45.0 rtol = 0.05
-    large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
+    longest = WindShipOpt.with_value(assumptions, :tether_length_ratio,
+        assumptions.entries[:tether_length_ratio].high)
+    large, = WindShipOpt.kite_model(250.0, 3.0, longest)
     @test large.tether_length ≈ 360.0 rtol = 0.05
 end
 
@@ -3683,7 +3687,7 @@ end
 end
 
 @testset "the draft sensitivity study routes every other one of the final run's departures" begin
-    @eval PaperRuns departures = collect(0.0:24.0:(71 * 24.0))
+    @eval PaperRuns paper_departures = collect(0.0:(28 * 24.0):(11 * 28 * 24.0))
     function routed(fidelity)
         PaperRuns.paper_run = PaperRuns.PaperRun(fidelity)
         return PaperRuns.sensitivity_departures()
