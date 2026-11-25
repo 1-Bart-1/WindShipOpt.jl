@@ -2300,8 +2300,8 @@ end
     fleet_share_numbers(table)
 
 Name and text, per drive of the class table `table`, of the share [%] of the yearly cost of
-carrying the fleet's cargo of each band of a rig it holds, of level and, on VLSFO, of none,
-the total of that cost [billion USD] and, on VLSFO, the tank-to-wake CO2 that carrying it
+carrying the fleet's cargo of each band of a rig it holds on that drive, of level and, on
+VLSFO, of none, the total of that cost [billion USD] and, on VLSFO, the tank-to-wake CO2 that carrying it
 without a rig emits [million t a year]; and the shares of the IMO transport work and of
 shipping's CO2 in the IMO inventory the classes' size bins carry.
 """
@@ -2315,14 +2315,16 @@ function fleet_share_numbers(table)
         push!(numbers, "FleetBill$word" => whole_number(bill / 1e9))
         drive == "vlsfo" && push!(numbers, "FleetEmitted$word" => two_digits(1e-12emitted))
         for band in fleet_bands
-            band in rig_names && band ∉ table["rig"] && continue
+            band in class_rigs && isempty(rows(table, "drive" => drive, "rig" => band)) &&
+                continue
             band == "none" && drive == "ammonia" && continue
             push!(numbers, "FleetShare$(word)$(macro_word(band))" =>
                 whole_number(100split[band].bill / bill))
         end
     end
     _, work_share = fleet_work()
-    fuel_share = read_table(joinpath(root, "data", "ship_classes.csv"))["fuel_share"]
+    fuel_share = read_table(joinpath(pkgdir(WindShipOpt), "data",
+        "ship_classes.csv"))["fuel_share"]
     push!(numbers, "FleetWorkShare" => whole_number(100work_share),
         "FleetFuelShare" => whole_number(100sum(fuel_share)))
     return numbers
