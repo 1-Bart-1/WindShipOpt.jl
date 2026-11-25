@@ -3101,7 +3101,8 @@ function effect_figure(name, panels, rigs)
     figure = Figure(size=(page_width, 60 + 16rows_drawn))
     for (column, (title, xlabel, entries, width)) in enumerate(panels)
         axis = Axis(figure[1, column]; title, xlabel, yreversed=true,
-            xticks=WilkinsonTicks(4; k_min=3, k_max=5, Q=[(1.0, 1.0), (2.0, 0.7), (5.0, 0.5)]),
+            xticks=WilkinsonTicks(4; k_min=3, k_max=5,
+                Q=[(1.0, 1.0), (2.0, 0.7), (5.0, 0.5)]),
             yticks=(eachindex(entries), first.(entries)),
             limits=(nothing, (0.5, length(entries) + 0.5)))
         colsize!(figure.layout, column, width)
@@ -3148,11 +3149,11 @@ Standard error [points] of the mean cost saving over the departures of each of
 function departure_errors()
     table = read_table(data_file("route_departures.csv"))
     ship = ("route" => "caribbean", "drive" => "ammonia", "length" => 140.0)
-    costs(rig, area) = (chosen = rows(table, ship..., "rig" => rig, "area" => area);
-                        table["cost"][chosen[sortperm(table["date"][chosen])]])
-    bare = costs("none", 0.0)
+    bare = departure_costs(table, ship..., "rig" => "none")
     return map(effect_rigs) do rig
-        savings = percent_saving.(costs(rig, Dict(reference_rigs)[rig]), bare)
+        costs = departure_costs(table, ship..., "rig" => rig,
+            "area" => Dict(reference_rigs)[rig])
+        savings = [percent_saving(costs[date], bare[date]) for date in keys(costs)]
         spread = std(savings) / sqrt(length(savings))
         effect(rig, -spread, spread; centre=0.0, directed=false)
     end
