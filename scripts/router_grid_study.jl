@@ -55,13 +55,14 @@ STUDY = Dict("base" => planner_fidelity(),
      for margin in (10, 20))...)
 
 """
-    run_study(out_dir, names=keys(STUDY))
+    run_study(out_dir, names=keys(STUDY); drive=:ammonia)
 
-Route the development cases of each entry of `STUDY` in `names` into `out_dir`/<name>.
+Route the development cases on `drive` of each entry of `STUDY` in `names` into
+`out_dir`/<name>.
 """
-function run_study(out_dir, names=keys(STUDY))
+function run_study(out_dir, names=keys(STUDY); drive=:ammonia)
     for name in names
-        gate_trips(joinpath(out_dir, name), development_cases(), STUDY[name])
+        gate_trips(joinpath(out_dir, name), development_cases(drive), STUDY[name])
         empty!(WindShipOpt.FREE_WORKSPACES)
         GC.gc()
         println(name, " done")

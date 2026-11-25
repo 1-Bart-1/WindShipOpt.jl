@@ -87,10 +87,8 @@ function delivered_thrust(propeller::Propeller, env::Environment, speed, power)
     inflow = speed * (1 - propeller.wake_fraction)
     disk_load = 0.5env.water_density * propeller.disk_area * inflow^2
     ideal_thrust = 2propeller.viscous_efficiency * power / inflow
-    linear = 2disk_load * ideal_thrust
-    constant = disk_load * ideal_thrust^2
-    root = cbrt(constant / 2 + sqrt(constant^2 / 4 + linear^3 / 27))
-    return (root - linear / (3root)) * (1 - propeller.thrust_deduction)
+    thrust = cubic_root(1.0, 2disk_load * ideal_thrust, disk_load * ideal_thrust^2)
+    return thrust * (1 - propeller.thrust_deduction)
 end
 
 """

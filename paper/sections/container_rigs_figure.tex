@@ -3,13 +3,12 @@
 \begin{tikzpicture}[x=1mm, y=1mm,
   stack/.pic={\foreach \tier in {0,...,3} \fill[ship, draw=white, line width=0.3pt]
     (0,2.6*\tier) rectangle ++(#1,2.6);},
-  lost stack/.pic={\foreach \tier in {0,...,3} \fill[costfill, draw=white, line width=0.3pt]
-    (0,2.6*\tier) rectangle ++(#1,2.6);},
   raised rotor/.pic={\fill[rotors] (-1.4,0) rectangle (1.4,16);
     \fill[rotors] (0,16) ellipse (2.2 and 0.45); \fill[rotors] (0,0.3) ellipse (2.2 and 0.45);},
 ]
 % ---- (a) a container ship from the side, bow to the right, not to scale
 \node[panel] at (0,40) {(a) Where the units stand};
+\begin{scope}[xscale=0.8]
 \fill[keel] (2,-5) -- (94,-5) .. controls (98,-5) and (99,-2) .. (100,0) -- (2,0) -- cycle;
 \fill[topsides] (0,0) -- (100,0) -- (103,6) -- (88,5) -- (88,4) -- (0,4) -- cycle;
 \fill[deck] (0,4) -- (88,4) -- (88,5) -- (0,5) -- cycle;
@@ -23,77 +22,41 @@
 \fill[slate] (78.1,5) rectangle (79.3,16.4);
 \pic at (78.7,16.4) {raised rotor};
 \node[label, anchor=south] at (8,24.6) {bridge};
-\draw[leader] (64.9,11) -- (72,30);
-\draw[leader] (36.1,11) -- (44,30);
-\node[label, anchor=south, align=center] at (58,30.4) {rotor pairs on supports in the gaps\\ between bays, above the stacks};
+\draw[leader] (64.9,11) -- (74,33.6);
+\draw[leader] (36.1,11) -- (62,33.6);
+\node[label, anchor=south, align=center] at (70,34) {rotor pairs on columns\\ between bays};
 \draw[leader] (25,12) -- (23,30.6);
 \node[label, anchor=south] at (22,31) {stacks};
-% ---- (b) a column, along the ship
-\begin{scope}[shift={(118,0)}]
+\end{scope}
+% ---- (b) a column, along the ship, bow to the right
+\begin{scope}[shift={(97,0)}]
   \node[panel] at (-6,40) {(b) Column, side};
   \fill[deck] (-6,4) rectangle (36,5);
   \pic at (-4,5) {stack=14.6};
   \pic at (12.4,5) {stack=14.6};
   \fill[slate] (10.6,5) rectangle (12.4,15.6);
   \pic at (11.5,15.6) {raised rotor};
-  \draw[force] (11.5,23.6) -- (2,23.6);
-  \node[label, anchor=south] at (4.6,24.2) {$F_w$};
+  \draw[force] (11.5,23.6) -- (21,23.6);
+  \node[label, anchor=south] at (18.4,24.2) {$F_w$};
   \draw[dimension] (32,5) -- (32,15.6);
   \node[label, anchor=west] at (32.8,10.3) {$H$};
   \draw[dimension] (32,15.6) -- (32,23.6);
   \node[label, anchor=west] at (32.8,19.6) {$h/2$};
-  \draw[guide, densely dashed] (14,23.6) -- (32,23.6);
+  \draw[guide, densely dashed] (21.6,23.6) -- (32,23.6);
   \draw[guide, densely dashed] (14,15.6) -- (32,15.6);
   \draw[leader] (11.5,8) -- (11.5,1.4);
   \node[label, anchor=north] at (11.5,1) {column in the gap $b$ between bays};
 \end{scope}
-% ---- (c) a frame, along the ship
-\begin{scope}[shift={(0,-50)}]
-  \node[panel] at (2,40) {(c) Frame, side};
-  \fill[deck] (-2,4) rectangle (50,5);
-  \pic at (0,5) {stack=14.6};
-  \pic at (16.4,5) {lost stack=14.6};
-  \pic at (32.8,5) {stack=14.6};
-  \fill[slate] (14.6,5) rectangle (16.4,16.8);
-  \fill[slate] (31,5) rectangle (32.8,16.8);
-  \fill[slate] (14.6,15.6) rectangle (32.8,16.8);
-  \pic at (23.7,16.8) {raised rotor};
-  \draw[force] (23.7,24.8) -- (14.2,24.8);
-  \node[label, anchor=south] at (16.8,25.4) {$F_w$};
-  \draw[dimension] (15.5,2) -- (31.9,2);
-  \node[label, anchor=north] at (23.7,1.6) {$L$};
-  \draw[leader] (31.9,16.2) -- (38,30);
-  \node[label, anchor=south] at (40,30.4) {beam};
-  \draw[leader] (20,8) -- (9,2.2);
-  \node[label, anchor=north] at (6,1.8) {cells not worked};
-\end{scope}
-% ---- (d) the frame's bay, looking forward
-\begin{scope}[shift={(66,-50)}]
-  \node[panel] at (10,40) {(d) Frame bay, across};
-  \fill[topsides] (0,-1) rectangle (50,4);
-  \fill[deck] (0,4) rectangle (50,5);
-  \foreach \row in {0,...,17} {
-    \pgfmathtruncatemacro{\lost}{\row < 2 || \row > 15}
-    \ifnum\lost=1 \pic at (1.6+2.6*\row,5) {lost stack=2.6};
-    \else \pic at (1.6+2.6*\row,5) {stack=2.6}; \fi}
-  \fill[slate] (1.6,15.6) rectangle (6.8,16.8);
-  \fill[slate] (43.2,15.6) rectangle (48.4,16.8);
-  \pic at (4.2,16.8) {raised rotor};
-  \pic at (45.8,16.8) {raised rotor};
-  \draw[leader] (5.5,11) -- (16,29);
-  \draw[leader] (44.5,11) -- (34,29);
-  \node[label, anchor=south, align=center] at (25,29.4) {two rows under each beam,\\ all tiers, not worked};
-\end{scope}
-% ---- (e) the box section of a column or a frame's member, from above
-\begin{scope}[shift={(130,-50)}]
-  \node[panel] at (-2,40) {(e) Section};
+% ---- (c) the column's box section, from above, bow to the right
+\begin{scope}[shift={(145,0)}]
+  \node[panel] at (-2,40) {(c) Section};
   \draw[slate, line width=1.2pt] (0,8) rectangle (6,24);
   \draw[dimension] (0,5.2) -- (6,5.2);
   \node[label, anchor=north] at (3,4.8) {$b$};
-  \draw[dimension] (8.6,8) -- (8.6,24);
-  \node[label, anchor=west] at (9.2,16) {$D$};
-  \draw[force] (3,16) -- (-4,16);
-  \node[label, anchor=south] at (-2.4,16.6) {$F_w$};
+  \draw[dimension] (-2.6,8) -- (-2.6,24);
+  \node[label, anchor=east] at (-3.2,16) {$D$};
+  \draw[force] (3,16) -- (10,16);
+  \node[label, anchor=south] at (9.4,16.6) {$F_w$};
   \draw[force] (3,24.8) -- (3,31);
   \node[label, anchor=west] at (3.6,29.4) {$m a$};
   \draw[leader] (6,21) -- (9.4,27);

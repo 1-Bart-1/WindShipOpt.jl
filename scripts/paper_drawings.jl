@@ -48,10 +48,10 @@ function horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
     thrust, sail = WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle, waves)
     air = WindShipOpt.wind_force(ship.windage, env, wind, angle, speed)
     total = sail + air
-    balance = WindShipOpt.HullBalance(ship, speed, total)
     calm = WindShipOpt.resistance(hull, env, speed; coefficients=ship.wave_coefficients)
+    balance = WindShipOpt.HullBalance(ship, speed, total, calm + waves)
     stern = -hull.length / 2
-    centre = WindShipOpt.lateral_centre(hull)
+    centre = balance.lateral_centre
     force(symbol, along, across, at, colour) = (; symbol, along, across, at, colour)
     forces = [force(raw"F_x", sail.thrust, 0.0, lever(sail), rig),
         force(raw"F_y", 0.0, sail.side, lever(sail), rig),
@@ -116,8 +116,29 @@ end
 force_label(force) =
     "\$" * force.symbol * " = " * kilonewtons_text(force.along + force.across) * "\$"
 
-"millimetres per kilonewton and per metre at which [`force_balance_figure`](@ref) draws"
-force_balance_scale = (force=0.1, length=0.5)
+"""
+millimetres per kilonewton and per metre at which [`force_balance_figure`](@ref) draws, and
+the longest arrow [mm] it draws to scale
+"""
+force_balance_scale = (force=0.1, length=0.5, longest=30.0)
+
+"length [mm] of a force `value` [N] to the scale of [`force_balance_figure`](@ref)"
+scaled_length(value) = value / 1e3 * force_balance_scale.force
+
+"""
+    arrow_length(value)
+
+Signed length [mm] of the arrow of a force `value` [N] in [`force_balance_figure`](@ref): to
+scale, or the longest of [`force_balance_scale`](@ref) where longer, as a broken arrow.
+"""
+arrow_length(value) =
+    sign(value) * min(abs(scaled_length(value)), force_balance_scale.longest)
+
+"whether [`arrow_length`](@ref) shortens the arrow of the force `value` [N]"
+is_broken(value) = abs(scaled_length(value)) > force_balance_scale.longest
+
+"TikZ options of the arrow of the force `value` [N]: broken past its labels if shortened"
+break_option(value) = is_broken(value) ? ", broken=0.75" : ""
 
 "the sections of the paper that give the forces drawn in each colour"
 force_sections = Dict("water" => raw"\S\ref{sec:ships}, \S\ref{sec:balance}",
@@ -145,7 +166,9 @@ half_beam() = paper_ship.half_beam * force_balance_scale.length
 Write paper/figures/force_balance.tex: the [`horizontal_forces`](@ref) on the 140 m ship at
 10.5 kn in a 10 m/s beam wind and calm water, seen from above with the bow up, for a kite,
 wing sails and rotors at their best trim, ship and rig to scale and the forces to one
-scale, with a key; error unless each set [`check_balance`](@ref)s.
+scale but for the broken arrows of [`arrow_length`](@ref), with a key, the panels spread
+across the [`text_width`](@ref); error unless each set [`check_balance`](@ref)s and the
+panels fit.
 """
 function force_balance_figure()
     speed, wind, angle = 10.5KNOT, 10.0, deg2rad(90)
@@ -161,12 +184,14 @@ function force_balance_figure()
     write_whole(joinpath(figures, "force_balance.tex")) do io
         println(io, "% Written by the force_balance step of scripts/paper.jl.")
         println(io, raw"\begin{tikzpicture}[x=1mm, y=1mm]")
+        extents = map(across_extent, panels)
+        gap = (text_width - sum(sum, extents)) / (length(panels) - 1)
+        gap >= 3 || error(@sprintf("the force balance panels are %.0f mm too wide",
+            3 - gap))
         left = 0.0
-        for (i, panel) in enumerate(panels)
-            windward, leeward = across_extent(panel)
-            left += windward
-            draw_force_panel(io, panel, left, top, 'a' + i - 1)
-            left += leeward + 3
+        for (i, (panel, (windward, leeward))) in enumerate(zip(panels, extents))
+            draw_force_panel(io, panel, left + windward, top, 'a' + i - 1)
+            left += windward + leeward + gap
         end
         force_balance_key(io, 0.0, bottom - 4.5)
         println(io, raw"\end{tikzpicture}")
@@ -176,13 +201,27 @@ end
 """
     panel_top(panel)
 
-Height [mm] above midship that the bow, the arrows and the tether of `panel` reach in
-[`force_balance_figure`](@ref).
+Height [mm] above midship that the bow, the arrows, their labels and the tether of
+`panel` reach in [`force_balance_figure`](@ref).
 """
 function panel_top(panel)
     heads = [arrow_ends(force)[2][2] for force in panel.forces]
-    return max(maximum(heads), paper_ship.stem * force_balance_scale.length,
+    labels = [label_top(force, panel.forces) for force in panel.forces]
+    return max(maximum(heads), maximum(labels),
+        paper_ship.stem * force_balance_scale.length,
         tether_end(panel.ship.rig, panel.forces)[2])
+end
+
+"""
+    label_top(force, forces)
+
+Height [mm] of the top of the label of `force` among `forces` from its
+[`label_place`](@ref): a label's pitch above a south anchor, half of it above a centred one.
+"""
+function label_top(force, forces)
+    anchor, (_, level) = label_place(force, forces)
+    startswith(anchor, "north") && return level
+    return level + (startswith(anchor, "south") ? label_pitch : label_pitch / 2)
 end
 
 """
@@ -194,7 +233,7 @@ the wind and the tether.
 """
 function across_extent(panel)
     reach(sign) = maximum(panel.forces) do force
-        head = force.across / 1e3 * force_balance_scale.force
+        head = arrow_length(force.across)
         sign * head <= 0 && return 0.0
         return abs(head) + (label_past_head(force, panel.forces) ? label_width + 1 : 0)
     end
@@ -271,8 +310,7 @@ point, on the centreline at its lever.
 """
 function arrow_ends(force)
     across = !iszero(force.across)
-    reach = (across ? (force.across, 0.0) : (0.0, force.along)) ./ 1e3 .*
-            force_balance_scale.force
+    reach = across ? (arrow_length(force.across), 0.0) : (0.0, arrow_length(force.along))
     point = (0.0, force.at * force_balance_scale.length)
     return point, point .+ reach
 end
@@ -297,7 +335,8 @@ function draw_force(io, force, forces)
         println(io, "\\filldraw[", force.colour, ", draw=white, line width=",
             tex_size("rule"), "] ", tikz_point(tail...), " circle (0.7);")
     else
-        println(io, "\\draw[force, ", force.colour, "] ", tikz_point(tail...), " -- ",
+        println(io, "\\draw[force, ", force.colour,
+            break_option(force.along + force.across), "] ", tikz_point(tail...), " -- ",
             tikz_point(head...), ";")
     end
     anchor, at = label_place(force, forces)
@@ -314,7 +353,7 @@ would be shorter than an arrowhead, else `:arrow`.
 function mark_style(force)
     value = abs(force.along + force.across)
     value < 500 && return :ring
-    value / 1e3 * force_balance_scale.force < arrowhead_length() && return :dot
+    abs(arrow_length(value)) < arrowhead_length() && return :dot
     return :arrow
 end
 
@@ -328,7 +367,7 @@ force across the ship to the same side acts within two labels' height.
 function label_past_head(force, forces)
     iszero(force.across) && return false
     beside(force, forces) === nothing || return false
-    return abs(force.across) / 1e3 * force_balance_scale.force < label_width + 1
+    return abs(arrow_length(force.across)) < label_width + 1
 end
 
 """
@@ -354,26 +393,48 @@ end
 Anchor and point [mm] of the label of `force` among `forces`. Across the ship: past the
 head of an arrow shorter than its label, else against the hull above the arrow, or below
 it where another force across to the same side acts just forward, or, with none such,
-where a force along the ship leaves the same point. Along the ship: to windward of the
-hull, level with the head of the arrow or just above a mark.
+where a force along the ship leaves the same point or has its label beside that place,
+then a label's pitch below that label.
+Along the ship: to windward of the hull at its [`along_label_level`](@ref).
 """
 function label_place(force, forces)
     tail, head = arrow_ends(force)
-    if !iszero(force.across)
-        side = sign(force.across)
-        towards = side > 0 ? "west" : "east"
-        label_past_head(force, forces) && return towards, head .+ (side * 0.8, 0.0)
-        other = beside(force, forces)
-        thrust_here = any(forces) do other
-            other.along > 0 &&
-                abs(other.at - force.at) * force_balance_scale.length < label_pitch
-        end
-        below = other === nothing ? thrust_here : other.at > force.at
-        return (below ? "north " : "south ") * towards,
-        (side * (half_beam() + 0.8), head[2] + (below ? -0.7 : 0.7))
+    iszero(force.across) &&
+        return "east", (-half_beam() - 0.8, along_label_level(force, forces))
+    side = sign(force.across)
+    towards = side > 0 ? "west" : "east"
+    label_past_head(force, forces) && return towards, head .+ (side * 0.8, 0.0)
+    other = beside(force, forces)
+    thrust_here = any(forces) do other
+        other.along > 0 &&
+            abs(other.at - force.at) * force_balance_scale.length < label_pitch
     end
+    levels = [along_label_level(other, forces) for other in forces
+              if side < 0 && iszero(other.across) && !is_resistance(other)]
+    clash = filter(level -> abs(level - (head[2] + 0.7 + label_pitch / 2)) < label_pitch,
+        levels)
+    below = other === nothing ? thrust_here || !isempty(clash) : other.at > force.at
+    level = below ? min(head[2] - 0.7, minimum(clash; init=Inf) - label_pitch) :
+            head[2] + 0.7
+    return (below ? "north " : "south ") * towards, (side * (half_beam() + 0.8), level)
+end
+
+"""
+    along_label_level(force, forces)
+
+Height [mm] of the label of the force along the ship `force` among `forces`: level with the
+head of its arrow, or just above a mark, and just below the arrow of a force across the
+ship to windward that would run through it.
+"""
+function along_label_level(force, forces)
+    tail, head = arrow_ends(force)
     level = mark_style(force) == :arrow ? head[2] - 2 : tail[2] + 1.8
-    return "east", (-half_beam() - 0.8, level)
+    for other in forces
+        other.across < 0 || continue
+        arrow = first(arrow_ends(other))[2]
+        abs(arrow - level) < label_pitch / 2 && (level = arrow - label_pitch / 2 - 0.5)
+    end
+    return level
 end
 
 """
@@ -387,10 +448,11 @@ function draw_resistances(io, forces, stern)
     resistances = sort(filter(is_resistance, forces); by=force -> force.along)
     start, levels = stern, Float64[]
     for (i, force) in enumerate(resistances)
-        reach = force.along / 1e3 * force_balance_scale.force
+        reach = arrow_length(force.along)
         last = i == length(resistances) || abs(resistances[i + 1].along) < 500
         if abs(force.along) >= 500
-            println(io, "\\draw[force, ", last ? "" : "-, ", force.colour, "] ",
+            println(io, "\\draw[force, ", last ? "" : "-, ", force.colour,
+                break_option(force.along), "] ",
                 tikz_point(0, start), " -- ", tikz_point(0, start + reach), ";")
         end
         push!(levels, start + reach / 2)
@@ -418,8 +480,8 @@ Height [mm] at which the resistances among `forces` on `ship`, end to end aft of
 as [`draw_resistances`](@ref) draws them, end.
 """
 function resistance_end(ship, forces)
-    resistance = sum(force.along for force in forces if is_resistance(force))
-    return stern(ship) + resistance / 1e3 * force_balance_scale.force
+    return stern(ship) +
+           sum(arrow_length(force.along) for force in forces if is_resistance(force))
 end
 
 """
@@ -499,10 +561,10 @@ function force_balance_key(io, left, top)
             "\\inpaper{, ", force_sections[colour], "}};")
     end
     x, y = left + 1.5 + 2column, row_y(2)
-    scale, metres = force_balance_scale.force, force_balance_scale.length
+    metres = force_balance_scale.length
     @printf(io,
         "\\draw[|-|, line width=%s] %s -- %s node[note, anchor=west] {\\SI{100}{kN}};\n",
-        tex_size("rule"), tikz_point(x, y), tikz_point(x + 100scale, y))
+        tex_size("rule"), tikz_point(x, y), tikz_point(x + scaled_length(100e3), y))
     @printf(io,
         "\\draw[|-|, line width=%s] %s -- %s node[note, anchor=west] {\\SI{20}{m}};\n",
         tex_size("rule"), tikz_point(x + 22, y), tikz_point(x + 22 + 20metres, y))
@@ -547,6 +609,14 @@ function draw_side_rig!(axis, rig, hull, form, offset)
 end
 
 """
+    launch_mast_height(area)
+
+Drawn height [m] of the launch mast of a kite of projected `area` [m^2], as the SkySails
+and Airseas masts: 1.3 times the square root of the area, up to Airseas' 35 m.
+"""
+launch_mast_height(area) = min(1.3sqrt(area), 35.0)
+
+"""
     side_kite(area, hull)
 
 Heights [m] above the waterline and span [m] of the side view of a kite of projected
@@ -556,7 +626,7 @@ its control unit, drawn just above the mast, and the top of its canopy.
 function side_kite(area, hull)
     span = sqrt(area * design_aspect_ratio)
     deck = assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
-    mast_top = deck + WindShipOpt.launch_mast_height(area, assumptions)
+    mast_top = deck + launch_mast_height(area)
     foot = mast_top + 20
     return (; span, deck, mast_top, foot, top=foot + last(kite_extent) * span)
 end
@@ -602,16 +672,16 @@ end
 """
     ship_classes_figure()
 
-The standard ship classes in deadweight order, side by side to one scale, each with the
+The standard ship classes in [`class_order`](@ref), side by side to one scale, each with the
 geometric mean over the routes of the best size on VLSFO of each rig the class study holds,
 laid out as the model lays them out.
 """
 function ship_classes_figure()
-    table = read_table(data_file("classes.csv"))
+    table = read_classes(data_file("classes.csv"))
     names = class_order(table)
     classes = ship_classes()
     routes_seen = unique(table["route"])
-    kinds = last.(study_rigs(table))
+    kinds = last.(single_rigs(table))
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
     rows = [drawn_class(name, classes[name], table, routes_seen, kinds) for name in names]
@@ -647,7 +717,7 @@ function ship_classes_figure()
         centre = (column - 1) * (longest + gap) + longest / 2
         text!(axis, centre, 10; text=title, align=(:center, :bottom))
     end
-    bar = Point2f(-0.25width, -last(tops) + 10)
+    bar = Point2f(-0.25width, 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)

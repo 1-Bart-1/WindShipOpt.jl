@@ -80,8 +80,11 @@ Heel limit & \num{8} & \num{5}--\num{12} & deg & \citet{tillig2020}: ShipCLEAN r
 Hicp today & \num{128.75} &  & -- & \citet{eurostat2026hicp}: euro area consumer prices, 2025 \\
 Holtrop max prismatic & \num{0.85} & \num{0.85}--\num{1} & -- & \citet{ortigosa2009}: top of the Holtrop-Mennen range of validity \\
 Hotel load & \num{60}\textsuperscript{e} &  & kW & Authors' estimate; \citet{damen2025cf3850}: service genset size \\
+Hull foundation depth & \num{4} & \num{3.5}--\num{4} & m & \citet[p. 23]{wasp2023bpm}: a newbuild rotor's foundation below deck \\
+Hull foundation load factor & \num{1.15} &  & -- & \citet[Sec 8, 4.3.1]{bv2026nr206}: extra factor on the supporting hull structure \\
 Hull lifetime & \num{25} & \num{20}--\num{30} & years & \citet{breakwave2025demolition}: average ship demolition age \\
-Hull side force factor & \num{1} & \num{0.5}--\num{1} & -- & Kijima regression (\citealp{kim2021}); \citet{vanderkolk2021}: tank tests lower \\
+Hull side force cubic & \num{11} & \num{11}--\num{15} & 1/rad\textsuperscript{2} & \citet{toxopeus2011}: NMRI tank tests of the KVLCC2M tanker; \citet{vanderkolk2021} high \\
+Hull side force factor & \num{0.55} & \num{0.32}--\num{1} & -- & \citet{toxopeus2011}: KVLCC2M tests; \citet{vanderkolk2021} low; Kijima (\citealp{kim2021}) high \\
 Installation fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: installation on a newbuild \\
 Kite aspect ratio & \num{3}\textsuperscript{e} &  & -- & Authors' estimate, above the SkySails kites (\citealp{paulig2013}); \cref{app:kite_aspect} \\
 Kite attach height & \num{10}\textsuperscript{e} &  & m & Authors' estimate: tether attached on the bow mast \\
@@ -104,9 +107,7 @@ Kite min elevation & \num{8}\textsuperscript{e} &  & deg & Authors' estimate: cl
 Kite min turn radius & \num{2.3} & \num{1.5}--\num{4.3} & -- & \citet[Eq. 7]{erhard2013}: SkySails turn rate law; \cref{sec:det_kite} \\
 Kite out of service & \num{0.03} &  & -- & Development goal: the same as for the rotors \\
 Kite stall margin & \num{2}\textsuperscript{e} &  & deg & Authors' estimate: bridle trim margin for gusts \\
-Launch mast height ratio & \num{1.3} & \num{1.11}--\num{1.34} & -- & \citet{nextnature2007kiteship}; \citet{airseas_seawing_web}: built launch masts \\
 Launch mast mass per size & \num{0.86} & \num{0.54}--\num{1.41} & t/m & \citet[Annex A.4]{cedelft2016}: SkySails system mass less its winch \\
-Launch mast max height & \num{35} & \num{29}--\num{60} & m & \citet{airseas_seawing_web}: tallest kite launch mast at sea \\
 Launch mast width & \num{1}\textsuperscript{e} &  & m & Authors' estimate: mast tube with its foundation \\
 Layout mean wind & \num{8}\textsuperscript{e} &  & m/s & Authors' estimate: mean 10~m wind on the routes, ERA5 \\
 Leeway limit & \num{10} & \num{6}--\num{15} & deg & \citet{tillig2020}: range of captive tests on wind-assisted hulls \\
@@ -157,7 +158,7 @@ Rigid kite cycle loss probability & \num{0.0001} &  & -- & Development goal; \ci
 Rigid kite drag & \num{0.07} & \num{0.054}--\num{0.127} & -- & MX2 drag less induced (\citealp[Part I, Table 1]{echeverri2020part1}); \cref{sec:det_rigid} \\
 Rigid kite hover max wave height & \num{3}\textsuperscript{e} &  & m & Authors' estimate; one offshore hover lost the kite (\citealp{echeverri2020part1}); \cref{sec:det_rigid} \\
 Rigid kite hover power per mass & \num{470} & \num{200}--\num{950} & W/kg & Momentum theory on MX2 (\citealp[Part I, Eq. 89]{echeverri2020part1}); \cref{sec:det_rigid} \\
-Rigid kite mass & \num{1852} & \num{891}--\num{3240} & kg & \citet[Part I, Table 2]{echeverri2020part1}: MX2 design without tether; \cref{sec:det_rigid} \\
+Rigid kite mass & \num{1854} & \num{891}--\num{3240} & kg & \citet[Part II, pp.287-288]{echeverri2020part2}: MX2 build-up without tether; \cref{sec:det_rigid} \\
 Rigid kite mass exponent & \num{2.5} & \num{2.2}--\num{3.1} & -- & \citet{sommerfeld2022scaling}; \citet{vanhagen2023}; \citet{noth2008}: wings built and designed; \cref{sec:det_rigid} \\
 Rigid kite max force per area & \num{5.56} & \num{4.6}--\num{7.3} & kN/m\textsuperscript{2} & \citet[Part I, Table 1]{echeverri2020part1}: MX2 design force \\
 Rigid kite max lift & \num{2} & \num{1.8}--\num{2.2} & -- & \citet[Table 1]{joshi2024powercurve}: MX2 static lift speed \\
@@ -185,9 +186,12 @@ Rotor spacing & \num{3} & \num{2.5}--\num{5} & diameters & \citet{bordogna2020}:
 Rotor unit cost & \num{74000}\textsuperscript{e} &  & USD & Authors' build-up of Norsepower rotors (\citealp[p. 3]{norsepower2025}); \cref{sec:val_cost} \\
 Rudder aspect ratio & \num{1.6} & \num{1.4}--\num{3} & -- & \citet{kramer2022}: CFD of a wind-powered cargo ship \\
 Rudder max lift & \num{1}\textsuperscript{e} &  & -- & Authors' estimate: below stall, keeping some for steering \\
+Rudder wake fraction & \num{0.19} &  & -- & \citet{kramer2022}: CFD of two wind-powered cargo ships \\
 Sea margin & \num{0.15} & \num{0.1}--\num{0.3} & -- & \citet{man2011}: historical sea margin \\
 Service speed & \num{10.5} & \num{9.5}--\num{12} & kn & \citet{conoship2023cip3800}; \citet{damen2025cf3850}: built coasters \\
 Shaft efficiency & \num{0.96} & \num{0.95}--\num{0.97} & -- & \citet{man2011}: shaft with reduction gear \\
+Single skin glide factor & \num{0.72} & \num{0.63}--\num{0.86} & -- & \citet[Figs. 9-10]{maughmer1979}; \citet[Table 5]{maslanka2024}; \cref{sec:det_single} \\
+Single skin line ratio & \num{1.5}\textsuperscript{e} &  & -- & Authors' estimate from \citet{niviuk_skin3}; \citet{niviuk_ikumap}: line length per area; \cref{sec:det_single} \\
 Source sea margin & \num{0.15} & \num{0.1}--\num{0.25} & -- & \citet{man2022bulk}: sea margin in the MAN source designs; \cref{app:calm_calibration} \\
 Steel density & \num{7850} &  & kg/m\textsuperscript{3} & \citet[Table 6]{joshi2025}: steel \\
 Steel modulus & \num{206000} &  & MPa & \citet[Sec 5, Tab 1, Note 1]{bv2026nr206}: carbon steel \\
@@ -207,7 +211,7 @@ Suction reference height & \num{26} &  & m & \citet{offshoreenergy2025orchard}: 
 Tether bend life & \num{1.0e6} & \num{450000}--\num{2.9e6} & bends & \citet{bosman2013}; \citet{davies2015}: bending tests of HMPE rope; \cref{app:tether_bending} \\
 Tether bends per launch & \num{8} & \num{4}--\num{10} & -- & \citet{skysails_patent_US11578697}: drum, two rollers and tow point disk \\
 Tether drag coefficient & \num{1.1} & \num{1}--\num{1.2} & -- & \citet[Table 1]{vandervlugt2019}: cylinder at tether Reynolds numbers \\
-Tether length ratio & \num{13} & \num{13}--\num{19.7} & -- & \citet[Fig. 18]{erhard2013}; \citet{paulig2013}: tethers SkySails flew; \cref{sec:det_kite} \\
+Tether length ratio & \num{10} & \num{8}--\num{13} & -- & Model trade of pattern against tether; \citet{paulig2013}: 13 spans SkySails flew; \cref{sec:det_kite} \\
 Tether lifetime & \num{16000} & \num{4700}--\num{45000} & flight hours & Creep laws of \citet{humeau2018} and \citet{bosman2013} over the routed trips; \cref{app:tether_life} \\
 Tether price & \num{93} &  & USD/kg & \citet[p. 703]{joshi2025}: Dyneema rope bought in series of 50 or more \\
 Tether rope density & \num{830} & \num{615}--\num{1130} & kg/m\textsuperscript{3} & \citet[Table 33.4]{bosman2013}: coated 12-strand rope at nominal diameter \\
@@ -215,7 +219,6 @@ Tether stress & \num{4.0e8} & \num{3.0e8}--\num{4.8e8} & Pa & \citet[Table 33.4]
 TEU tare mass & \num{1.85} & \num{1.85}--\num{2.3} & t & \citet{hapaglloyd_container_spec}: half a 40 ft dry container; \cref{app:cargo_units} \\
 TEU volume & \num{38.3} & \num{33.2}--\num{38.3} & m\textsuperscript{3} & \citet[p. 5]{mao2020icct}: external box of a standard TEU; \cref{app:cargo_units} \\
 Thrust deduction ratio & \num{0.6} & \num{0.5}--\num{0.75} & -- & \citet{man2011}: over the wake fraction \\
-Twistlock working load & \num{250} & \num{210}--\num{250} & kN & \citet{macgregor2023acv1}: safe working load of a twistlock in tension \\
 Two stroke engine efficiency & \num{0.51} & \num{0.48}--\num{0.53} & -- & \citet[Table 19]{faber2020}: fuel consumption of engines since 2001 \\
 USD per EUR & \num{1.16}\textsuperscript{e} &  & USD/EUR & Authors' estimate for 2026 \\
 VLSFO carbon intensity & \num{0.076} & \num{0.076}--\num{0.077} & tCO2/GJ & \citet[Annex]{eu2016delreg2071}: EU default for heavy fuel oil \\

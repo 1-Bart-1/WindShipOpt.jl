@@ -10,7 +10,7 @@ import {
   evaluated,
   inputValues,
   outcomes,
-  rigs,
+  shownRigs,
   type ExplorerData,
   type Outcome,
 } from "./explorer";
@@ -29,6 +29,7 @@ import {
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
 import { GridView } from "./grid/GridView";
+import { Commit } from "./Commit";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
@@ -75,16 +76,16 @@ function Explorer({ data }: { data: ExplorerData }) {
         <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails, Flettner rotors, suction sails and VTOL kites on cargo ships</h1>
         <p className="text-ink">
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
+          Every ship is a new one, designed and built with its rig, as the fleet of 2050 will be.
           Results read: if each rig reaches these goals, it saves this much. Set the goals to what is known
           today to see what each rig saves now, on the routes found at the goals. Changed inputs are recosted on the
           paper's routes; routing again would at most save a little more.
         </p>
-        {data.fidelity !== "final" && (
-          <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
-            Draft results ({data.fidelity} run, commit {data.git_commit.slice(0, 7)}): coarser routing than the
-            paper's final numbers.
-          </p>
-        )}
+        <p className={`rounded-[14px] px-3 py-2 text-sm text-ink ${data.fidelity === "final" ? "bg-ink/5" : "bg-mustard/30"}`}>
+          The numbers come from the run the paper shows: the {data.fidelity} run at commit{" "}
+          <Commit hash={data.git_commit} />.
+          {data.fidelity !== "final" && " Draft results: coarser routing than a final run's."}
+        </p>
       </header>
 
       <section className="flex flex-wrap gap-4">
@@ -96,7 +97,7 @@ function Explorer({ data }: { data: ExplorerData }) {
           options={drives.map((name) => [name, driveLabels[name]])} />
       </section>
 
-      <Results best={best} drive={drive} />
+      <Results best={best} drive={drive} rigs={shownRigs(data)} />
 
       <section className="space-y-4" aria-label="Inputs">
         <div className="sticky top-0 z-20 -mx-2 flex flex-wrap items-center gap-x-4 gap-y-2 bg-paper px-2 py-2">
@@ -205,7 +206,7 @@ function Slider(props: {
   );
 }
 
-function Results({ best, drive }: { best: Map<string, Outcome>; drive: string }) {
+function Results({ best, drive, rigs }: { best: Map<string, Outcome>; drive: string; rigs: readonly string[] }) {
   const winner = bestRig(best);
   const bare = best.get("none");
   const ownFuel = drive !== "ammonia" && drive !== "vlsfo";

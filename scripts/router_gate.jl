@@ -32,7 +32,7 @@ CHECKED_APART = ("bilbao",)
 "first line of a gate file"
 GATE_HEADER = "ship,rig,route,departure,cost,fuel,flight"
 
-"departures of the gate: every sixth of the paper's, twelve on ERA5"
+"departures of the gate: every sixth of the 14-day departures, twelve on ERA5"
 gate_departures() = departures[1:6:end]
 
 """
@@ -53,31 +53,33 @@ function planner_fidelity(factor=1; scale=1, settings=WindShipOpt.RouterSettings
             (name => finer(name) for name in steps)...))
 end
 
-"`ShipDesign` of the gate's ship `ship` with `rig` of the size `sizes` gives it"
-function gate_design(ship, rig, sizes)
+"`ShipDesign` of the gate's ship `ship` on `drive` with `rig` of the size `sizes` gives it"
+function gate_design(ship, rig, sizes, drive)
     hull = ship == "140m" ? 140.0 : ship_classes()["Kamsarmax bulk carrier"]
-    rig == "none" && return ShipDesign(:ammonia, hull)
+    rig == "none" && return ShipDesign(drive, hull)
     keyword = Dict("kite" => :kite_area, "wings" => :wing_area,
         "rotors" => :rotor_area)[rig]
-    return ShipDesign(:ammonia, hull; NamedTuple{(keyword,)}((sizes[rig],))...)
+    return ShipDesign(drive, hull; NamedTuple{(keyword,)}((sizes[rig],))...)
 end
 
 "rig sizes of the gate's ships [m^2]"
 gate_sizes = Dict("140m" => Dict("kite" => 3200.0, "wings" => 1500.0, "rotors" => 800.0),
     "kamsarmax" => Dict("kite" => 3200.0, "wings" => 3000.0, "rotors" => 1600.0))
 
-"cases of each (ship, route, rigs), each a NamedTuple of ship, rig, route and design"
-gate_case_list(entries) =
-    [(; ship, rig, route, design=gate_design(ship, rig, gate_sizes[ship]))
+"cases of each (ship, route, rigs) on `drive`, each a NamedTuple of ship, rig, route and
+design"
+gate_case_list(entries, drive=:ammonia) =
+    [(; ship, rig, route, design=gate_design(ship, rig, gate_sizes[ship], drive))
      for (ship, route, rigs) in entries for rig in rigs]
 
 """
-    development_cases()
+    development_cases(drive=:ammonia)
 
-The 140 m e-ammonia ship to Guadeloupe without a rig, with a kite and with rotors, on which
-every planner setting is chosen.
+The 140 m ship to Guadeloupe without a rig, with a kite and with rotors, on `drive`; on
+e-ammonia, the case on which every planner setting is chosen.
 """
-development_cases() = gate_case_list([("140m", :caribbean, ("none", "kite", "rotors"))])
+development_cases(drive=:ammonia) =
+    gate_case_list([("140m", :caribbean, ("none", "kite", "rotors"))], drive)
 
 """
     gate_cases()

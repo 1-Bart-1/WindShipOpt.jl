@@ -2,13 +2,13 @@
 
 > **Work in progress.** The model, its inputs and the paper are still changing, and the numbers in this repository are drafts that later runs replace. Do not cite or rely on them yet.
 
-Design optimisation of wind-assisted coasters for long ocean routes. It compares towing kites, wing sails and Flettner rotors, alone or combined, on cargo ships from coasters to Megamax container ships, on VLSFO, e-methanol or hydrogen, with weather routing on every voyage. The figure of merit is the cost per tonne-kilometre of the transport service.
+Design optimisation of wind-assisted coasters for long ocean routes. It compares towing kites, wing sails and Flettner rotors, with suction sails and the rigid VTOL kite beside them, alone or combined, on cargo ships from coasters to Megamax container ships, on VLSFO, e-methanol or e-ammonia, with weather routing on every voyage. The figure of merit is the cost per tonne-kilometre of the transport service.
 
 ## Model chain
 
 1. **Hull**: Holtrop–Mennen (1984) calm-water resistance, with Kijima side-force slope and slender-body induced drag for leeway.
-2. **Rig**: rigid wings via a lifting-line polar and Flettner rotors via fitted coefficients, with array interference; kite via a quasi-steady crosswind model without reeling, with pattern centre, width, heading and angle of attack optimised per wind; all limited by heel and leeway.
-3. **Propulsion**: actuator-disk propeller with a viscous loss factor; diesel engines, gensets or PEM fuel cells with a part-load efficiency curve.
+2. **Rig**: rigid wings and suction sails via a lifting-line polar and Flettner rotors via fitted coefficients, with array interference; kite via a quasi-steady crosswind model without reeling, with pattern centre, width, heading and angle of attack optimised per wind; all limited by heel and leeway.
+3. **Propulsion**: actuator-disk propeller with a viscous loss factor; a diesel engine on VLSFO, diesel-electric gensets on e-methanol or a dual-fuel engine on e-ammonia, each with a part-load efficiency curve.
 4. **Performance table**: required thrust over (speed, 10 m wind, true wind angle), kite flown and stowed, plus added resistance over (speed, peak period, wave heading), per design.
 5. **Routing**: forward dynamic programming over (stage, lateral node, arrival time) in a corridor, minimising fuel cost plus time cost.
 6. **Economics**: capital annuity, crew, maintenance, port calls and cargo interest; the time cost per hour makes the per-voyage optimum the per-tonne-km optimum.
@@ -31,19 +31,7 @@ A final run takes days on a workstation, so it belongs on the box or a cluster.
 
 **On the box**, the project's shared server, the weather and the store of routed round trips already exist: link them into the checkout with `ln -s /var/lib/windship/era5 era5` and `ln -s /var/lib/windship/output output`, then start `paper` as above. Runs there share the store, so a later run reuses every round trip an earlier one routed.
 
-**On DelftBlue**, TU Delft's cluster, with your NetID and no other access:
-
-```bash
-ssh <netid>@login.delftblue.tudelft.nl   # from outside TU Delft's network, connect eduVPN first
-tmux                   # the setup's weather download takes hours
-curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/delftblue_setup | bash
-exec bash -l           # puts julia on your PATH
-cd /scratch/$USER/WindShipOpt.jl
-bin/cluster submit final        # or: bin/cluster submit draft
-bin/cluster status
-```
-
-The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the research account `research-ae-fpt` set in `scripts/cluster.toml`, which allows up to 64 jobs at once; the run uses all 64, of 6 hours each, and resumes by itself past that. `/scratch` is cleared of old files, so copy `output/` home after a run, and run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
+**On DelftBlue**, TU Delft's cluster, a run needs only a NetID: [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the setup and how to submit, watch and keep a run.
 
 To try the model on one ship without the paper: `./bin/run_julia scripts/compare_designs.jl`.
 
@@ -51,7 +39,7 @@ To try the model on one ship without the paper: `./bin/run_julia scripts/compare
 
 `site/` is the paper's companion website, one page read top to bottom: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. Each input marks when it differs from the paper's value and has a button that sets it back, and one button sets back all of them. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice and the site routes nothing of its own. It offers only inputs that change what a voyage costs, over their range in the paper, and fuel and carbon prices, which shift the ship's speed, only by a moderate change. A full paper run writes the site's data into its run directory at its end; `paper(:site; fidelity)` packs them again from the run in use.
 
-The site reads its data from the newest final run, or from the newest draft run until there is one (`EXPLORER_JSON=<path>`, `PASSAGES_DIRECTORY=<path>` and `GRIDS_JSON=<path>` pick others). With Node.js 20.19, or 22.12 or later:
+The site is published at <https://1-bart-1.github.io/WindShipOpt.jl/>, built from the run the paper's results name: on every change to `site/` or to that run, a workflow downloads the run from its GitHub release (`docs/paper_runs.md`) and deploys the site, which names the run's commit and fidelity. Built locally, it reads its data from the newest final run, or from the newest draft run until there is one; `RUN_DIRECTORY=<path>` picks another run. With Node.js 20.19, or 22.12 or later:
 
 ```bash
 ./bin/explorer              # http://localhost:5173
