@@ -70,14 +70,12 @@ study_steps = [:base_kite => base_kite_data, :sea_effect => sea_effect_data,
     :measured_savings => measured_savings_data, :wind_height => wind_height_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
-study_tables = Dict(:sea_effect => [:sea_effect_table => sea_effect_table],
-    :published_terms => [:published_table => published_table],
+study_tables = Dict(:published_terms => [:published_table => published_table],
     :routing_value => [:routing_value_numbers => routing_value_numbers_file],
     :today_routing => [:today_routing_numbers => today_routing_numbers_file],
     :measured_savings => [:measured_table => measured_table,
         :measured_numbers => measured_numbers_file],
-    :wind_height => [:wind_height_numbers => wind_height_numbers_file,
-        :wind_height_table => wind_height_table])
+    :wind_height => [:wind_height_numbers => wind_height_numbers_file])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -100,7 +98,8 @@ output_steps = [:kite => kite_figure, :wind_load => wind_load_figure,
     :fuels => fuel_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure,
-    :forecast_figure => forecast_figure, :input_tables => input_tables,
+    :forecast_figure => forecast_figure, :known_errors => known_errors_figure,
+    :model_limits => model_limits_figure, :input_tables => input_tables,
     :rotor_prices_table => rotor_prices_table,
     :development_table => development_table,
     :class_table => class_dimension_table,

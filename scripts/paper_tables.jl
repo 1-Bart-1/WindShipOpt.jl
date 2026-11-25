@@ -1829,48 +1829,6 @@ function wind_height_numbers_file()
 end
 
 """
-    wind_height_table()
-
-Write to paper/sections/wind_height_table.tex, from the wind height study, the kite's cost
-saving, share of the time aloft and gap to the rotors on ERA5's hourly wind at its height
-and on each power law, and how far each power law moves the saving, paired by departure.
-"""
-function wind_height_table()
-    table = read_table(study_file(:wind_height, "wind_height.csv"))
-    cost(wind, exponent, rig) = Dict(table["departure"][row] => table["cost"][row]
-        for row in rows(table, "wind" => wind, "exponent" => exponent, "rig" => rig))
-    bare, rotors = cost("hourly", 0.0, "none"), cost("hourly", 0.0, "rotors")
-    days = sort(collect(keys(bare)))
-    saving(costs) = percent_saving(sum(costs[day] for day in days), sum(values(bare)))
-    by_day(costs) = [percent_saving(costs[day], bare[day]) for day in days]
-    hourly = cost("hourly", 0.0, "kite")
-    exponents = sort(unique(table["exponent"][rows(table, "wind" => "profile")]))
-    shear = read_table(study_file(:wind_height, "wind_shear.csv"))
-    fitted = only(rows(shear, "place" => "routes"))
-    names = Dict(round(shear["exponent"][fitted]; digits=3) => " (ERA5 fit)",
-        round(shear["cube_exponent"][fitted]; digits=3) => " (fit to the cubes)")
-    write_whole(joinpath(sections, "wind_height_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}lrrrr@{}}\n\\toprule")
-        println(io, "Kite's wind & Saving [\\%] & Time aloft [\\%] & ",
-            "Gap to rotors [points] & Change [points] \\\\\n\\midrule")
-        for (label, wind, exponent) in [("ERA5 at its height, hourly", "hourly", 0.0);
-            [(@sprintf("power law, \\(\\alpha = %.3f\\)%s", exponent,
-                  get(names, exponent, "")), "profile", exponent)
-             for exponent in exponents]]
-            costs = cost(wind, exponent, "kite")
-            aloft = 100 * mean(table["flight_share"][rows(table, "wind" => wind,
-                "exponent" => exponent, "rig" => "kite")])
-            change = by_day(costs) .- by_day(hourly)
-            @printf(io, "%s & %.1f & %.0f & \\(%s\\) & %s \\\\\n", label, saving(costs),
-                aloft, one_decimal(saving(costs) - saving(rotors)),
-                wind == "hourly" ? "--" :
-                error_cell(mean(change), std(change) / sqrt(length(change)); finest=1))
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-"""
     routing_value_numbers(table, departures)
 
 Name and text of the [`routing_saving`](@ref)s in whole per cent that the paper quotes, all
@@ -2392,25 +2350,19 @@ quoted_type_savings = (("CarCarrier", "rotors"), ("Tanker", "rotors"),
     forecast_numbers()
 
 Name and text of the forecast result re-planned live: per rig its cost saving [%] and the
-share of it kept [%] with its error by [`kept_cell`](@ref); the [`forecast_lead_cell`](@ref)
-live and with perfect foresight; and the kite's mean flight share [%], launches and forced
-landings a round trip.
+share of it kept [%] with its error by [`kept_cell`](@ref); and the
+[`forecast_lead_cell`](@ref) live and with perfect foresight.
 """
 function forecast_numbers()
     kept = read_table(data_file("forecast_result_kept.csv"))
     result = read_table(data_file("forecast_result.csv"))
-    kite = rows(result, "rig" => "kite", "plan" => "live")
-    kite_mean(column) = mean(result[column][kite])
     rigs = last.(study_rigs(result))
     return [["ForecastKept" * macro_word(rig) => kept_cell(kept, rig, "live")
              for rig in rigs];
             ["ForecastSaving" * macro_word(rig) =>
                  whole_number(forecast_saving(result, rig, "live")) for rig in rigs];
             "ForecastLeadLive" => forecast_lead_cell(result, "live");
-            "ForecastLeadPerfect" => forecast_lead_cell(result, "false");
-            "ForecastFlightShare" => whole_number(100kite_mean("flight_share"));
-            "ForecastLaunches" => whole_number(kite_mean("launches"));
-            "ForecastForcedLandings" => one_decimal(kite_mean("forced_landings"))]
+            "ForecastLeadPerfect" => forecast_lead_cell(result, "false")]
 end
 
 """
@@ -2439,6 +2391,30 @@ end
 "rigs whose side force, leeway and loss on a weak hull the text quotes"
 side_force_rigs = ("kite", "wings", "rotors")
 
+"names of the e-ammonia ships of the model-part study"
+part_study_ammonia_ships() =
+    [name for (name, design) in study_ships() if design.drive == :ammonia]
+
+"cost saving [%] of `rig` on `ship` with model part `part` off, in model-part table `parts`"
+function part_saving(parts, ship, rig, part)
+    cost(name) =
+        only(parts["cost"][rows(parts, "ship" => ship, "rig" => name, "part" => part)])
+    return percent_saving(cost(rig), cost("none"))
+end
+
+"""
+    weak_hull_losses(rig)
+
+Points of cost saving the hull's side-force slope at its low bound takes from `rig` on each
+e-ammonia ship of the model-part study.
+"""
+function weak_hull_losses(rig)
+    parts = read_table(study_file(:model_parts, "model_parts.csv"))
+    return [part_saving(parts, ship, rig, "none") -
+            part_saving(parts, ship, rig, "weak_hull")
+            for ship in part_study_ammonia_ships()]
+end
+
 """
     side_force_numbers()
 
@@ -2457,21 +2433,15 @@ function side_force_numbers()
                     for name in ("SideForce", "WeakHull", "Leeway", "LeewayLimit")]
     parts = read_table(study_file(:model_parts, "model_parts.csv"))
     leeway = read_table(study_file(:model_parts, "leeway.csv"))
-    ammonia = [name for (name, design) in study_ships() if design.drive == :ammonia]
-    cost(ship, rig, part) =
-        only(parts["cost"][rows(parts, "ship" => ship, "rig" => rig, "part" => part)])
-    saving(ship, rig, part) =
-        percent_saving(cost(ship, rig, part), cost(ship, "none", part))
     numbers = Pair{String, String}[]
     for rig in side_force_rigs
         name = macro_word(rig)
-        taken = [100(1 - saving(ship, rig, "none") / saving(ship, rig, "side_force"))
-                 for ship in ammonia]
-        lost = [saving(ship, rig, "none") - saving(ship, rig, "weak_hull")
-                for ship in ammonia]
+        taken = [100(1 - part_saving(parts, ship, rig, "none") /
+                         part_saving(parts, ship, rig, "side_force"))
+                 for ship in part_study_ammonia_ships()]
         sailed = rows(leeway, "rig" => rig)
         push!(numbers, "SideForce$name" => value_range(taken, whole_number),
-            "WeakHull$name" => value_range(lost, whole_number),
+            "WeakHull$name" => value_range(weak_hull_losses(rig), whole_number),
             "Leeway$name" => value_range(leeway["median"][sailed], one_decimal),
             "LeewayLimit$name" => value_range(100leeway["at_limit"][sailed], one_decimal))
     end
@@ -3267,34 +3237,6 @@ function whole_range(values)
     return low == high ? low : "$low to $high"
 end
 
-"""
-    sea_effect_table()
-
-Kite cost saving per tonne-km and share of the time aloft of the ships of the sea effect
-study, as modelled and with no extra launch wind from the sea, averaged over the routes:
-sea_effect_table.tex.
-"""
-function sea_effect_table()
-    table = read_table(study_file(:sea_effect, "sea_effect.csv"))
-    ships = (first(sea_effect_classes), "140 m", Iterators.drop(sea_effect_classes, 1)...)
-    write_whole(joinpath(sections, "sea_effect_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
-        println(io, "Ship & \\multicolumn{2}{c}{Saving [\\%]} & Difference [points] & ",
-            "\\multicolumn{2}{c}{Time aloft [\\%]} \\\\")
-        println(io, "\\cmidrule(lr){2-3}\\cmidrule(lr){5-6}")
-        println(io, " & Modelled & No sea effect & & Modelled & No sea effect ",
-            "\\\\\n\\midrule")
-        for ship in ships
-            saved = sea_effect_saving.(Ref(table), ship, ("model", "none"))
-            aloft = sea_effect_flight.(Ref(table), ship, ("model", "none"))
-            @printf(io, "%s & %.1f & %.1f & \\(%s\\) & %.1f & %.1f \\\\\n",
-                ship == "140 m" ? "140 m ship" : ship, saved...,
-                one_decimal(saved[1] - saved[2]), aloft...)
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
 "mean rows of `table` for `ship` with kite and `sea` setting, cost saving per tonne-km [%]"
 function sea_effect_saving(table, ship, sea)
     savings = [100 * (1 - table["cost"][kite] / table["cost"][bare])
@@ -3303,12 +3245,6 @@ function sea_effect_saving(table, ship, sea)
                for kite in sea_effect_rows(table, ship, route, "kite", sea)]
     return mean(savings)
 end
-
-"mean share of the time aloft [%] of `ship` with the kite and `sea` setting"
-sea_effect_flight(table, ship, sea) =
-    100 * mean(table["flight_share"][kite]
-               for route in unique(table["route"])
-               for kite in sea_effect_rows(table, ship, route, "kite", sea))
 
 "row numbers of `table` for `ship` on `route` with `rig` and `sea` setting"
 sea_effect_rows(table, ship, route, rig, sea) =
