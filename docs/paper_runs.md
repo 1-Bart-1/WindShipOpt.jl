@@ -10,7 +10,7 @@ Every round trip a step routes is kept in the case store, `output/cases/`, which
 
 ## Keeping a run on GitHub
 
-`output/` is not in git, and a cluster's scratch space is cleared of old files, so each run is also kept as an asset of a GitHub release. Each commit has one release, a prerelease tagged `run-<commit>`, which keeps at most one run per fidelity: `draft.tar.gz` and `final.tar.gz`. An archive holds the run's directory and the round trips and departures of the case store it uses, and its label names the run and how many steps it has done. Two commands sync runs, from a laptop or the box, with gh signed in to GitHub:
+`output/` is not in git, and a cluster's scratch space is cleared of old files, so each run is also kept as an asset of a GitHub release. Each commit has one release, a prerelease tagged `run-<commit>`, which keeps at most one paper run per fidelity, `draft.tar.gz` and `final.tar.gz`, and each method study's run as an archive named after the run, such as `2026-11-24T1419.tar.gz`, so that a paper run never replaces the run a study's figures read. A method study pushes its run there itself once `paper` has recorded it, so gh must be signed in where a study runs; where it is not, as on a cluster, `paper` ends with gh's error and the run is pushed by hand. An archive holds the run's directory and the round trips and departures of the case store it uses, and its label names the run and how many steps it has done. Two commands sync runs, from a laptop or the box, with gh signed in to GitHub:
 
 ```bash
 bin/runs push <run>                                   # a run of this checkout
@@ -19,13 +19,13 @@ bin/runs pull <run or commit>                         # into this checkout
 bin/runs pull <run or commit> <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl
 ```
 
-`push` copies the run with rsync, from this checkout or a checkout on another machine over ssh, packs it and uploads it, replacing the archive of the same run; the old archive is deleted only once the new one is in. Push after a run, and as often as you like while one goes: a run in progress lists the case stores its round trips go to as soon as it starts them, so the archive holds every round trip and departure stored so far. A different run of the same commit and fidelity replaces the one kept only when it has more steps done; otherwise `push` stops and names the run kept.
+`push` copies the run with rsync, from this checkout or a checkout on another machine over ssh, packs it and uploads it, replacing the archive of the same run; the old archive is deleted only once the new one is in. Push after a run, and as often as you like while one goes: a run in progress lists the case stores its round trips go to as soon as it starts them, so the archive holds every round trip and departure stored so far. A different paper run of the same commit and fidelity replaces the one kept only when it has more steps done; otherwise `push` stops and names the run kept.
 
 `pull` downloads the runs of that name, or of the commit whose hash starts so, and copies each into the checkout: here, or with rsync onto a cluster, so that a run cut short there continues with the usual resume. A run already there with as many steps done is left as it is; round trips the store lacks are added and none is overwritten. Resuming stays as safe as before: a run resumes only on its own branch, and a stored round trip is used only where its code and inputs match.
 
 To read a run without the repository's tools, download the archive from the release page and unpack it: `tar -xzf draft.tar.gz` gives `runs/<run>/` and `cases/`.
 
-`bin/runs backfill` pushes every run of this checkout's `output/runs/` worth keeping: of the runs of one commit and fidelity the one `paper/study_runs.toml` names, else the one with most steps done. A method study's run that `paper/study_runs.toml` does not name is skipped. It goes on past a run it cannot push and prints what it skipped and why.
+`bin/runs backfill` pushes every run of this checkout's `output/runs/` worth keeping: each run `paper/study_runs.toml` names, and of the other runs of one commit and fidelity the one with most steps done. A method study's run that `paper/study_runs.toml` does not name is skipped. It goes on past a run it cannot push and prints what it skipped and why.
 
 ## Rerunning what changed
 
