@@ -2077,10 +2077,24 @@ function measured_table()
     end
 end
 
-"mean share [%] of the hours at sea the kite flies on the Beluga crossing, per kite area"
-beluga_flight_shares() =
-    [100mean(last(beluga_voyage(read_table(study_file(:measured_savings, "beluga.csv")),
-        area))) for area in beluga_crossing.areas]
+"""
+    beluga_means()
+
+Mean fuel saved per day at sea [t] and mean share of the hours at sea the kite flies [%]
+on the Beluga crossing, per kite area of [`beluga_crossing`](@ref).
+"""
+function beluga_means()
+    table = read_table(study_file(:measured_savings, "beluga.csv"))
+    return map(beluga_crossing.areas) do area
+        _, tonnes, shares = beluga_voyage(table, area)
+        (tonnes=mean(tonnes), share=100mean(shares))
+    end
+end
+
+"`low` and `high` formatted by `format`, as one value where they print alike"
+printed_range(format, low, high) =
+    join(unique(Printf.format(Printf.Format(format), value) for value in (low, high)),
+        " to ")
 
 """
     measured_numbers_file()
@@ -2090,7 +2104,8 @@ our rotor's thrust departs from the Copenhagen's measured [%] at small apparent 
 at most, abeam and aft, the range of points by which our fuel saving exceeds that measured
 with rotors, by how many it falls short of the Pyxis Ocean's, the fuel our
 Kamsarmax burns per day at sea without a rig [t], and the range of the shares of the hours
-at sea [%] the kite flies on the Beluga crossing.
+at sea [%] the kite flies and of the fuel it saves per day at sea [t] on the Beluga
+crossing.
 """
 function measured_numbers_file()
     copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
@@ -2107,15 +2122,16 @@ function measured_numbers_file()
     bare_tonnes = mean(voyages["fuel_energy"][bare]) / voyages["days"][first(bare)] /
                   assumptions[:vlsfo_heating_value]
     draft = TOML.parsefile(study_runs_path)["measured_savings"]["fidelity"] != "final"
+    belugas = beluga_means()
     numbers = ["CopenhagenThrustBow" => @sprintf("%.0f", bow),
         "CopenhagenThrustBeam" => @sprintf("%.0f", by_angle[102.0]),
         "CopenhagenThrustAft" => @sprintf("%.0f", by_angle[142.0]),
-        "MeasuredRotorGap" => join(
-            unique(@sprintf("%.0f", gap) for gap in extrema(rotor_gaps)), " to "),
+        "MeasuredRotorGap" => printed_range("%.0f", extrema(rotor_gaps)...),
         "MeasuredPyxisGap" => @sprintf("%.0f", pyxis_gap),
         "MeasuredBareKamsarmax" => @sprintf("%.0f", bare_tonnes),
-        "BelugaFlightShare" => join(unique(@sprintf("%.0f", share) for share in
-                                           extrema(beluga_flight_shares())), " to ")]
+        "BelugaTonnes" => printed_range("%.1f", extrema(getfield.(belugas, :tonnes))...),
+        "BelugaFlightShare" =>
+            printed_range("%.0f", extrema(getfield.(belugas, :share))...)]
     write_whole(joinpath(sections, "measured_numbers.tex")) do io
         for (name, text) in numbers
             print(io, number_macro(name, text, draft))
@@ -3203,24 +3219,38 @@ strong_wind = 12.0
 strong_waves = 3.0
 
 """
+    buoy_shortfall(statistics, quantity, field)
+
+Lowest and highest shortfall of ERA5, the negative of `field` of the
+[`pair_statistics`](@ref) of `quantity` (:wind or :wave), over the buoys of `statistics`.
+"""
+buoy_shortfall(statistics, quantity, field) =
+    extrema(-getfield(getfield(row, quantity), field) for row in statistics)
+
+"""
     era5_buoy_table()
 
 For each of [`buoys`](@ref), the [`pair_statistics`](@ref) of the 10 m wind, with its mean
-square, and of the wave height, with their correlation, as a LaTeX table body:
-paper/sections/era5_buoy_table.tex.
+square, and of the wave height, with their correlation, as a LaTeX table body,
+paper/sections/era5_buoy_table.tex, and the ranges over the buoys of ERA5's shortfall in
+mean wind [m/s], mean square wind and strong wind [%], its largest bias in mean wave height
+[m] and its shortfall in high waves [%], paper/sections/era5_buoy_numbers.tex.
 """
 function era5_buoy_table()
+    statistics = map(buoys) do (station, place, lat, lon, anemometer)
+        winds, heights = buoy_pairs(station, lat, lon, anemometer)
+        (; station, place, wind=pair_statistics(winds, strong_wind),
+            wave=pair_statistics(heights, strong_waves))
+    end
     write_whole(joinpath(sections, "era5_buoy_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrrrrrrr@{}}\n\\toprule")
         println(io, " & & \\multicolumn{4}{c}{10\\,m wind} & \\multicolumn{4}{c}",
             "{Wave height} \\\\\n\\cmidrule(lr){3-6}\\cmidrule(l){7-10}")
         println(io, " & & mean & & mean & from & mean & & & from \\\\")
-        println(io, "Buoy & Where & [m/s] & bias & square & \\SI{$(Int(strong_wind))}{m/s} ",
-            "& [m] & bias & \$r\$ & \\SI{$(Int(strong_waves))}{m} \\\\\n\\midrule")
-        for (station, place, lat, lon, anemometer) in buoys
-            winds, heights = buoy_pairs(station, lat, lon, anemometer)
-            wind = pair_statistics(winds, strong_wind)
-            wave = pair_statistics(heights, strong_waves)
+        println(io, "Buoy & Where & [m/s] & bias & square & ",
+            "\\SI{$(Int(strong_wind))}{m/s} & [m] & bias & \$r\$ & ",
+            "\\SI{$(Int(strong_waves))}{m} \\\\\n\\midrule")
+        for (; station, place, wind, wave) in statistics
             @printf(io, "%s & %s & %.1f & \\(%+.1f\\) & \\(%+.0f\\)\\,\\%% & ",
                 station, place, wind.mean, wind.bias, wind.square_bias)
             @printf(io, "\\(%+.0f\\)\\,\\%% & %.1f & \\(%+.2f\\) & %.2f & ",
@@ -3228,6 +3258,19 @@ function era5_buoy_table()
             @printf(io, "\\(%+.0f\\)\\,\\%% \\\\\n", wave.strong_bias)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
+    end
+    wave_bias = maximum(abs(row.wave.bias) for row in statistics)
+    numbers = [
+        "EraWindBias" => printed_range("%.1f", buoy_shortfall(statistics, :wind, :bias)...),
+        "EraWindSquare" =>
+            printed_range("%.0f", buoy_shortfall(statistics, :wind, :square_bias)...),
+        "EraStrongWind" =>
+            printed_range("%.0f", buoy_shortfall(statistics, :wind, :strong_bias)...),
+        "EraWaveBias" => @sprintf("%.2f", wave_bias),
+        "EraHighWaves" =>
+            printed_range("%.0f", buoy_shortfall(statistics, :wave, :strong_bias)...)]
+    write_whole(joinpath(sections, "era5_buoy_numbers.tex")) do io
+        foreach(((name, text),) -> print(io, number_macro(name, text, false)), numbers)
     end
 end
 
