@@ -952,10 +952,11 @@ end
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are a hand calculation worked independently of the code.
+# Expected forces are a hand calculation worked independently of the code, on 13 spans.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
-    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    worked = with_value(assumptions, :tether_length_ratio, 13.0)
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), worked).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
     @test force(5.8751, 26.6411).thrust ≈ -177 atol = 5
     @test force(5.8751, 26.6411).side ≈ 63758 rtol = 1e-3
