@@ -25,6 +25,9 @@ Text of `x` rounded to a whole number, halves away from zero, never "-0".
 """
 whole_number(x) = string(round(Int, x, RoundNearestTiesAway))
 
+"`text` with its leading hyphen set as `minus`, by default the one the axes print"
+typeset_minus(text, minus="−") = replace(text, r"^-" => minus)
+
 """
     whole_points(x)
 
@@ -2121,14 +2124,14 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, the `highlight_limit` the paper build checks, the run the results come from
-([`results_run_words`](@ref)), the [`trailing_text`](@ref) and [`trailing_summary`](@ref) of
+([`step_run_words`](@ref)), the [`trailing_text`](@ref) and [`trailing_summary`](@ref) of
 the class study, and of its [`compared_table`](@ref) the [`class_numbers`](@ref),
 [`kite_rotor_numbers`](@ref), [`class_range_numbers`](@ref),
 [`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref), [`route_numbers`](@ref),
 [`split_numbers`](@ref), [`payback_numbers`](@ref), [`premium_numbers`](@ref),
 [`fleet_share_numbers`](@ref), [`market_numbers`](@ref) and [`type_saving_numbers`](@ref),
-the [`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref) and
-the [`side_force_numbers`](@ref).
+the [`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref),
+the [`side_force_numbers`](@ref) and the [`combination_numbers`](@ref).
 """
 function numbers_file()
     every_rig = class_table()
@@ -2143,14 +2146,16 @@ function numbers_file()
                premium_numbers(classes);
                design_premium_numbers(read_table(data_file("designs.csv")));
                fleet_share_numbers(classes); market_numbers(classes);
-               type_saving_numbers(classes); forecast_numbers(); side_force_numbers()]
+               type_saving_numbers(classes); forecast_numbers(); side_force_numbers();
+               combination_numbers()]
     draft = paper_run.fidelity != :final
     write_whole(joinpath(sections, "numbers.tex")) do io
         for (name, text) in goal_numbers()
             print(io, number_macro(name, text, false))
         end
         print(io, number_macro("HighlightLimit", string(highlight_limit), false))
-        print(io, number_macro("ResultsRun", results_run_words(), false))
+        results_run = step_run_words("classes", "classes.csv")
+        print(io, number_macro("ResultsRun", results_run, false))
         for (name, text) in results
             print(io, number_macro(name, text, draft))
         end
@@ -2387,6 +2392,29 @@ function forecast_numbers()
             "ForecastForcedLandings" => one_decimal(kite_mean("forced_landings"))]
 end
 
+"""
+    combination_numbers()
+
+Name and text of the kite-and-rotors study by [`pair_leads`](@ref): the run it comes from,
+its number of cases, the cases where the pair clearly leads both rigs alone, the largest
+gain over the better of them and the range of the gains elsewhere, in whole points.
+"""
+function combination_numbers()
+    cells = pair_leads(read_table(data_file("combination_pairs.csv")),
+        read_table(data_file("combination_departures.csv")))
+    leading = filter(cell -> cell.leads, cells)
+    others = [cell.gain for cell in cells if !cell.leads]
+    best = argmax(cell -> cell.gain, cells)
+    words(cell) =
+        "the $(cell.ship) to $(route_label(cell.route)) on $(fuel_names[cell.drive])"
+    return ["CombinationRun" => step_run_words("combination_data", "combination_pairs.csv"),
+        "CombinationCases" => string(length(cells)),
+        "CombinationLeading" => isempty(leading) ? "none" : listed(words.(leading)),
+        "CombinationBestGain" => whole_points(best.gain),
+        "CombinationOtherGains" =>
+            "$(whole_number(minimum(others))) to $(whole_number(maximum(others)))"]
+end
+
 "rigs whose side force, leeway and loss on a weak hull the text quotes"
 side_force_rigs = ("kite", "wings", "rotors")
 
@@ -2408,7 +2436,7 @@ function side_force_numbers()
                     for name in ("SideForce", "WeakHull", "Leeway", "LeewayLimit")]
     parts = read_table(study_file(:model_parts, "model_parts.csv"))
     leeway = read_table(study_file(:model_parts, "leeway.csv"))
-    ammonia = [name for (name, design) in sensitivity_ships() if design.drive == :ammonia]
+    ammonia = [name for (name, design) in study_ships() if design.drive == :ammonia]
     cost(ship, rig, part) =
         only(parts["cost"][rows(parts, "ship" => ship, "rig" => rig, "part" => part)])
     saving(ship, rig, part) =
@@ -2928,11 +2956,11 @@ reads_alike(values, format) = allequal(format.(values))
 """
     value_range(values, format)
 
-Text of `values` by `format`: one value where they [`reads_alike`](@ref), else the range
-they span.
+Text of `values` by `format`, a negative one with a minus sign: one value where they
+[`reads_alike`](@ref), else the range they span.
 """
 function value_range(values, format)
-    low, high = format.(extrema(values))
+    low, high = typeset_minus.(format.(extrema(values)), "\$-\$")
     return reads_alike(values, format) ? low : "$low to $high"
 end
 
