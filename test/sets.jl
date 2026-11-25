@@ -4147,7 +4147,7 @@ end
         "2026-01-01T0002", "run.toml"))["steps"]) == 4
 end
 
-@testset "a method study's run keeps an asset of its own beside its commit's paper run" begin
+@testset "a method study's run keeps its own asset beside its commit's paper run" begin
     checkout = in_checkout()
     written_run("2026-01-01T0000", 3)
     written_run("2026-01-01T0001", 1; study=true)
@@ -4163,7 +4163,7 @@ end
     @test isfile(joinpath(PaperRuns.runs_directory, "2026-01-01T0001", "run.toml"))
 end
 
-@testset "a back-fill keeps every named run, a commit's most complete one, no unnamed study" begin
+@testset "a back-fill keeps each named run, a commit's fullest one, no unnamed study" begin
     in_checkout()
     written_run("2026-01-01T0000", 3)
     written_run("2026-01-01T0001", 1; study=true)

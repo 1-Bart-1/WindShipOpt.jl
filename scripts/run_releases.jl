@@ -4,9 +4,10 @@
 # Keeps paper runs as assets of GitHub releases, so that no run lives only on the machine
 # that ran it. Each commit has one release, tagged run-<commit>, with at most one paper run
 # per fidelity and every method study's run beside them: an archive of the run's directory
-# and the round trips it uses, labelled with the run's name and steps done. A run is copied with rsync from a checkout, here or on a
-# cluster, and back. Included by runs.jl after paper_runs.jl; github_releases.jl reaches
-# GitHub, and test/sets.jl stands in for it.
+# and the round trips it uses, labelled with the run's name and steps done. A run is copied
+# with rsync from a checkout, here or on a cluster, and back. Included by runs.jl and
+# paper.jl after paper_runs.jl; github_releases.jl reaches GitHub, and test/sets.jl stands
+# in for it.
 
 "largest archive a release takes [B]"
 ASSET_LIMIT = 2^31
