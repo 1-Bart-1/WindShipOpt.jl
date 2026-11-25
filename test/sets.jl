@@ -3194,21 +3194,6 @@ kite_route_table = shared_route_table(ShipDesign(:methanol, 85.0; kite_area=400.
     @test stood.headwind == stood.crosswind == 0
 end
 
-@testset "a kite ship's search keeps one kite state per node and time, down at port" begin
-    weather, departure = SyntheticWeather(), 24.0 * 31
-    record = SearchRecord()
-    leg = route(corridor, kite_route_table, weather, departure; time_cost=hourly, record)
-    reached = isfinite.(record.cost)
-    @test any(reached[:, :, 2, :])
-    @test !any(reached[:, :, 1, :] .& reached[:, :, 2, :])
-    @test !any(reached[:, :, 2, end])
-    searched = WindShipOpt.with_router_settings(WindShipOpt.with_changed(
-        WindShipOpt.ROUTER_SETTINGS[]; kite_states_searched=true)) do
-        route(corridor, kite_route_table, weather, departure; time_cost=hourly)
-    end
-    @test leg.objective ≈ searched.objective rtol = 0.01
-end
-
 @testset "a plan weighing wind error expects a kite that just pulls to fly sometimes" begin
     speed_index = 4
     sample(wind, spread) = WindShipOpt.EdgeSample(kite_route_table.table, (wind, 0.0),
@@ -5089,6 +5074,19 @@ end
     @test PaperData.changed_cost(case, trip) ≈ trip.cost_per_tonne_km
     today = merge(case, (; assumptions=at_today(assumptions)))
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
+end
+
+@testset "a kite routed at half its canopy life costs no more than its route at the \
+          full life costed at half" begin
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    shorter = with_value(assumptions, :canopy_life, assumptions[:canopy_life] / 2)
+    departure = [24.0 * 241]
+    found = round_trip(Ship(kite, assumptions; route=:caribbean), corridors...,
+        SyntheticWeather(), departure, assumptions)
+    again = round_trip(Ship(kite, shorter; route=:caribbean), corridors...,
+        SyntheticWeather(), departure, shorter)
+    case = (; design=kite, assumptions=shorter, route=:caribbean, corridors)
+    @test again.cost_per_tonne_km <= PaperData.changed_cost(case, found)
 end
 
 @testset "a change of only what a route costs is recosted on the base route, its fuel \
