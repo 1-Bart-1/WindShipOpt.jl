@@ -2349,25 +2349,19 @@ quoted_type_savings = (("CarCarrier", "rotors"), ("Tanker", "rotors"),
     forecast_numbers()
 
 Name and text of the forecast result re-planned live: per rig its cost saving [%] and the
-share of it kept [%] with its error by [`kept_cell`](@ref); the [`forecast_lead_cell`](@ref)
-live and with perfect foresight; and the kite's mean flight share [%], launches and forced
-landings a round trip.
+share of it kept [%] with its error by [`kept_cell`](@ref); and the
+[`forecast_lead_cell`](@ref) live and with perfect foresight.
 """
 function forecast_numbers()
     kept = read_table(data_file("forecast_result_kept.csv"))
     result = read_table(data_file("forecast_result.csv"))
-    kite = rows(result, "rig" => "kite", "plan" => "live")
-    kite_mean(column) = mean(result[column][kite])
     rigs = last.(study_rigs(result))
     return [["ForecastKept" * macro_word(rig) => kept_cell(kept, rig, "live")
              for rig in rigs];
             ["ForecastSaving" * macro_word(rig) =>
                  whole_number(forecast_saving(result, rig, "live")) for rig in rigs];
             "ForecastLeadLive" => forecast_lead_cell(result, "live");
-            "ForecastLeadPerfect" => forecast_lead_cell(result, "false");
-            "ForecastFlightShare" => whole_number(100kite_mean("flight_share"));
-            "ForecastLaunches" => whole_number(kite_mean("launches"));
-            "ForecastForcedLandings" => one_decimal(kite_mean("forced_landings"))]
+            "ForecastLeadPerfect" => forecast_lead_cell(result, "false")]
 end
 
 """
