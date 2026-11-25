@@ -1178,7 +1178,7 @@ end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
     hull = Hull(140.0, assumptions)
-    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(hull, assumptions)
     alone = WindShipOpt.RotorRig(800.0, hull, assumptions; in_column=4)
     behind = WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve,
         in_column=4)
@@ -1194,7 +1194,7 @@ end
 
 @testset "deck units stand evenly over their row, centred on it" begin
     hull = Hull(140.0, assumptions)
-    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(hull, assumptions)
     deck = assumptions[:deck_length_fraction] * hull.length
     for (rig, row_length) in ((WingRig(1500.0, hull, assumptions; in_column=2), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve,
@@ -1423,10 +1423,11 @@ end
     end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
           (0.5 - assumptions[:bow_mast_position]) * megamax.length
-    @test WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0),
-        assumptions), assumptions).slots == megamax.unit_capacity
-    @test_throws ArgumentError Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0,
-        rotor_area=400.0), assumptions)
+    for design in (ShipDesign(:vlsfo, megamax; kite_area=1000.0),
+        ShipDesign(:vlsfo, megamax; kite_area=1000.0, rotor_area=400.0))
+        @test WindShipOpt.CargoHold(Ship(design, assumptions), assumptions).slots ==
+              megamax.unit_capacity
+    end
 end
 
 # By hand: 5 degrees seen from 0.31 L aft of the bow by a unit 0.06 L aft of it, L = 398 m.
@@ -1473,6 +1474,21 @@ end
     price = WindShipOpt.rig_price_parts(pairs, assumptions).pedestals
     @test price ≈ 6e3WindShipOpt.pedestal_mass(pairs, assumptions) *
                   assumptions[:welded_steel_cost_per_mass]
+end
+
+@testset "a container ship flies a kite from its bow mast over raised rotor pairs" begin
+    feeder = ship_classes()["feeder container ship"]
+    hull = Hull(feeder, assumptions)
+    @test WindShipOpt.launch_mast_reserve(hull, assumptions) == 0
+    rig = Ship(ShipDesign(:ammonia, feeder; kite_area=1024.0, rotor_area=600.0),
+        assumptions).rig
+    alone = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=rig.standing.columns,
+        in_column=rig.standing.count ÷ rig.standing.columns)
+    @test WindShipOpt.raised(rig.standing) && rig.standing.columns == 2
+    @test rig.standing.centre_position == alone.centre_position
+    @test rig.kite.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+    @test rig.kite.attach_position >
+          maximum(first.(WindShipOpt.unit_positions(rig.standing, hull, assumptions)))
 end
 
 # By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin
@@ -3590,6 +3606,7 @@ module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
 include(joinpath(root, "scripts", "run_estimate.jl"))
+include(joinpath(root, "scripts", "run_releases.jl"))
 runs_directory = mktempdir()
 end
 
@@ -4009,6 +4026,135 @@ end
     @test parse(Int, option("cpus-per-task")) <= 64
     @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
     @test option("dependency") == "afterany:7"
+end
+
+"""
+    StubReleases
+
+Releases standing in for GitHub's: each asset a file with its label, by tag and name.
+"""
+struct StubReleases
+    assets::Dict{Tuple{String, String}, Tuple{String, String}}
+end
+
+StubReleases() = StubReleases(Dict{Tuple{String, String}, Tuple{String, String}}())
+
+PaperRuns.run_assets(releases::StubReleases) =
+    [PaperRuns.RunAsset(tag, name, label) for ((tag, name), (label, _)) in releases.assets]
+
+PaperRuns.replace_asset(releases::StubReleases, tag, commit, name, label, path) =
+    releases.assets[(tag, name)] = (label, cp(path, tempname()))
+
+PaperRuns.download_asset(releases::StubReleases, tag, name, path) =
+    cp(last(releases.assets[(tag, name)]), path)
+
+"""
+    in_checkout(checkout=mktempdir())
+
+Path of the repository `checkout`, made the one whose runs and case store are in use.
+"""
+function in_checkout(checkout=mktempdir())
+    @eval PaperRuns runs_directory = joinpath($checkout, "output", "runs")
+    @eval PaperRuns cases_directory = joinpath($checkout, "output", "cases")
+    return checkout
+end
+
+"""
+    written_run(name, steps; commit="c", fidelity="draft", study=false)
+
+Write run `name` of `commit` at `fidelity` with `steps` steps done, one of them a method
+study's record where `study`, in the checkout in use.
+"""
+function written_run(name, steps; commit="c", fidelity="draft", study=false)
+    names = [study ? "sea_effect_record" : "classes"; ["step $k" for k in 2:steps]]
+    record = Dict("fidelity" => fidelity, "finished" => "", "git_commit" => commit,
+        "git_dirty" => false, "git_branch" => "b",
+        "steps" => [Dict("name" => name) for name in names[1:steps]])
+    directory = mkpath(joinpath(PaperRuns.runs_directory, name))
+    open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+    return directory
+end
+
+"""
+    stored_files(store, names)
+
+Write the case-store entries `names` in the store `store` of the checkout in use.
+"""
+stored_files(store, names) = foreach(name -> write(joinpath(mkpath(joinpath(
+    PaperRuns.cases_directory, store)), name), name), names)
+
+@testset "a pushed run carries the round trips and departures it uses and no others" begin
+    checkout = in_checkout()
+    directory = written_run("2026-01-01T0000", 1)
+    mkpath(joinpath(directory, "cases"))
+    write(joinpath(directory, "cases", "classes.csv"), "case,store,commit,dirty," *
+        "trip_model,processor\n\"class=a, b\",\"s1\",\"c\",\"false\",\"m1\",\"cpu\"\n")
+    write(joinpath(directory, "cases", "stores.csv"), "store,trip_model\n\"s2\",\"m3\"\n")
+    stored_files("s1", ["m1-1.bin", "m2-1.bin"])
+    stored_files("s2", ["m3-1.bin", "m3-2.bin", "m1-1.bin"])
+    stored_files("s3", ["m1-1.bin"])
+    stored_files("s2/departures/24.0", ["m3-1.bin", "m1-1.bin"])
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    label, archive = releases.assets[("run-c", "draft.tar.gz")]
+    @test label == "run 2026-01-01T0000, 1 steps"
+    @test sort(filter(!endswith("/"), readlines(`tar -tzf $archive`))) ==
+          ["cases/s1/m1-1.bin", "cases/s2/departures/24.0/m3-1.bin",
+           "cases/s2/m3-1.bin", "cases/s2/m3-2.bin",
+           "runs/2026-01-01T0000/cases/classes.csv",
+           "runs/2026-01-01T0000/cases/stores.csv", "runs/2026-01-01T0000/run.toml"]
+end
+
+@testset "a run pulled onto a machine without it resumes there with its round trips" begin
+    first_machine = in_checkout()
+    run = PaperRuns.open_run(:draft, [:designs, :routes], false)
+    PaperRuns.run_step!(run, :designs, () -> touch(joinpath(run.directory, "designs.csv")))
+    PaperRuns.paper_run = run
+    store = joinpath(PaperRuns.cases_directory, "store")
+    PaperRuns.note_stores(run, [store])
+    PaperRuns.stored_trip(() -> 4.0, store, (; assumptions))
+    releases = StubReleases()
+    PaperRuns.push_run(releases, basename(run.directory), first_machine)
+    second_machine = in_checkout()
+    PaperRuns.pull_runs(releases, basename(run.directory), second_machine)
+    resumed = PaperRuns.open_run(:draft, [:designs, :routes], true)
+    @test basename(resumed.directory) == basename(run.directory)
+    @test PaperRuns.step_done(resumed, :designs) && !PaperRuns.step_done(resumed, :routes)
+    PaperRuns.paper_run = resumed
+    @test PaperRuns.stored_entry(joinpath(PaperRuns.cases_directory, "store"),
+        (; assumptions)).trip == 4.0
+end
+
+@testset "a commit keeps its most complete run, and a pull never undoes steps" begin
+    checkout = in_checkout()
+    written_run("2026-01-01T0000", 2)
+    written_run("2026-01-01T0001", 2)
+    written_run("2026-01-01T0002", 3)
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    @test_throws "keeps run 2026-01-01T0000" PaperRuns.push_run(releases,
+        "2026-01-01T0001", checkout)
+    PaperRuns.push_run(releases, "2026-01-01T0002", checkout)
+    @test first(releases.assets[("run-c", "draft.tar.gz")]) ==
+          "run 2026-01-01T0002, 3 steps"
+    written_run("2026-01-01T0002", 4)
+    PaperRuns.pull_runs(releases, "c", checkout)
+    @test length(PaperRuns.TOML.parsefile(joinpath(PaperRuns.runs_directory,
+        "2026-01-01T0002", "run.toml"))["steps"]) == 4
+end
+
+@testset "a back-fill keeps a commit's named or most complete run, no unnamed study" begin
+    in_checkout()
+    written_run("2026-01-01T0000", 3)
+    written_run("2026-01-01T0001", 1; study=true)
+    written_run("2026-01-01T0002", 2; study=true)
+    written_run("2026-01-01T0003", 2; commit="d")
+    written_run("2026-01-01T0004", 5; commit="d")
+    written_run("2026-01-01T0005", 1; commit="d", fidelity="final")
+    studies = Dict("sea_effect" => Dict("run" => "2026-01-01T0001"))
+    kept, skipped = PaperRuns.backfill_runs(PaperRuns.runs_directory, studies)
+    @test kept == ["2026-01-01T0001", "2026-01-01T0004", "2026-01-01T0005"]
+    @test first.(skipped) == ["2026-01-01T0000", "2026-01-01T0002", "2026-01-01T0003"]
 end
 
 module JobTrips
@@ -4764,6 +4910,7 @@ module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "size_search.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
@@ -4871,6 +5018,11 @@ end
     @test PaperData.one_decimal(3.46) == "3.5"
 end
 
+@testset "a range of results prints a negative end with a minus sign, one value alike" begin
+    @test PaperData.value_range([-2.7, 0.6], PaperData.whole_number) == "\$-\$3 to 1"
+    @test PaperData.value_range([1.2, 0.8], PaperData.whole_number) == "1"
+end
+
 @testset "a source note sets a whole power as a superscript, decimals included" begin
     @test PaperData.latex_escape("211 f^-2.25 at 3 %") ==
           "211 f\\textsuperscript{-2.25} at 3 \\%"
@@ -4906,6 +5058,35 @@ end
     @test all(pair -> pair[1] in kites, pairs)
     small_kite = PaperData.pair_sizes(500.0, 900.0, kites, (200.0, 800.0))
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
+end
+
+@testset "a kite with rotors leads only where it gains clearly over each rig alone" begin
+    columns = ("ship", "route", "drive", "rig", "kite_area", "rotor_area")
+    trips = Dict{String, Vector}(name => Any[] for name in (columns..., "cost"))
+    departures = Dict{String, Vector}(name => Any[]
+                                      for name in (columns..., "date", "cost"))
+    function sail!(ship, rig, kite_area, rotor_area, costs)
+        labels = (ship, "new_york", "ammonia", rig, kite_area, rotor_area)
+        foreach((name, value) -> push!(trips[name], value), columns, labels)
+        push!(trips["cost"], sum(costs) / length(costs))
+        for (month, cost) in enumerate(costs)
+            foreach((name, value) -> push!(departures[name], value), columns, labels)
+            push!(departures["date"], "2017-0$month-01")
+            push!(departures["cost"], cost)
+        end
+    end
+    swing = [0.0, 0.02, -0.02, 0.01, -0.01, 0.0]
+    for (ship, kite, rotors, pair) in
+        (("clear", 0.90, 0.88, 0.80), ("level", 0.90, 0.95, 0.89))
+        sail!(ship, "none", 0.0, 0.0, fill(1.0, 6))
+        sail!(ship, "kite", 800.0, 0.0, fill(kite, 6))
+        sail!(ship, "rotors", 0.0, 400.0, fill(rotors, 6))
+        sail!(ship, "kite+rotors", 400.0, 400.0, pair .+ (ship == "level") .* swing)
+        sail!(ship, "kite+rotors", 200.0, 400.0, fill(pair + 0.05, 6))
+    end
+    clear, level = PaperData.pair_leads(trips, departures)
+    @test clear.leads && clear.rival == "rotors" && clear.gain ≈ 8 && clear.n == 6
+    @test !level.leads && level.rival == "kite" && level.gain ≈ 1 && level.error > 0
 end
 
 @testset "a ship with an undefined rig area is refused, never sailed with no rig" begin
@@ -5192,6 +5373,14 @@ end
     @test_throws ErrorException PaperData.study_areas(nothing, "class", :route, :vlsfo)
 end
 
+@testset "a development ship takes the cheapest feasible size its class search found" begin
+    case(area) = (class="Kamsarmax", route=:tubarao, drive=:vlsfo, rig="wings", area)
+    trips = [(cost_per_tonne_km=2.0,), nothing, (cost_per_tonne_km=1.5,)]
+    table = PaperData.size_table(case.([100.0, 200.0, 300.0]), trips)
+    best = PaperData.cheapest_row(table, "Kamsarmax", "tubarao", "vlsfo", "wings")
+    @test table["area"][best] == 300.0
+end
+
 @testset "a development input's gain and loss are the largest of its rigs with trips" begin
     PaperData.eval(:(bound_changes(table, ship, rig, input; column="cost") =
         rig == "kite" ? (1.0, -2.0) : rig == "wings" ? (NaN, 1.0) : (0.5, 0.0)))
@@ -5470,6 +5659,7 @@ function market_class_table()
         "rig" => column(case -> case.rig), "cost" => cost.(cases),
         "departure_costs" => departure_costs.(cases),
         "area" => column(case -> case.rig == "wings" ? 1500.0 : 1000.0),
+        "rotor_area" => zeros(length(cases)),
         "units" => column(case -> case.rig == "wings" ? 3.0 : 5.0),
         "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
         "carbon" => column(case -> case.rig == "none" ? 2.0 : 1.5),
@@ -5529,6 +5719,22 @@ end
     @test all(Set(keys(cell.savings)) == Set(("kite", "wings", "rotors")) for cell in cells)
     lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
     @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
+end
+
+@testset "the fleet split names a share for each rig the run routed on that drive \
+          alone" begin
+    (; table, class) = market_class_table()
+    held = findall(in(("none", "kite", "wings", "rotors")), table["rig"])
+    paired = findall(i -> table["class"][i] == class && table["rig"][i] == "rotors",
+        eachindex(table["rig"]))
+    both = Dict{String, Vector}(name => [column[held]; column[held]; column[paired]]
+                                for (name, column) in table)
+    both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
+    both["drive"][(length(held) + 1):end] .= "ammonia"
+    shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
+    bands = ["Kite", "Wings", "Rotors", "Level"]
+    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
+                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin
@@ -5794,18 +6000,77 @@ end
     end
 end
 
+"""
+    costed(cost)
+
+Round trips of size-search cases `(; key, area)` at `cost(key, area)` [USD/tkm], none
+where it is not finite.
+"""
+costed(cost) = cases -> [isfinite(cost(case.key, case.area)) ?
+                         (; cost_per_tonne_km=cost(case.key, case.area)) : nothing
+                         for case in cases]
+
+"size search of `key` over `grid` from `guess`, its cases the key and area tried"
+fake_search(key, grid, guess) =
+    (; grid, guess, sized=(area, round) -> (; key, area, round))
+
 @testset "a size search keeps apart classes of one name with cargo of different value" begin
     class = ship_classes()["Kamsarmax bulk carrier"]
     fields = (name => getfield(class, name) for name in fieldnames(ShipClass))
     cheap, dear = (ShipClass(; fields..., cargo_value=value) for value in (100.0, 15000.0))
-    search_key(ship) = (ship, "ammonia", "kite", "tubarao")
-    searches = Dict(search_key(ship) => Tuple{Float64, Float64}[] for ship in (cheap, dear))
-    cases = [(; design=(; class=ship), class=ship.name, drive="ammonia", rig="kite",
-                 route="tubarao", area)
-             for (ship, area) in ((cheap, 1000.0), (dear, 2000.0))]
-    PaperData.record_sizes!(searches, cases, [(; cost_per_tonne_km=1.0), nothing])
-    @test searches[search_key(cheap)] == [(1000.0, 1.0)]
-    @test searches[search_key(dear)] == [(2000.0, Inf)]
+    grid = PaperData.size_grid(500.0, 16000.0)
+    best = Dict(cheap => 1024.0, dear => 4096.0)
+    cost(key, area) = log2(area / best[first(key)])^2 + (area < 700 ? Inf : 0.0)
+    searches = Dict((ship, "kite") => fake_search((ship, "kite"), grid, 2000.0)
+                    for ship in (cheap, dear))
+    cases, trips = [], []
+    found = PaperData.search_sizes!(cases, trips, searches; routed=costed(cost))
+    @test found[(cheap, "kite")] == 1024.0 && found[(dear, "kite")] == 4096.0
+    @test length(cases) == length(trips) && first(cases).round == 0
+    @test any(isnothing, trips) == any(case -> case.area < 700, cases)
+end
+
+@testset "a kite over rotors is sized area by area until neither area alone gains" begin
+    grid = PaperData.size_grid(16.0, 1024.0)
+    for coupling in (0.5, 1.2)
+        cost(sizes) = (log2(sizes[1]) - 6)^2 + (log2(sizes[2]) - 5)^2 +
+                      coupling * (log2(sizes[1]) - 6) * (log2(sizes[2]) - 5)
+        passes = Ref(0)
+        function search(sizes, varied)
+            passes[] += 1
+            searches = Dict(key => fake_search(key, grid, start[varied])
+                            for (key, start) in sizes)
+            pair(key, area) = Base.setindex(sizes[key], area, varied)
+            return PaperData.search_sizes!([], [], searches;
+                routed=costed((key, area) -> cost(pair(key, area))))
+        end
+        found = PaperData.alternated_sizes(search, Dict(:ship => (512.0, 512.0)))[:ship]
+        steps = [PaperData.nearest_step(grid, area) for area in found]
+        @test all(cost(Base.setindex(found, grid[steps[k] + side], k)) > cost(found)
+                  for k in 1:2, side in (-1, 1))
+        @test passes[] > 2
+        coupling < 1 && @test found == (64.0, 32.0)
+    end
+end
+
+@testset "the kite over rotors is sized as a kite of one area over rotors of another" begin
+    @test PaperData.rig_size(PaperData.pair_rig, 4096.0, 3444.0) ==
+          (kite_area=4096.0, rotor_area=3444.0)
+    @test PaperData.rig_size("kite", 4096.0) == (kite_area=4096.0,)
+    @test PaperData.macro_word(PaperData.pair_rig) == "KiteRotors"
+end
+
+@testset "a rig routed on some fleet cells joins their band but no mean over others" begin
+    rigs(kite, rotors) = Dict("kite" => kite, "rotors" => rotors)
+    paired = fleet_cell(1.0, merge(rigs(10.0, 12.0), Dict(PaperData.pair_rig => 15.0)))
+    alone = fleet_cell(1.0, rigs(10.0, 12.0))
+    @test PaperData.fleet_band(paired) == PaperData.pair_rig
+    @test PaperData.pair_rig in PaperData.fleet_bands
+    savings = PaperData.fleet_savings([paired, alone])
+    @test !haskey(savings, PaperData.pair_rig) && savings["rotors"] == 12.0
+    @test PaperData.fleet_savings([paired])[PaperData.pair_rig] == 15.0
+    @test PaperData.shown_rigs([paired, alone]) == ["rotors", PaperData.pair_rig]
+    @test [row.rig for row in PaperData.trailing_rigs([paired, alone])] == ["kite"]
 end
 
 include("hot_path_checks.jl")

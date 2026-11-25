@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Keeps paper runs in GitHub releases and brings them back; docs/paper_runs.md says how.
+set -euo pipefail
+
+repo=$(dirname "${BASH_SOURCE[0]}")/..
+major=$("$repo/bin/julia_version")
+
+exec julia "+$major" --project="$repo/scripts" "$repo/scripts/runs.jl" "$@"

@@ -112,13 +112,23 @@ end
 """
     allocations(call)
 
-Allocations of `call()` once compiled, the fewest of three tries, so that another thread
-allocating during one try does not count.
+Allocations of `call()` once compiled, the fewest of three tries during which no other
+thread allocated. Throws where other threads keep allocating through a minute of tries.
 """
 function allocations(call)
     call()
-    return minimum(@allocations(call()) for _ in 1:3)
+    counts, deadline = Int[], time() + 60
+    while length(counts) < 3 && time() < deadline
+        quiet = !others_allocating()
+        counted = @allocations call()
+        quiet && !others_allocating() ? push!(counts, counted) : sleep(0.5)
+    end
+    length(counts) == 3 || error("other threads allocated through a minute of tries")
+    return minimum(counts)
 end
+
+"whether another thread allocates while this one waits 10 ms"
+others_allocating() = @allocations(Libc.systemsleep(0.01)) > 0
 
 """
     gridded_weather(directory)
@@ -208,6 +218,21 @@ end
 @testset "the allocation check counts allocations and not the compiling of the call" begin
     @test allocations(() -> rand(3)) >= 1
     @test allocations(() -> sum((1, 2, 3))) == 0
+end
+
+@testset "the allocation check leaves out a burst of another thread's allocations" begin
+    started, sink = Base.Event(), Ref{Any}()
+    burst = Threads.@spawn begin
+        notify(started)
+        ending = time() + 2.0
+        while time() < ending
+            sink[] = rand(4)
+            yield()
+        end
+    end
+    wait(started)
+    @test allocations(() -> Libc.systemsleep(0.01)) == 0
+    wait(burst)
 end
 
 @testset "what runs per edge and per leg of a route dispatches nothing at run time" begin

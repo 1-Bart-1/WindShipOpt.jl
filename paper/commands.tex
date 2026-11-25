@@ -37,7 +37,14 @@
 \graphicspath{{figures/}}
 % \tablerows{file}: the rows of a longtable read from a file, with no empty row after them.
 \makeatletter\newcommand{\tablerows}[1]{\@@input #1 }\makeatother
-% \studyrun{name}: the run, fidelity and commit that made the method study name.
+% \repository, \website: the addresses of the code and of the companion website; \urlof{\website} sets one as a link.
+\newcommand{\repository}{https://github.com/1-Bart-1/WindShipOpt.jl}
+\newcommand{\website}{https://1-bart-1.github.io/WindShipOpt.jl/}
+\newcommand{\urlof}[1]{\expandafter\url\expandafter{#1}}
+% \commit{hash}: the first seven characters of a full commit hash, linked to that commit on GitHub.
+\def\shorthash#1#2#3#4#5#6#7#8\relax{#1#2#3#4#5#6#7}
+\newcommand{\commit}[1]{\href{\repository/commit/#1}{\shorthash#1\relax}}
+% \studyrun{name}: the fidelity and commit of the run that made the method study name.
 \newcommand{\studyrunis}[2]{\expandafter\def\csname studyrun:#1\endcsname{#2}}
 \newcommand{\studyrun}[1]{\ifcsname studyrun:#1\endcsname\csname studyrun:#1\endcsname\else\tbd{study \detokenize{#1} not yet run}\fi}
 \InputIfFileExists{sections/study_runs}{}{}
