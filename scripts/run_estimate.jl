@@ -60,7 +60,7 @@ function measure_trip_costs()
         Dict{String, Any}("git_commit" => git_output("rev-parse", "HEAD"),
             "git_dirty" => true), nothing, Dict{Symbol, Vector{Any}}(), "estimate",
         StepTally())
-    sampled(fidelity) = departures[1:fidelities[fidelity].departure_step:end]
+    sampled(fidelity) = paper_departures[1:fidelities[fidelity].departure_step:end]
     development(rig, area; plan=false) = trip_case(
         ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); route=:caribbean,
         forecast=plan)
@@ -116,7 +116,7 @@ Departures each round trip of data step `name` sails over at `fidelity`.
 function step_departures(name, fidelity)
     setting = get(step_departure_settings, name, :departure_step)
     isnothing(setting) && return 1
-    return length(departures[1:getproperty(fidelities[fidelity], setting):end])
+    return length(paper_departures[1:getproperty(fidelities[fidelity], setting):end])
 end
 
 """
