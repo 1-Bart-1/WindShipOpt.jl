@@ -111,10 +111,12 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
 Round trips of all `cases`, taking those the case store holds for the run in use
 ([`stored_entry`](@ref)) and combining the others from their departures, which the jobs of
 `case_jobs` route where [`handed_out`](@ref) says so, else this process
-([`compute_trips`](@ref)).
+([`compute_trips`](@ref)); the stores they come from are noted in the run first
+([`note_stores`](@ref)).
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
+    note_stores(paper_run, directories)
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)

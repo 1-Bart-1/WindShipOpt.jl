@@ -53,6 +53,9 @@ jobs:
       - name: Check that every highlight fits the journal's limit as rendered
         run: python3 test/test_check_highlights.py && python3 -I scripts/check_highlights.py
 
+      - name: Check that the paper names the run its results and the site come from
+        run: python3 test/test_paper_run.py && python3 -I scripts/paper_run.py
+
       - name: Install the tracked manifest
         run: |
           version=${{ steps.julia.outputs.version }}
