@@ -54,6 +54,7 @@
 \InputIfFileExists{sections/today_numbers}{}{}
 \InputIfFileExists{sections/today_routing_numbers}{}{}
 \InputIfFileExists{sections/measured_numbers}{}{}
+\InputIfFileExists{sections/validation_numbers}{}{}
 \InputIfFileExists{sections/wind_height_numbers}{}{}
 \newcommand{\todaynum}[1]{\ifcsname NumToday#1\endcsname\csname NumToday#1\endcsname\else\tbd{[today #1]}\fi}
 % \recostnum{name}: the number NumRecosting<name> of the recosting bias step, or a mark until it has run.

@@ -1946,53 +1946,37 @@ function measured_voyage(table, source)
 end
 
 """
-    copenhagen_net(row)
+    beluga_voyage(table, area)
 
-Net power saving [%] our rotor gives at a point of [`copenhagen_trial`](@ref): the one
-measured, with the gross saving scaled by our thrust over the measured and our spin power in
-place of the stated one, over the ship's power without the rotor implied by Table 9.
+Fuel saving [%], fuel saved per day at sea [t] and share of the hours at sea the kite flies
+[-] of the ship with `area` [m^2] of kite in the Beluga crossing `table`
+([`beluga_crossing_data`](@ref)), per departure in date order.
 """
-function copenhagen_net(row)
-    trial = copenhagen_trial
-    baseline = sum(point[2] for point in trial.points) /
-               sum(point[3] for point in trial.points) * 100
-    _, gross, _, net = only(point for point in trial.points if point[1] == row.true_angle)
-    change = gross * (row.thrust_model / row.thrust_measured - 1) -
-             (row.spin_power - trial.spin_power)
-    return net + 100change / baseline
+function beluga_voyage(table, area)
+    row(kite_area, departure) = only(rows(table, "area" => kite_area,
+        "departure" => departure))
+    departures = sort(table["departure"][rows(table, "area" => area)])
+    bare = [table["fuel_energy"][row(0.0, day)] for day in departures]
+    kite = [row(area, day) for day in departures]
+    energy, hours = table["fuel_energy"][kite], table["hours"][kite]
+    savings = percent_saving.(energy, bare)
+    tonnes = 24(bare - energy) ./ hours ./ assumptions[:vlsfo_heating_value]
+    return savings, tonnes, table["flight_hours"][kite] ./ hours
 end
 
 """
     measured_table()
 
-Our model beside rotors and wing sails measured at sea: the thrust and net power saving of
-the Copenhagen's rotor at the points of its speed trial, and the fuel saving of each of
-[`measured_ships`](@ref) on the nearest of our ships at fixed speed and course, with its
-standard error over the departures: measured_table.tex.
+Our model beside rigs measured at sea: the fuel saving of each of [`measured_ships`](@ref)
+and of the Beluga SkySails' kite on the nearest of our ships at fixed speed and course,
+with its standard error over the departures: measured_table.tex.
 """
 function measured_table()
-    copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
     voyages = read_table(study_file(:measured_savings, "measured_savings.csv"))
     error_text(values) = error_cell(mean(values), std(values) / sqrt(length(values));
         finest=1)
     write_whole(joinpath(sections, "measured_table.tex")) do io
-        println(io, "\\textbf{(a)} \\\\\n\\begin{tabular}{@{}rrrrrrr@{}}\n\\toprule")
-        println(io, "\\multicolumn{2}{c}{Wind angle [\\si{\\degree}]} & Spin & ",
-            "\\multicolumn{2}{c}{Thrust coefficient} & ",
-            "\\multicolumn{2}{c}{Net saving [\\%]} \\\\")
-        println(io, "\\cmidrule(lr){1-2}\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
-        println(io, "true & apparent & ratio & measured & ours & measured & ours \\\\")
-        println(io, "\\midrule")
-        for i in eachindex(copenhagen["true_angle"])
-            row = (; (Symbol(name) => copenhagen[name][i] for name in keys(copenhagen))...)
-            measured_net = only(point[4] for point in copenhagen_trial.points
-                                if point[1] == row.true_angle)
-            @printf(io, "%.0f & %.0f & %.1f & %.1f & %.1f & %.0f & %.0f \\\\\n",
-                row.true_angle, row.apparent_angle, row.spin_ratio, row.thrust_measured,
-                row.thrust_model, measured_net, copenhagen_net(row))
-        end
-        println(io, "\\bottomrule\n\\end{tabular} \\\\")
-        println(io, "\\rule{0pt}{4ex}\\textbf{(b)} \\\\\n\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
         println(io, "Ship & Our ship & Rig & \\multicolumn{2}{c}{Measured} & ",
             "\\multicolumn{2}{c}{Ours} \\\\")
         println(io, "\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
@@ -2004,21 +1988,36 @@ function measured_table()
                     @sprintf("%s %.0f", rig, area), percent, per_day,
                     error_text(savings), error_text(tonnes)), " & "), " \\\\")
         end
+        beluga = read_table(study_file(:measured_savings, "beluga.csv"))
+        for area in beluga_crossing.areas
+            savings, tonnes, _ = beluga_voyage(beluga, area)
+            println(io, join(("Beluga SkySails \\citep{verkehrsrundschau2008beluga}",
+                    @sprintf("%.0f m VLSFO ship", beluga_crossing.length),
+                    @sprintf("kite %.0f", area), "2.5", "0.5", error_text(savings),
+                    error_text(tonnes)), " & "), " \\\\")
+        end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
 
 """
-    measured_gap(table, source)
+    beluga_means()
 
-Our mean fuel saving [%] over the departures of the measured savings `table` less that
-reported for the ship of `source`, at the low and the high end of a reported range.
+Mean fuel saved per day at sea [t] and mean share of the hours at sea the kite flies [%]
+on the Beluga crossing, per kite area of [`beluga_crossing`](@ref).
 """
-function measured_gap(table, source)
-    ours = mean(first(measured_voyage(table, source)))
-    reported = parse.(Float64, split(first(measured_reports[source]), "--"))
-    return ours - maximum(reported), ours - minimum(reported)
+function beluga_means()
+    table = read_table(study_file(:measured_savings, "beluga.csv"))
+    return map(beluga_crossing.areas) do area
+        _, tonnes, shares = beluga_voyage(table, area)
+        (tonnes=mean(tonnes), share=100mean(shares))
+    end
 end
+
+"`low` and `high` formatted by `format`, as one value where they print alike"
+printed_range(format, low, high) =
+    join(unique(Printf.format(Printf.Format(format), value) for value in (low, high)),
+        " to ")
 
 """
     measured_numbers_file()
@@ -2026,8 +2025,9 @@ end
 Write to paper/sections/measured_numbers.tex, from the measured savings study, by how much
 our rotor's thrust departs from the Copenhagen's measured [%] at small apparent wind angles
 at most, abeam and aft, the range of points by which our fuel saving exceeds that measured
-with rotors, by how many it falls short of the Pyxis Ocean's, and the fuel our
-Kamsarmax burns per day at sea without a rig [t].
+with rotors, by how many it falls short of the Pyxis Ocean's, and the range of the shares
+of the hours at sea [%] the kite flies and of the fuel it saves per day at sea [t] on the
+Beluga crossing.
 """
 function measured_numbers_file()
     copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
@@ -2035,20 +2035,21 @@ function measured_numbers_file()
     excess = 100(copenhagen["thrust_model"] ./ copenhagen["thrust_measured"] .- 1)
     by_angle = Dict(zip(copenhagen["true_angle"], excess))
     bow = maximum(abs, excess[copenhagen["apparent_angle"] .< 50])
-    rotor_gaps = [first(measured_gap(voyages, source))
+    rotor_gaps = [mean(first(measured_voyage(voyages, source))) -
+                  parse(Float64, first(measured_reports[source]))
                   for (source, _, _, rig) in measured_ships if rig == "rotors"]
-    pyxis_gap = -first(measured_gap(voyages, "gcaptain2024pyxis"))
-    bare = rows(voyages, "source" => "lr2025trlady", "rig" => "none")
-    bare_tonnes = mean(voyages["fuel_energy"][bare]) / voyages["days"][first(bare)] /
-                  assumptions[:vlsfo_heating_value]
+    pyxis_gap = parse(Float64, first(measured_reports["gcaptain2024pyxis"])) -
+                mean(first(measured_voyage(voyages, "gcaptain2024pyxis")))
     draft = TOML.parsefile(study_runs_path)["measured_savings"]["fidelity"] != "final"
+    belugas = beluga_means()
     numbers = ["CopenhagenThrustBow" => @sprintf("%.0f", bow),
         "CopenhagenThrustBeam" => @sprintf("%.0f", by_angle[102.0]),
         "CopenhagenThrustAft" => @sprintf("%.0f", by_angle[142.0]),
-        "MeasuredRotorGap" => join(
-            unique(@sprintf("%.0f", gap) for gap in extrema(rotor_gaps)), " to "),
+        "MeasuredRotorGap" => printed_range("%.0f", extrema(rotor_gaps)...),
         "MeasuredPyxisGap" => @sprintf("%.0f", pyxis_gap),
-        "MeasuredBareKamsarmax" => @sprintf("%.0f", bare_tonnes)]
+        "BelugaTonnes" => printed_range("%.1f", extrema(getfield.(belugas, :tonnes))...),
+        "BelugaFlightShare" =>
+            printed_range("%.0f", extrema(getfield.(belugas, :share))...)]
     write_whole(joinpath(sections, "measured_numbers.tex")) do io
         for (name, text) in numbers
             print(io, number_macro(name, text, draft))
@@ -3066,71 +3067,145 @@ function premium_numbers(table)
         "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
 end
 
-"leeway angles [deg] at which [`drift_check_table`](@ref) compares the model with tests"
-drift_check_angles = (3, 6, 9)
+"""
+NOAA National Data Buoy Center moored buoys near the routes: station, latitude and longitude
+[deg] and anemometer height above the sea [m].
+"""
+buoys = [("41049", 27.505, -62.271, 4.1),
+    ("41047", 27.557, -71.480, 4.1),
+    ("41044", 21.582, -58.630, 3.8),
+    ("41043", 21.083, -64.853, 4.1),
+    ("41040", 14.568, -53.037, 4.1),
+    ("42002", 25.950, -93.780, 4.1)]
+
+"years of the ERA5 series the routes sail in"
+buoy_years = 2017:2019
+
+"folder the buoys' yearly files are downloaded to"
+buoy_folder() = joinpath(root, "output", "ndbc")
 
 """
-    drift_check_table()
+    buoy_records(station, year)
 
-Write to paper/sections/drift_check_table.tex, for each tested hull of
-data/hull_drift_tests.csv at each of [`drift_check_angles`](@ref), the side-force coefficient
-of the published fit and of the model's hull of the same main dimensions, and the induced
-drag coefficient of each at the published side force, both on ½ρV²LT.
+Hourly-or-finer records of `station` in `year` from NDBC's standard meteorological
+archive, downloaded once: (hours after `weather.origin`, wind speed [m/s] at the
+anemometer, significant wave height [m]), with `NaN` where the buoy gives none.
 """
-function drift_check_table()
-    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_drift_tests.csv"))
-    write_whole(joinpath(sections, "drift_check_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
-        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
-            "\\multicolumn{2}{c}{Induced drag \\(C_X\\) at that \\(C_Y\\)} \\\\")
-        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
-        println(io, " & [\\si{\\degree}] & Fit & Model & Fit & Model \\\\\n\\midrule")
-        for (k, name) in enumerate(tests["hull"])
-            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
-                tests["block"][k], assumptions)
-            aspect_ratio = 2tests["effective_draft_ratio"][k]^2 * hull.draft / hull.length
-            for angle in drift_check_angles
-                beta = deg2rad(angle)
-                tested = tests["side_force_slope"][k] * beta +
-                         tests["side_force_cubic"][k] * beta^3
-                leeway = WindShipOpt.side_force_leeway(hull, tested)
-                @printf(io, "%s & %d & %.4f & %.4f & %.5f & %.5f \\\\\n", name, angle,
-                    tested, WindShipOpt.side_force_coefficient(hull, beta),
-                    tested^2 / (π * aspect_ratio),
-                    WindShipOpt.leeway_drag(hull, tested, leeway))
-            end
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
+function buoy_records(station, year)
+    file = joinpath(mkpath(buoy_folder()), "$(station)h$(year).txt.gz")
+    isfile(file) || Downloads.download("https://www.ndbc.noaa.gov/data/historical/" *
+                                       "stdmet/$(station)h$(year).txt.gz", file)
+    records = NTuple{3, Float64}[]
+    for line in eachline(pipeline(`gzip -dc $file`))
+        startswith(line, '#') && continue
+        fields = split(line)
+        time = DateTime(parse.(Int, fields[1:5])...)
+        wind, height = parse(Float64, fields[7]), parse(Float64, fields[9])
+        push!(records, (Dates.value(time - weather.origin) / 3.6e6,
+            wind < 99 ? wind : NaN, height < 99 ? height : NaN))
     end
+    return records
 end
 
 """
-    centre_check_table()
+    buoy_pairs(station, lat, lon, anemometer)
 
-Write to paper/sections/centre_check_table.tex, for each captive test of
-data/hull_centre_tests.csv, the side force on ½ρV²LT and the distance forward of midship
-where it acts, as a fraction of the length, measured and of the model's hull of the same
-main dimensions at the same leeway.
+For each record of `station` over [`buoy_years`](@ref): the buoy's 10 m wind [m/s], by the
+model's wind profile from its `anemometer` height [m], and wave height [m], beside the
+ERA5 wind and wave height the model samples at (`lat`, `lon`) at that time.
 """
-function centre_check_table()
-    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv"))
-    write_whole(joinpath(sections, "centre_check_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
-        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
-            "\\multicolumn{2}{c}{Centre \\(x_\\mathrm{h}/L\\)} \\\\")
-        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
-        println(io, " & [\\si{\\degree}] & Test & Model & Test & Model \\\\\n\\midrule")
-        for (k, name) in enumerate(tests["hull"])
-            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
-                tests["block"][k], assumptions)
-            leeway = deg2rad(tests["leeway"][k])
-            @printf(io, "%s & %d & %.4f & %.4f & %.2f & %.2f \\\\\n", name,
-                tests["leeway"][k], tests["side_force"][k],
-                WindShipOpt.side_force_coefficient(hull, leeway),
-                tests["yaw_moment"][k] / tests["side_force"][k],
-                WindShipOpt.lateral_centre(hull, leeway) / hull.length)
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
+function buoy_pairs(station, lat, lon, anemometer)
+    shear = (10 / anemometer)^assumptions[:wind_shear_exponent]
+    winds, heights = NTuple{2, Float64}[], NTuple{2, Float64}[]
+    for year in buoy_years, (time, wind, height) in buoy_records(station, year)
+        isnan(wind) || push!(winds, (shear * wind,
+            hypot(WindShipOpt.wind(weather, lat, lon, time)...)))
+        isnan(height) ||
+            push!(heights, (height, first(WindShipOpt.waves(weather, lat, lon, time))))
+    end
+    return winds, heights
+end
+
+"""
+    pair_statistics(pairs, strong)
+
+Of (measured, ERA5) `pairs`: ERA5's bias, its mean square over the measured less one [%],
+and its mean over the measured less one [%] where the measured value is at least `strong`.
+"""
+function pair_statistics(pairs, strong)
+    measured, era5 = first.(pairs), last.(pairs)
+    high = measured .>= strong
+    return (; bias=mean(era5 - measured),
+        square_bias=100(mean(abs2, era5) / mean(abs2, measured) - 1),
+        strong_bias=100(mean(era5[high]) / mean(measured[high]) - 1))
+end
+
+"10 m wind [m/s] from which [`pair_statistics`](@ref) counts a wind as strong"
+strong_wind = 12.0
+
+"wave height [m] from which [`pair_statistics`](@ref) counts a sea as high"
+strong_waves = 3.0
+
+"""
+    buoy_shortfall(statistics, quantity, field)
+
+Lowest and highest shortfall of ERA5, the negative of `field` of the
+[`pair_statistics`](@ref) of `quantity` (:wind or :wave), over the buoys of `statistics`.
+"""
+buoy_shortfall(statistics, quantity, field) =
+    extrema(-getfield(getfield(row, quantity), field) for row in statistics)
+
+"""
+    tank_gaps(hull)
+
+Our resistance over the measured less one [%] at each speed of the towing-tank model `hull`
+of data/tank_tests.csv ([`tank_coefficient`](@ref)).
+"""
+function tank_gaps(hull)
+    tests = read_rows(joinpath(root, "data", "tank_tests.csv"))
+    return [100(1e3tank_coefficient(test, test.speed) / test.total_coefficient - 1)
+            for test in tests if test.hull == hull]
+end
+
+"""
+    tank_gap_text(hull)
+
+Range of the [`tank_gaps`](@ref) of the towing-tank model `hull` [%], signed, in LaTeX, to
+whole per cent and to a tenth below one.
+"""
+tank_gap_text(hull) =
+    join(unique(@sprintf("\\(%+.*f\\)", abs(gap) < 1 ? 1 : 0, gap)
+                for gap in extrema(tank_gaps(hull))), " to ")
+
+"""
+    validation_numbers_file()
+
+Write to paper/sections/validation_numbers.tex the ranges over the [`buoys`](@ref) of
+ERA5's shortfall in mean wind [m/s], mean square wind and strong wind [%], its largest bias
+in mean wave height [m] and its shortfall in high waves [%], and the range of
+[`tank_gaps`](@ref) of each towing-tank model.
+"""
+function validation_numbers_file()
+    statistics = map(buoys) do (station, lat, lon, anemometer)
+        winds, heights = buoy_pairs(station, lat, lon, anemometer)
+        (wind=pair_statistics(winds, strong_wind),
+            wave=pair_statistics(heights, strong_waves))
+    end
+    wave_bias = maximum(abs(row.wave.bias) for row in statistics)
+    numbers = [
+        "EraWindBias" => printed_range("%.1f", buoy_shortfall(statistics, :wind, :bias)...),
+        "EraWindSquare" =>
+            printed_range("%.0f", buoy_shortfall(statistics, :wind, :square_bias)...),
+        "EraStrongWind" =>
+            printed_range("%.0f", buoy_shortfall(statistics, :wind, :strong_bias)...),
+        "EraWaveBias" => @sprintf("%.2f", wave_bias),
+        "EraHighWaves" =>
+            printed_range("%.0f", buoy_shortfall(statistics, :wave, :strong_bias)...),
+        "TankGapKcs" => tank_gap_text("KCS"),
+        "TankGapTanker" => tank_gap_text("Panamax tanker"),
+        "TankGapJbc" => tank_gap_text("Japan Bulk Carrier")]
+    write_whole(joinpath(sections, "validation_numbers.tex")) do io
+        foreach(((name, text),) -> print(io, number_macro(name, text, false)), numbers)
     end
 end
 

@@ -88,11 +88,13 @@ function Hull(length::Real, assumptions::Assumptions)
 end
 
 """
-    Hull(length, beam, draft, block, assumptions; centre_of_buoyancy, resistance_factor=1,
-        waterline_length=length, deck_cargo_height=0, bridge_distance=Inf)
+    Hull(length, beam, draft, block, assumptions; centre_of_buoyancy, midship,
+        resistance_factor=1, waterline_length=length, deck_cargo_height=0,
+        bridge_distance=Inf)
 
 Hull of the given main dimensions [m] and block coefficient on `length`, with the form
-ratios of the reference coaster, its centre of buoyancy [% of length] unless given, and
+ratios of the reference coaster, its centre of buoyancy [% of length] and midship section
+coefficient unless given, and
 the factor on its calm-water resistance, and the factor `hull_side_force_factor` on its
 side-force slope and its cubic term `hull_side_force_cubic`. Its form terms take
 `waterline_length` and stop at the prismatic coefficient `holtrop_max_prismatic`, while
@@ -100,9 +102,9 @@ its displacement stays that of `block`; `deck_cargo_height` [m] of containers st
 deck, and its bridge front stands `bridge_distance` [m] aft of the bow.
 """
 function Hull(length, beam, draft, block, assumptions::Assumptions;
-        centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0,
+        centre_of_buoyancy=assumptions[:centre_of_buoyancy],
+        midship=assumptions[:midship_coefficient], resistance_factor=1.0,
         waterline_length=length, deck_cargo_height=0.0, bridge_distance=Inf)
-    midship = assumptions[:midship_coefficient]
     max_prismatic = assumptions[:holtrop_max_prismatic]
     prismatic = prismatic_coefficient(block * length / waterline_length, midship,
         max_prismatic)
