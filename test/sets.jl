@@ -5550,20 +5550,20 @@ end
     @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
 end
 
-@testset "the fleet split names a share for each rig the run routed on that drive alone" begin
+@testset "the fleet split names a share for each rig the run routed on that drive \
+          alone" begin
     (; table, class) = market_class_table()
     held = findall(in(("none", "kite", "wings", "rotors")), table["rig"])
     paired = findall(i -> table["class"][i] == class && table["rig"][i] == "rotors",
         eachindex(table["rig"]))
-    rigs = [table["rig"][held]; table["rig"][held]; fill(PaperData.pair_rig, length(paired))]
-    drives = [fill("vlsfo", length(held)); fill("ammonia", length(held) + length(paired))]
     both = Dict{String, Vector}(name => [column[held]; column[held]; column[paired]]
                                 for (name, column) in table)
-    both["rig"], both["drive"] = rigs, drives
+    both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
+    both["drive"][(length(held) + 1):end] .= "ammonia"
     shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
-    rigs = ["Kite", "Wings", "Rotors", "Level"]
-    @test Set(shares) == Set(["FleetShareOil" .* [rigs; "None"];
-                              "FleetShareAmmonia" .* [rigs; "KiteRotors"]])
+    bands = ["Kite", "Wings", "Rotors", "Level"]
+    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
+                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin

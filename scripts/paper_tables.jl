@@ -2301,9 +2301,9 @@ end
 
 Name and text, per drive of the class table `table`, of the share [%] of the yearly cost of
 carrying the fleet's cargo of each band of a rig it holds on that drive, of level and, on
-VLSFO, of none, the total of that cost [billion USD] and, on VLSFO, the tank-to-wake CO2 that carrying it
-without a rig emits [million t a year]; and the shares of the IMO transport work and of
-shipping's CO2 in the IMO inventory the classes' size bins carry.
+VLSFO, of none, the total of that cost [billion USD] and, on VLSFO, the tank-to-wake CO2
+that carrying it without a rig emits [million t a year]; and the shares of the IMO
+transport work and of shipping's CO2 in the IMO inventory the classes' size bins carry.
 """
 function fleet_share_numbers(table)
     numbers = Pair{String, String}[]
