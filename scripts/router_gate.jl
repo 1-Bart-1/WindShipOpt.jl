@@ -32,7 +32,7 @@ CHECKED_APART = ("bilbao",)
 "first line of a gate file"
 GATE_HEADER = "ship,rig,route,departure,cost,fuel,flight"
 
-"departures of the gate: every sixth of the paper's, twelve on ERA5"
+"departures of the gate: every sixth of the 14-day departures, twelve on ERA5"
 gate_departures() = departures[1:6:end]
 
 """

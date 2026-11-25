@@ -3685,7 +3685,7 @@ end
 end
 
 @testset "the draft sensitivity study routes every other one of the final run's departures" begin
-    @eval PaperRuns departures = collect(0.0:24.0:(71 * 24.0))
+    @eval PaperRuns paper_departures = collect(0.0:(28 * 24.0):(11 * 28 * 24.0))
     function routed(fidelity)
         PaperRuns.paper_run = PaperRuns.PaperRun(fidelity)
         return PaperRuns.sensitivity_departures()
