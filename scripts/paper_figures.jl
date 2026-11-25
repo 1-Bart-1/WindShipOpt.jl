@@ -3412,3 +3412,57 @@ function canopy_cells_figure()
         nbanks=2, rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
     save(joinpath(figures, "canopy_cells.pdf"), figure; pt_per_unit=print_scale)
 end
+
+"""
+    variant_curve!(axis, table, rig, variant, color, linestyle)
+
+Cost saving [%] over area of `rig` in its `variant` (`nothing` for any) of `table`, against
+the ship without a rig of the same table, as a line with a marker at each size routed.
+"""
+function variant_curve!(axis, table, rig, variant, color, linestyle)
+    bare = only(rows(table, "rig" => "none"))
+    chosen = isnothing(variant) ? rows(table, "rig" => rig) :
+             rows(table, "rig" => rig, "variant" => variant)
+    chosen = chosen[sortperm(table["area"][chosen])]
+    saving = 100 .* (1 .- table["cost"][chosen] ./ table["cost"][bare])
+    lines!(axis, table["area"][chosen], saving; color, linestyle)
+    scatter!(axis, table["area"][chosen], saving; color)
+end
+
+"""
+    rig_variant_figure()
+
+Cost saving over area of the rig variants of the development case, each panel from its
+method study's recorded run: (a) the ram-air, single-skin and leading-edge inflatable kites
+of the soft-kite study, (b) the rigid and fabric wing sails of the fabric-wing study beside
+the kite and the rotors of the same run.
+"""
+function rig_variant_figure()
+    kites = read_table(study_file(:soft_kites, "devcase12.csv"))
+    wings = read_table(study_file(:fabric_wing, "fabric_wing.csv"))
+    figure = Figure(size=(page_width, 175))
+    panel(column, title) = Axis(figure[1, column]; title,
+        doubling_axis(:x, 400, 3200; base=400)..., xlabel=square_metres("rig area [", "]"),
+        ylabel=column == 1 ? "cost saving [%]" : "", limits=((330, 3500), (0, 36)))
+    soft = panel(1, "(a) soft kites")
+    kite, lei = style_colour("kite"), style_colour("lei")
+    variant_curve!(soft, kites, "kite", nothing, kite, :solid)
+    variant_curve!(soft, kites, "single", nothing, kite, :dash)
+    variant_curve!(soft, kites, "lei", nothing, lei, :solid)
+    clear_axislegend(figure, [soft],
+        [LineElement(color=kite), LineElement(color=kite, linestyle=:dash),
+            LineElement(color=lei)], ["ram-air kite", "single-skin kite", "LEI kite"];
+        rowgap=0, patchsize=(pt(12), pt(6)))
+    sails = panel(2, "(b) wing sails")
+    wing, rotor = style_colour("wings"), style_colour("rotors")
+    variant_curve!(sails, wings, "kite", "base", kite, :solid)
+    variant_curve!(sails, wings, "rotors", "base", rotor, :solid)
+    variant_curve!(sails, wings, "wings", "base", wing, :solid)
+    variant_curve!(sails, wings, "wings", "fabric", wing, :dash)
+    clear_axislegend(figure, [sails],
+        [LineElement(color=kite), LineElement(color=rotor), LineElement(color=wing),
+            LineElement(color=wing, linestyle=:dash)],
+        ["ram-air kite", "rotors", "rigid wing sails", "fabric wing sails"];
+        rowgap=0, patchsize=(pt(12), pt(6)))
+    save_figure("rig_variants", figure)
+end
