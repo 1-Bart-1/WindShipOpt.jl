@@ -44,9 +44,9 @@ fidelity = "final"
 run = "2026-11-23T1311"
 
 [model_parts]
-commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
+commit = "38a96a22585f8f3fcdfd6c3e9f78c46b99a7af0b"
 fidelity = "draft"
-run = "2026-11-13T1457"
+run = "2026-11-24T1733"
 
 [router_decisions]
 commit = "137db7db0582761d353f1b861867849e05b5249a"

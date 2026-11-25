@@ -460,7 +460,7 @@ function figure_style_file()
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
         println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,",
-            "decorations.pathreplacing}")
+            "decorations.pathreplacing,decorations.markings}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -483,12 +483,14 @@ function figure_style_file()
             "{\\tikzinputsegmentsupportb}{\\tikzinputsegmentlast}}}}},")
         println(io, "  force/.style={->, line width=", tex_size("force"), ", recorded},")
         println(io, "  flow/.style={->, line width=", tex_size("flow"), ", recorded},")
+        broken_arrow_style(io)
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
         println(io, "  icon line/.style={line width=", tex_size("icon"),
             ", line cap=round, line join=round},")
-        println(io, "  hull face/.style={line width=", tex_size("seam"), ", line join=round},")
+        println(io, "  hull face/.style={line width=", tex_size("seam"),
+            ", line join=round},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -514,6 +516,26 @@ function figure_style_file()
         println(io, "}")
         println(io, "\\input{figure_pics}")
     end
+end
+
+"""
+    broken_arrow_style(io)
+
+Write to `io` the TikZ style `broken=<position>` of an arrow shortened to fit its figure:
+two slanted strokes cut its shaft at `position`, a share of its length, 0.5 by default.
+"""
+function broken_arrow_style(io)
+    sizes = figure_style["sizes"]
+    gap, rise = sizes["break_gap"] / 2, sizes["arrow_width"] / 2
+    corner(along, across) = @sprintf("(%.2fpt,%.2fpt)", along + across / 2, across)
+    tail_stroke = (corner(-gap, -rise), corner(-gap, rise))
+    head_stroke = (corner(gap, -rise), corner(gap, rise))
+    println(io, "  broken/.style={postaction={decorate, decoration={markings, ",
+        "mark=at position #1 with {\\fill[white] ",
+        join([tail_stroke..., reverse(head_stroke)...], " -- "), " -- cycle; ",
+        "\\draw[line width=", tex_size("rule"), "] ", join(tail_stroke, " -- "), " ",
+        join(head_stroke, " -- "), ";}}}},")
+    println(io, "  broken/.default=0.5,")
 end
 
 """
@@ -570,6 +592,8 @@ column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
 print_scale = 468 / page_width
+"width [mm] of the paper's text, which a page-wide figure fills"
+text_width = page_width * print_scale * 25.4 / 72.27
 "figure units of a size [pt] as printed"
 pt(size) = size / print_scale
 "path of the paper's typeface, TeX Gyre Termes, in `style`"
@@ -989,8 +1013,6 @@ Rich text of `before`, the unit square metre as m with a raised digit 2, and `af
 """
 square_metres(before, after="") = rich(before, "m", superscript("2"), after)
 
-"`text` with its leading hyphen set as `minus`, by default the one the axes print"
-typeset_minus(text, minus="−") = replace(text, r"^-" => minus)
 "the [`study_drives`](@ref) with their names in figure labels"
 drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia")[drive]
                 for drive in study_drives]
@@ -1003,9 +1025,10 @@ trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
 """
     kite_figure()
 
-The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above,
-leading edge at the top, and from ahead, and its lift and drag coefficients (b) and glide
-ratio (c) in the design shape over angle of attack, without bridle and tether.
+The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above, the
+apparent wind coming onto its leading edge, and from ahead, and its lift and drag
+coefficients (b) and glide ratio (c) in the design shape over angle of attack, without
+bridle and tether.
 """
 function kite_figure()
     aspect_ratio = isinteger(design_aspect_ratio) ? Int(design_aspect_ratio) :
@@ -1020,20 +1043,23 @@ function kite_figure()
         Point2f.(reverse(geometry["te_y"]), -reverse(geometry["te_x"]))]
     poly!(shape, above; color=palette[1], strokecolor=:black, strokewidth=0.8)
     span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
-    trailing = -maximum(geometry["te_x"])
+    leading, trailing = -minimum(geometry["le_x"]), -maximum(geometry["te_x"])
     text!(shape, 0, trailing; text="span $(round(span; digits=1)) m",
         align=(:center, :top), offset=(0, -pt(2)), fontsize=note_size)
     margin = 1
-    wind = Point2f(0.5span + 1.5margin, -minimum(geometry["le_x"]))
-    arrows2d!(shape, [wind], [Vec2f(0, trailing - wind[2])]; color=:black,
+    text!(shape, Point2f.(0.5span, [leading, trailing]);
+        text=["leading edge", "trailing edge"], align=(:left, :center), offset=(pt(2), 0),
+        fontsize=note_size)
+    wind = Point2f(0, leading + 5margin)
+    arrows2d!(shape, [wind], [Vec2f(0, leading + 0.5margin - wind[2])]; color=:black,
         shaftwidth=flow_width)
-    text!(shape, wind; text="wind", align=(:center, :bottom), offset=(0, pt(1)),
+    text!(shape, wind; text="apparent wind", align=(:left, :center), offset=(pt(2), 0),
         fontsize=note_size)
     front = trailing - 4margin
     lines!(shape, -geometry["le_y"], geometry["le_z"] .+ front; color=palette[1],
         linewidth=3)
-    limits!(shape, -0.5span - margin, wind[1] + 1.5margin,
-        front + minimum(geometry["le_z"]) - margin, wind[2] + 2.5margin)
+    limits!(shape, -0.5span - margin, 0.5span + 10margin,
+        front + minimum(geometry["le_z"]) - margin, wind[2] + 2margin)
     angle = "angle of attack [°]"
     coefficients = Axis(figure[1, 2]; xlabel=angle, ylabel="coefficient",
         title="(b) lift and drag")
@@ -1045,7 +1071,7 @@ function kite_figure()
     glide = Axis(figure[1, 3]; xlabel=angle, ylabel=L"G = C_L/C_D",
         title="(c) glide ratio")
     lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=palette[1])
-    colsize!(figure.layout, 1, Relative(0.3))
+    colsize!(figure.layout, 1, Relative(0.36))
     save_figure("kite", figure)
 end
 
@@ -1085,66 +1111,6 @@ end
 Geometric mean of the positive numbers `values`.
 """
 geometric_mean(values) = exp(sum(log, values) / length(values))
-
-"""
-    deck_rig_figure()
-
-Write paper/figures/deck_rigs.pdf: the model of the deck rigs, (a) the lift over drag of
-wing sails and suction sails at each trim, attached and stalled, (b) the rotor's lift, drag
-and spin power over spin ratio, and (c) the thrust factor of wings and rotors in one row
-and in two columns over their number, at the closest spacing.
-"""
-function deck_rig_figure()
-    figure = Figure(size=(page_width, 170))
-    polar = Axis(figure[1, 1]; xlabel=L"C_D", ylabel=L"C_L",
-        title="(a) wing and suction sails, over their trim")
-    for rig in ("wings", "suction")
-        ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size(rig, 800.0)...), assumptions)
-        trims = WindShipOpt.trim_ranges(ship.rig, ship.env, 10.0, π / 2, 5.0)
-        for (trim, style) in zip(trims, (:solid, :dash))
-            settings = WindShipOpt.trim_setting.(Ref(ship.rig), Ref(trim),
-                range(trim.low, trim.high; length=100))
-            lines!(polar, last.(settings), first.(settings); color=rig_colour(rig),
-                linestyle=style)
-        end
-    end
-    axislegend(polar, [LineElement(; color=rig_colour("wings")),
-            LineElement(; color=rig_colour("suction")), LineElement(; color=:black),
-            LineElement(; color=:black, linestyle=:dash)],
-        ["wing", "suction", "attached", "stalled"]; position=(0.98, 0.12))
-    spins = range(0, WindShipOpt.MAX_SPIN_RATIO; length=100)
-    coefficients = WindShipOpt.rotor_coefficients.(spins)
-    rotor = Axis(figure[1, 2]; xlabel=L"spin ratio $\alpha$", ylabel="coefficient",
-        title="(b) rotor, over its spin")
-    lift = assumptions[:rotor_lift_factor] .* first.(coefficients)
-    lines!(rotor, spins, lift; color=palette[3], label=L"C_L")
-    lines!(rotor, spins, getindex.(coefficients, 2); color=palette[3], linestyle=:dash,
-        label=L"C_D")
-    lines!(rotor, spins, last.(coefficients); color=palette[3], linestyle=:dot,
-        label=L"C_{P,\mathrm{spin}}")
-    axislegend(rotor; position=:lt)
-    shading = Axis(figure[1, 3]; xlabel=L"units $n$", ylabel=L"thrust factor $f$",
-        title="(c) shading at the closest spacing", xticks=2:2:8,
-        limits=(nothing, (0.45, 1.0)))
-    for (unit, colour) in ((:wing, palette[2]), (:rotor, palette[3]))
-        setting(name) = assumptions[Symbol(unit, name)]
-        spacing, decay = setting(:_spacing), setting(:_interference_decay)
-        amplitude = setting(:_interference_amplitude)
-        abreast = setting(:_abreast_loss) * amplitude
-        counts = 2:2:8
-        row = WindShipOpt.array_factor.(counts, spacing, amplitude, decay)
-        columns = WindShipOpt.array_factor.(counts .÷ 2, spacing, amplitude, decay) .*
-                  WindShipOpt.array_factor(2, spacing, abreast, decay)
-        scatterlines!(shading, counts, row; color=colour, markersize=marker_size)
-        scatterlines!(shading, counts, columns; color=colour, linestyle=:dash,
-            markersize=marker_size)
-    end
-    elements = [LineElement(; color=palette[2]), LineElement(; color=palette[3]),
-        LineElement(; color=:black), LineElement(; color=:black, linestyle=:dash)]
-    axislegend(shading, elements, ["wing sails", "rotors", "one row", "two columns"];
-        position=:lb)
-    save_figure("deck_rigs", figure)
-end
 
 """
     pattern_figure()
