@@ -779,11 +779,12 @@ end
     aspect_ratio = assumptions[:kite_aspect_ratio]
     _, _, tether_diameter = WindShipOpt.kite_model(area, aspect_ratio, assumptions)
     tether_length = assumptions[:tether_length_ratio] * sqrt(aspect_ratio * area)
+    @test tether_length ≈ 980 rtol = 0.005
     tether = WindShipOpt.rope_mass(tether_diameter, tether_length, assumptions)
     @test tether ≈ assumptions[:tether_rope_density] * force * tether_length /
                    assumptions[:tether_stress]
-    @test tether ≈ 7.6e3 rtol = 0.005
-    @test assumptions[:tether_price] * tether ≈ 7.1e5 rtol = 0.005
+    @test tether ≈ 5.86e3 rtol = 0.005
+    @test assumptions[:tether_price] * tether ≈ 5.45e5 rtol = 0.005
 end
 
 @testset "the paper's worked examples of a wing sail, suction sails and raised rotors \
@@ -951,10 +952,11 @@ end
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are a hand calculation worked independently of the code.
+# Expected forces are a hand calculation worked independently of the code, on 13 spans.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
-    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    worked = with_value(assumptions, :tether_length_ratio, 13.0)
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), worked).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
     @test force(5.8751, 26.6411).thrust ≈ -177 atol = 5
     @test force(5.8751, 26.6411).side ≈ 63758 rtol = 1e-3
@@ -1752,7 +1754,9 @@ end
 @testset "kite inputs give the SkySails kites at their projected areas" begin
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
     @test small.min_turn_radius ≈ 45.0 rtol = 0.05
-    large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
+    longest = WindShipOpt.with_value(assumptions, :tether_length_ratio,
+        assumptions.entries[:tether_length_ratio].high)
+    large, = WindShipOpt.kite_model(250.0, 3.0, longest)
     @test large.tether_length ≈ 360.0 rtol = 0.05
 end
 
@@ -3606,6 +3610,7 @@ module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
 include(joinpath(root, "scripts", "run_estimate.jl"))
+include(joinpath(root, "scripts", "run_releases.jl"))
 runs_directory = mktempdir()
 end
 
@@ -4025,6 +4030,135 @@ end
     @test parse(Int, option("cpus-per-task")) <= 64
     @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
     @test option("dependency") == "afterany:7"
+end
+
+"""
+    StubReleases
+
+Releases standing in for GitHub's: each asset a file with its label, by tag and name.
+"""
+struct StubReleases
+    assets::Dict{Tuple{String, String}, Tuple{String, String}}
+end
+
+StubReleases() = StubReleases(Dict{Tuple{String, String}, Tuple{String, String}}())
+
+PaperRuns.run_assets(releases::StubReleases) =
+    [PaperRuns.RunAsset(tag, name, label) for ((tag, name), (label, _)) in releases.assets]
+
+PaperRuns.replace_asset(releases::StubReleases, tag, commit, name, label, path) =
+    releases.assets[(tag, name)] = (label, cp(path, tempname()))
+
+PaperRuns.download_asset(releases::StubReleases, tag, name, path) =
+    cp(last(releases.assets[(tag, name)]), path)
+
+"""
+    in_checkout(checkout=mktempdir())
+
+Path of the repository `checkout`, made the one whose runs and case store are in use.
+"""
+function in_checkout(checkout=mktempdir())
+    @eval PaperRuns runs_directory = joinpath($checkout, "output", "runs")
+    @eval PaperRuns cases_directory = joinpath($checkout, "output", "cases")
+    return checkout
+end
+
+"""
+    written_run(name, steps; commit="c", fidelity="draft", study=false)
+
+Write run `name` of `commit` at `fidelity` with `steps` steps done, one of them a method
+study's record where `study`, in the checkout in use.
+"""
+function written_run(name, steps; commit="c", fidelity="draft", study=false)
+    names = [study ? "sea_effect_record" : "classes"; ["step $k" for k in 2:steps]]
+    record = Dict("fidelity" => fidelity, "finished" => "", "git_commit" => commit,
+        "git_dirty" => false, "git_branch" => "b",
+        "steps" => [Dict("name" => name) for name in names[1:steps]])
+    directory = mkpath(joinpath(PaperRuns.runs_directory, name))
+    open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+    return directory
+end
+
+"""
+    stored_files(store, names)
+
+Write the case-store entries `names` in the store `store` of the checkout in use.
+"""
+stored_files(store, names) = foreach(name -> write(joinpath(mkpath(joinpath(
+    PaperRuns.cases_directory, store)), name), name), names)
+
+@testset "a pushed run carries the round trips and departures it uses and no others" begin
+    checkout = in_checkout()
+    directory = written_run("2026-01-01T0000", 1)
+    mkpath(joinpath(directory, "cases"))
+    write(joinpath(directory, "cases", "classes.csv"), "case,store,commit,dirty," *
+        "trip_model,processor\n\"class=a, b\",\"s1\",\"c\",\"false\",\"m1\",\"cpu\"\n")
+    write(joinpath(directory, "cases", "stores.csv"), "store,trip_model\n\"s2\",\"m3\"\n")
+    stored_files("s1", ["m1-1.bin", "m2-1.bin"])
+    stored_files("s2", ["m3-1.bin", "m3-2.bin", "m1-1.bin"])
+    stored_files("s3", ["m1-1.bin"])
+    stored_files("s2/departures/24.0", ["m3-1.bin", "m1-1.bin"])
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    label, archive = releases.assets[("run-c", "draft.tar.gz")]
+    @test label == "run 2026-01-01T0000, 1 steps"
+    @test sort(filter(!endswith("/"), readlines(`tar -tzf $archive`))) ==
+          ["cases/s1/m1-1.bin", "cases/s2/departures/24.0/m3-1.bin",
+           "cases/s2/m3-1.bin", "cases/s2/m3-2.bin",
+           "runs/2026-01-01T0000/cases/classes.csv",
+           "runs/2026-01-01T0000/cases/stores.csv", "runs/2026-01-01T0000/run.toml"]
+end
+
+@testset "a run pulled onto a machine without it resumes there with its round trips" begin
+    first_machine = in_checkout()
+    run = PaperRuns.open_run(:draft, [:designs, :routes], false)
+    PaperRuns.run_step!(run, :designs, () -> touch(joinpath(run.directory, "designs.csv")))
+    PaperRuns.paper_run = run
+    store = joinpath(PaperRuns.cases_directory, "store")
+    PaperRuns.note_stores(run, [store])
+    PaperRuns.stored_trip(() -> 4.0, store, (; assumptions))
+    releases = StubReleases()
+    PaperRuns.push_run(releases, basename(run.directory), first_machine)
+    second_machine = in_checkout()
+    PaperRuns.pull_runs(releases, basename(run.directory), second_machine)
+    resumed = PaperRuns.open_run(:draft, [:designs, :routes], true)
+    @test basename(resumed.directory) == basename(run.directory)
+    @test PaperRuns.step_done(resumed, :designs) && !PaperRuns.step_done(resumed, :routes)
+    PaperRuns.paper_run = resumed
+    @test PaperRuns.stored_entry(joinpath(PaperRuns.cases_directory, "store"),
+        (; assumptions)).trip == 4.0
+end
+
+@testset "a commit keeps its most complete run, and a pull never undoes steps" begin
+    checkout = in_checkout()
+    written_run("2026-01-01T0000", 2)
+    written_run("2026-01-01T0001", 2)
+    written_run("2026-01-01T0002", 3)
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    @test_throws "keeps run 2026-01-01T0000" PaperRuns.push_run(releases,
+        "2026-01-01T0001", checkout)
+    PaperRuns.push_run(releases, "2026-01-01T0002", checkout)
+    @test first(releases.assets[("run-c", "draft.tar.gz")]) ==
+          "run 2026-01-01T0002, 3 steps"
+    written_run("2026-01-01T0002", 4)
+    PaperRuns.pull_runs(releases, "c", checkout)
+    @test length(PaperRuns.TOML.parsefile(joinpath(PaperRuns.runs_directory,
+        "2026-01-01T0002", "run.toml"))["steps"]) == 4
+end
+
+@testset "a back-fill keeps a commit's named or most complete run, no unnamed study" begin
+    in_checkout()
+    written_run("2026-01-01T0000", 3)
+    written_run("2026-01-01T0001", 1; study=true)
+    written_run("2026-01-01T0002", 2; study=true)
+    written_run("2026-01-01T0003", 2; commit="d")
+    written_run("2026-01-01T0004", 5; commit="d")
+    written_run("2026-01-01T0005", 1; commit="d", fidelity="final")
+    studies = Dict("sea_effect" => Dict("run" => "2026-01-01T0001"))
+    kept, skipped = PaperRuns.backfill_runs(PaperRuns.runs_directory, studies)
+    @test kept == ["2026-01-01T0001", "2026-01-01T0004", "2026-01-01T0005"]
+    @test first.(skipped) == ["2026-01-01T0000", "2026-01-01T0002", "2026-01-01T0003"]
 end
 
 module JobTrips

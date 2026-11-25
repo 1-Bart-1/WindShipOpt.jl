@@ -111,10 +111,12 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
 Round trips of all `cases`, taking those the case store holds for the run in use
 ([`stored_entry`](@ref)) and combining the others from their departures, which the jobs of
 `case_jobs` route where [`handed_out`](@ref) says so, else this process
-([`compute_trips`](@ref)).
+([`compute_trips`](@ref)); the stores they come from are noted in the run first
+([`note_stores`](@ref)).
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
+    note_stores(paper_run, directories)
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
@@ -2292,16 +2294,18 @@ end
 
 Variants of the base kite on the ships of the area basis study as (name, projected aspect
 ratio, changed inputs): the base, at aspect ratio 2.5 with the flight drag held and
-recalibrated, at the other readings of its inputs, and those of [`noise_variants`](@ref).
+recalibrated, on the bounds of its tether length, at another reading of its canopy mass,
+and those of [`noise_variants`](@ref).
 """
 function base_kite_variants()
     low_aspect_ratio = 2.5
     recalibrated = WindShipOpt.recalibrated_flight_drag(low_aspect_ratio,
         design_aspect_ratio, assumptions)
+    tether = assumptions.entries[:tether_length_ratio]
     return [("base", design_aspect_ratio, (;)); ("held", low_aspect_ratio, (;));
         ("recalibrated", low_aspect_ratio, (; kite_flight_drag=recalibrated));
-        ("tether_15.5", design_aspect_ratio, (; tether_length_ratio=15.5));
-        ("tether_19.7", design_aspect_ratio, (; tether_length_ratio=19.7));
+        ("tether_low", design_aspect_ratio, (; tether_length_ratio=tether.low));
+        ("tether_high", design_aspect_ratio, (; tether_length_ratio=tether.high));
         ("overhead_0.19", design_aspect_ratio, (; canopy_mass_overhead=0.19));
         noise_variants(assumptions[:tether_length_ratio],
             assumptions[:kite_min_turn_radius])]

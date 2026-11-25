@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const runs = resolve(import.meta.dirname, "..", "output", "runs");
 
@@ -27,25 +27,36 @@ function newestRun(file: string): string | undefined {
   );
 }
 
-/** Path of the explorer data the site shows: `EXPLORER_JSON` if set, else the newest run's. */
-export function explorerPath(): string {
-  if (process.env.EXPLORER_JSON) return resolve(process.env.EXPLORER_JSON);
-  const chosen = newestRun("explorer.json");
-  if (!chosen)
-    throw new Error(`no explorer.json in ${runs}: run paper(:classes, :explorer; fidelity=:draft)`);
-  return join(runs, chosen, "explorer.json");
-}
-
-/** Directory of the routed passages the site shows: `PASSAGES_DIRECTORY` if set, else the newest run's. */
-export function passagesDirectory(): string | undefined {
-  if (process.env.PASSAGES_DIRECTORY) return resolve(process.env.PASSAGES_DIRECTORY);
-  const chosen = newestRun("passages.json");
+/** Directory of the run whose `file` the site shows: `RUN_DIRECTORY` if set, else the newest run's. */
+function runDirectory(file: string): string | undefined {
+  if (process.env.RUN_DIRECTORY) return resolve(process.env.RUN_DIRECTORY);
+  const chosen = newestRun(file);
   return chosen ? join(runs, chosen) : undefined;
 }
 
-/** Path of the router grids the grid page shows: `GRIDS_JSON` if set, else the newest run's. */
+/** Path of the run file `file` the site shows, if that run holds it. */
+function runFile(file: string): string | undefined {
+  const directory = runDirectory(file);
+  return directory && existsSync(join(directory, file)) ? join(directory, file) : undefined;
+}
+
+/** Path of the explorer data the site shows. */
+export function explorerPath(): string {
+  const path = runFile("explorer.json");
+  if (!path) {
+    const directory = runDirectory("explorer.json") ?? runs;
+    throw new Error(`no explorer.json in ${directory}: run paper(:classes, :explorer; fidelity=:draft)`);
+  }
+  return path;
+}
+
+/** Directory of the routed passages the site shows, if its run holds them. */
+export function passagesDirectory(): string | undefined {
+  const path = runFile("passages.json");
+  return path && dirname(path);
+}
+
+/** Path of the router grids the grid page shows, if its run holds them. */
 export function gridsPath(): string | undefined {
-  if (process.env.GRIDS_JSON) return resolve(process.env.GRIDS_JSON);
-  const chosen = newestRun("grids.json");
-  return chosen ? join(runs, chosen, "grids.json") : undefined;
+  return runFile("grids.json");
 }
