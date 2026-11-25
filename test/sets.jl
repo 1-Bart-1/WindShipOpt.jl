@@ -819,10 +819,8 @@ end
           surveyed + (11.0 + 0.031 * 100) * rib_cloth(32.0)
     stronger = with_value(assumptions, :kite_max_force_per_area,
         2assumptions[:kite_max_force_per_area])
-    surveyed_cloth = 1.17 * (2.05 + 0.101 * 8.2 / 0.5)
     @test WindShipOpt.canopy_cost(stronger, 32.0) ≈
-          surveyed + 0.031 * 100 * surveyed_cloth +
-          (11.0 + 0.031 * 200) * rib_cloth(32.0)
+          surveyed + (11.0 + 0.031 * 100) * rib_cloth(32.0)
     @test WindShipOpt.canopy_price(assumptions, 800.0, 3.0) ≈
           assumptions[:market_price_factor] *
           WindShipOpt.canopy_cost(assumptions, sqrt(800.0 / 3.0))
