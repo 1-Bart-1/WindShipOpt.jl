@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - paper/sections/numbers.tex
+      - .github/workflows/site.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fetch the run the paper's results name
+        run: |
+          run=$(python3 -I scripts/paper_run.py)
+          read -r commit fidelity <<< "$run"
+          curl -fsSL "https://github.com/${{ github.repository }}/releases/download/run-$commit/$fidelity.tar.gz" |
+            tar -xz -C "$RUNNER_TEMP" runs
+          echo "RUN_DIRECTORY=$(echo "$RUNNER_TEMP"/runs/*)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
