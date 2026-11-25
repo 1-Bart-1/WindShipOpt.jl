@@ -306,25 +306,25 @@ end
 """
     study_sources(runs)
 
-Write to paper/sections/study_runs.tex, for each method study in `runs`, the run, fidelity
-and commit it comes from, as the `\\studyrunis` definitions captions read.
+Write to paper/sections/study_runs.tex, for each method study in `runs`, the fidelity and
+commit of the run it comes from, as the `\\studyrunis` definitions captions read.
 """
 function study_sources(runs)
     open(joinpath(sections, "study_runs.tex"), "w") do io
         for (study, run) in sort(collect(runs); by=first)
             println(io, "\\studyrunis{", study, "}{",
-                run_words(run["run"], run["fidelity"], run["commit"]), "}")
+                run_words(run["fidelity"], run["commit"]), "}")
         end
     end
 end
 
 """
-    run_words(run, fidelity, commit)
+    run_words(fidelity, commit)
 
-The run `run`, its `fidelity` and the short hash of `commit` as the paper names them.
+The run at `fidelity` of `commit` as the paper names it, the commit linked on GitHub.
 """
-run_words(run, fidelity, commit) =
-    string("run ", run, " at ", fidelity, " fidelity, commit ", first(commit, 7))
+run_words(fidelity, commit) =
+    string("the ", fidelity, " run at commit \\commit{", commit, "}")
 
 """
     step_run_words(step, name)
@@ -335,7 +335,7 @@ function step_run_words(step, name)
     directory = dirname(resolved_data_file(name))
     record = TOML.parsefile(joinpath(directory, "run.toml"))
     commit = step_entry(record, step)["git_commit"]
-    return run_words(basename(directory), record["fidelity"], commit)
+    return run_words(record["fidelity"], commit)
 end
 
 """
@@ -469,8 +469,9 @@ end
     run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
 
 Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run,
-reading `source` first, when all of them are among the figure and table steps `outputs`. A step of `outputs` that
-fails leaves the steps after it to run; return the name of each such step with its error.
+reading `source` first, when all of them are among the figure and table steps `outputs`. A
+step of `outputs` that fails leaves the steps after it to run; return the name of each such
+step with its error.
 """
 function run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
