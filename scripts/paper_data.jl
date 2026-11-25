@@ -1871,24 +1871,55 @@ study_classes = (("Kamsarmax bulk carrier", :vlsfo, :tubarao),
     ("Neo-Panamax container ship", :ammonia, :new_york))
 
 """
+    study_ships()
+
+Ships of the development study as (name, design without a rig, route): the 140 m e-ammonia
+reference ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a Neo-Panamax container
+ship on e-ammonia to New York.
+"""
+function study_ships()
+    classes = ship_classes()
+    return [("140 m", ShipDesign(:ammonia, 140.0), :caribbean);
+            [(name, ShipDesign(drive, classes[name]), route)
+             for (name, drive, route) in study_classes]]
+end
+
+"""
     sensitivity_ships()
 
-Ships of the development study as (name, design without a rig, route, rig areas): the
-140 m e-ammonia reference ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a
-Neo-Panamax container ship on e-ammonia to New York, the classes with the best rig sizes
-of the class study.
+Each of [`study_ships`](@ref) with its rig areas: the [`reference_rigs`](@ref) on the 140 m
+ship, and on each class the best sizes the class study's search ([`searched_sizes`](@ref))
+finds for it, on the headline drive too where the class sails another.
 """
 function sensitivity_ships()
-    classes_table = read_table(data_file("classes.csv"))
     classes = ship_classes()
+    headline = last(study_drives)
+    searched = unique([(classes[name], drive, route)
+                       for (name, class_drive, route) in study_classes
+                       for drive in (headline, class_drive)])
+    sizes = size_table(searched_sizes(searched)...)
     reference = NamedTuple(Symbol(rig) => rig_size(rig, area)
                            for (rig, area) in reference_rigs)
-    ships = [("140 m", ShipDesign(:ammonia, 140.0), :caribbean, reference)]
-    for (name, drive, route) in study_classes
-        areas = study_areas(classes_table, name, route, drive)
-        push!(ships, (name, ShipDesign(drive, classes[name]), route, areas))
-    end
-    return ships
+    return [(name, design, route,
+                name == "140 m" ? reference :
+                study_areas(sizes, name, route, design.drive))
+            for (name, design, route) in study_ships()]
+end
+
+"""
+    size_table(cases, trips)
+
+The class, route, drive and rig of each of `cases` whose trip of `trips` is feasible, with
+its area [m^2] and cost [USD/tkm], as the table [`read_table`](@ref) gives of classes.csv.
+"""
+function size_table(cases, trips)
+    feasible = findall(!isnothing, trips)
+    table = Dict{String, Vector}(column => [string(getproperty(cases[k], Symbol(column)))
+                                            for k in feasible]
+                                 for column in ("class", "route", "drive", "rig"))
+    table["area"] = [cases[k].area for k in feasible]
+    table["cost"] = [trips[k].cost_per_tonne_km for k in feasible]
+    return table
 end
 
 """
@@ -2232,7 +2263,7 @@ function goal_limit_ships()
     return [(ship, bare, route,
                 NamedTuple(Symbol(rig) => rig_size(rig, table["area"][cheapest_size(table,
                     ship, rig)]) for rig in rig_names))
-            for (ship, bare, route, _) in sensitivity_ships()]
+            for (ship, bare, route) in study_ships()]
 end
 
 "row of the cheapest size of `rig` on `ship` in the goal_sizes.csv `table`"

@@ -1013,8 +1013,6 @@ Rich text of `before`, the unit square metre as m with a raised digit 2, and `af
 """
 square_metres(before, after="") = rich(before, "m", superscript("2"), after)
 
-"`text` with its leading hyphen set as `minus`, by default the one the axes print"
-typeset_minus(text, minus="−") = replace(text, r"^-" => minus)
 "the [`study_drives`](@ref) with their names in figure labels"
 drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia")[drive]
                 for drive in study_drives]

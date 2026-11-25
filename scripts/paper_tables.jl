@@ -25,6 +25,9 @@ Text of `x` rounded to a whole number, halves away from zero, never "-0".
 """
 whole_number(x) = string(round(Int, x, RoundNearestTiesAway))
 
+"`text` with its leading hyphen set as `minus`, by default the one the axes print"
+typeset_minus(text, minus="−") = replace(text, r"^-" => minus)
+
 """
     whole_points(x)
 
@@ -2433,7 +2436,7 @@ function side_force_numbers()
                     for name in ("SideForce", "WeakHull", "Leeway", "LeewayLimit")]
     parts = read_table(study_file(:model_parts, "model_parts.csv"))
     leeway = read_table(study_file(:model_parts, "leeway.csv"))
-    ammonia = [name for (name, design) in sensitivity_ships() if design.drive == :ammonia]
+    ammonia = [name for (name, design) in study_ships() if design.drive == :ammonia]
     cost(ship, rig, part) =
         only(parts["cost"][rows(parts, "ship" => ship, "rig" => rig, "part" => part)])
     saving(ship, rig, part) =
@@ -2953,11 +2956,11 @@ reads_alike(values, format) = allequal(format.(values))
 """
     value_range(values, format)
 
-Text of `values` by `format`: one value where they [`reads_alike`](@ref), else the range
-they span.
+Text of `values` by `format`, a negative one with a minus sign: one value where they
+[`reads_alike`](@ref), else the range they span.
 """
 function value_range(values, format)
-    low, high = format.(extrema(values))
+    low, high = typeset_minus.(format.(extrema(values)), "\$-\$")
     return reads_alike(values, format) ? low : "$low to $high"
 end
 
