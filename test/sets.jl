@@ -326,13 +326,13 @@ end
     @test heavy_wind > light_wind
 end
 
-@testset "a kite built for more force gets cloth and reinforcements in proportion" begin
+@testset "a kite built for more force keeps its cloth and grows its reinforcements" begin
     stronger = with_value(assumptions, :kite_max_force_per_area,
         2assumptions[:kite_max_force_per_area])
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
-    @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
-    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
+    @test strong_canopy.mass_per_area ≈
+          base_canopy.mass_per_area + assumptions[:canopy_mass_overhead]
+    @test strong_canopy.cost_per_area ≈ base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
@@ -350,12 +350,11 @@ end
 end
 
 @testset "the part-load law burns 1 to 7 % more than MAN L21/31 curves at half to 85 % load" begin
-    # Specific fuel at 100, 85, 75, 50 and 25 % load [g/kWh], MAN L21/31, p. 137, Tables 1-4.
-    curves = ([192.1, 188.9, 188.8, 192.5, 206.2], [197.1, 194.6, 195.2, 201.7, 223.0],
-        [189.1, 185.4, 182.6, 186.5, 202.0], [192.7, 189.5, 187.1, 193.0, 214.0],
-        [193.1, 190.9, 191.7, 195.5, 215.3], [198.1, 196.6, 198.2, 204.8, 232.9],
-        [199.9, 197.6, 196.7, 198.2, 214.9])
-    loads = [1.0, 0.85, 0.75, 0.5, 0.25]
+    path = joinpath(pkgdir(WindShipOpt), "data", "engine_part_load_tests.csv")
+    rows = [WindShipOpt.csv_fields(line) for line in readlines(path)[2:end]]
+    loads = [parse(Float64, row[2]) for row in rows if row[1] == rows[1][1]]
+    curves = [[parse(Float64, row[3]) for row in rows if row[1] == name]
+              for name in unique(row[1] for row in rows)]
     engine = WindShipOpt.Powertrain(; installed_power=1e6, unit_count=1,
         peak_efficiency=0.44, part_load_penalty=assumptions[:part_load_penalty],
         transmission_efficiency=1.0, hotel_load=0.0)
@@ -536,6 +535,22 @@ end
     @test force_at(3.9) === WindShipOpt.NO_RIG_FORCE
     @test force_at(5.9) === WindShipOpt.NO_RIG_FORCE
     @test force_at(6.1).thrust != 0
+end
+
+@testset "a kite flies from the lowest wind its patterns fly in, between table rows" begin
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    rig = KiteRig(1600.0, aspect_ratio, Hull(140.0, assumptions), assumptions;
+        courses=[π / 2])
+    model, max_force, _ = WindShipOpt.kite_model(1600.0, aspect_ratio, assumptions)
+    flies(wind) = isfinite(WindShipOpt.lowest_flying_wind([wind],
+        WindShipOpt.pattern_table(model, max_force, assumptions, [wind], [π / 2],
+            WindShipOpt.SIDE_WEIGHTS)))
+    @test flies(rig.min_flight_wind)
+    @test !flies(rig.min_flight_wind - WindShipOpt.FLYING_WIND_TOLERANCE)
+    env = Environment(assumptions)
+    wind = (rig.min_flight_wind + 0.01) / WindShipOpt.wind_at_height(env, 1.0,
+        rig.reference_height)
+    @test WindShipOpt.rig_force(rig, env, wind, π / 2, 0.0, 0.0).thrust > 0
 end
 
 @testset "no pattern flies under the launch wind" begin
@@ -819,10 +834,8 @@ end
           surveyed + (11.0 + 0.031 * 100) * rib_cloth(32.0)
     stronger = with_value(assumptions, :kite_max_force_per_area,
         2assumptions[:kite_max_force_per_area])
-    surveyed_cloth = 1.17 * (2.05 + 0.101 * 8.2 / 0.5)
     @test WindShipOpt.canopy_cost(stronger, 32.0) ≈
-          surveyed + 0.031 * 100 * surveyed_cloth +
-          (11.0 + 0.031 * 200) * rib_cloth(32.0)
+          surveyed + (11.0 + 0.031 * 100) * rib_cloth(32.0)
     @test WindShipOpt.canopy_price(assumptions, 800.0, 3.0) ≈
           assumptions[:market_price_factor] *
           WindShipOpt.canopy_cost(assumptions, sqrt(800.0 / 3.0))
@@ -1147,10 +1160,16 @@ end
 end
 
 @testset "a kite and the rotors beside it trim jointly to the least engine output" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0), assumptions)
+    design = ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0)
     speed = 10.5KNOT
     weights = range(0.0, 3.0; length=31)
-    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+    # a wider-turning kite in more shear puts a trim the ship cannot hold beside the best
+    wider_turns = with_value(with_value(assumptions, :kite_min_turn_radius, 3.0),
+        :wind_shear_exponent, 0.06)
+    cases = [[(assumptions, wind, angle) for wind in (10.0, 16.0)
+              for angle in deg2rad.(45:15:165)]; (wider_turns, 16.0, deg2rad(60))]
+    for (inputs, wind, angle) in cases
+        ship = Ship(design, inputs)
         spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
         bare = engine_output(ship, speed,
             WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
@@ -2287,6 +2306,18 @@ WindShipOpt.known_weather(source::FixedForecast, weather, time) = source.weather
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly))
+end
+
+@testset "a leg's trace sails on once the ship has held through a gale" begin
+    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=720.0,
+        lateral_spacing=480.0)
+    departure = 24.0 * 31
+    weather = GaleWeather(SyntheticWeather(), departure + 10.0)
+    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly)
+    trace = LegTrace(table.table, sailed, weather, departure)
+    @test all(isfinite, trace.hours)
+    @test first(trace.time) == 12.0
+    @test sum(trace.hours) ≈ sailed.duration - 12.0
 end
 
 """
@@ -3855,7 +3886,7 @@ StubJobs(wall, retries; left=Dict{Int, Task}()) =
     StubJobs(wall, retries, left, Dict{Int, Int}(), Threads.Atomic{Int}(0))
 
 PaperRuns.cores(::StubJobs) = 3
-PaperRuns.job_count(::StubJobs) = 4
+PaperRuns.job_count(::StubJobs) = 5
 PaperRuns.retries(jobs::StubJobs) = jobs.retries
 PaperRuns.poll_seconds(::StubJobs) = 0.01
 PaperRuns.running(::StubJobs, handles) = filter(!istaskdone, handles)
@@ -3977,9 +4008,10 @@ end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
     settings = merge(PaperRuns.cluster_settings(), Dict("account" => "", "partition" => ""))
-    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "log", `true`)
+    @test_throws "set the account" PaperRuns.slurm_command(settings, 4, "800M", "run",
+        "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
-    command = PaperRuns.slurm_command(settings, "run", "log", `true`)
+    command = PaperRuns.slurm_command(settings, 4, "800M", "run", "log", `true`)
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
 end
 
@@ -3993,13 +4025,6 @@ end
         PaperRuns.StepTally())
     newer = PaperRuns.write_batch(handed_cases, directories, [24.0])
     @test newer != batch && PaperRuns.deserialize(newer).trip_model == "newer code"
-end
-
-@testset "the run's own share that fails has ended, as a failed job has" begin
-    failed = Threads.@spawn error("a trip failed")
-    wait(Threads.@spawn try wait(failed) catch end)
-    jobs = PaperRuns.SlurmJobs(PaperRuns.cluster_settings())
-    @test isempty(PaperRuns.running(jobs, Any[failed]))
 end
 
 @testset "run jobs that find their run unmoved are counted until it moves" begin
@@ -4020,16 +4045,26 @@ end
     @test PaperRuns.stalled_run_jobs(:draft) == 0
 end
 
-@testset "the jobs of a run are short enough to pass the queue fast and fit the cluster" begin
+@testset "the jobs of a run are short and a quarter node at most, to fit the gaps" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
-    command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
-    option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
-    hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
-    @test parse(Int, option("cpus-per-task")) <= 64
-    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
-    @test option("dependency") == "afterany:7"
+    jobs = PaperRuns.SlurmJobs(settings)
+    run = PaperRuns.slurm_command(settings, settings["run_cores"],
+        settings["run_memory_per_core"], "run", "log", `true`; after="7")
+    cases = PaperRuns.slurm_command(settings, PaperRuns.cores(jobs),
+        settings["memory_per_core"], "cases", "log", `true`)
+    option(command, name) =
+        only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
+    megabytes(memory) = parse(Int, chop(memory)) * (endswith(memory, "G") ? 1024 : 1)
+    for command in (run, cases)
+        hours, minutes, seconds = parse.(Int, split(option(command, "time"), ":"))
+        @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
+        cores = parse(Int, option(command, "cpus-per-task"))
+        @test cores <= 64 ÷ 4
+        @test cores * megabytes(option(command, "mem-per-cpu")) <= 250 * 1024 ÷ 4
+    end
+    @test PaperRuns.shard_count(jobs, 10^6) == settings["jobs"] - 1
+    @test option(run, "dependency") == "afterany:7"
 end
 
 """
@@ -4654,7 +4689,7 @@ soft_mass_per_area(area, inputs) =
 @testset "a soft kite's mass per area grows with its chord, in its ribs" begin
     @test soft_mass_per_area(3000.0, assumptions) >
           1.1soft_mass_per_area(200.0, assumptions)
-    skins = 1e-3WindShipOpt.cloth_weight(assumptions) *
+    skins = 1e-3assumptions[:canopy_cloth_weight] *
             assumptions[:canopy_flat_area_ratio] * assumptions[:canopy_skin_cloth_ratio]
     ribs(area) = WindShipOpt.Canopy(assumptions, area, 3.0).mass_per_area -
                  assumptions[:canopy_mass_overhead] - skins
@@ -4668,7 +4703,6 @@ end
         @test WindShipOpt.cloth_area_ratio(assumptions, chord) ≈
               1.17 * (2.05 + 0.101 * chord / 0.5)
     end
-    @test WindShipOpt.cloth_weight(assumptions) ≈ assumptions[:canopy_cloth_weight]
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
@@ -5260,7 +5294,7 @@ end
     frame, area = WindShipOpt.TubeFrame(), 200.0
     rating = assumptions[:lei_max_force_per_area] /
              assumptions[:canopy_cloth_reference_force]
-    weight = assumptions[:canopy_cloth_weight] * rating
+    weight = assumptions[:canopy_cloth_weight]
     tubes = WindShipOpt.tube_mass(assumptions, area)
     surface = assumptions[:lei_tube_surface]
     canopy = WindShipOpt.Canopy(assumptions, area, frame)
@@ -5318,7 +5352,7 @@ end
     canopy = WindShipOpt.Canopy(assumptions, 500.0, WindShipOpt.SingleSkin())
     rating = WindShipOpt.force_rating(assumptions)
     skin = assumptions[:canopy_flat_area_ratio]
-    weight = WindShipOpt.cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     @test canopy.mass_per_area ≈ 1e-3skin * weight +
                                  assumptions[:single_skin_line_ratio] *
                                  assumptions[:canopy_mass_overhead] * rating
@@ -5727,9 +5761,9 @@ end
     both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
     both["drive"][(length(held) + 1):end] .= "ammonia"
     shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
-    bands = ["Kite", "Wings", "Rotors", "Level"]
-    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
-                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
+    rigs = ["Kite", "Wings", "Rotors"]
+    @test Set(shares) == Set(["FleetShareOil" .* rigs;
+                              "FleetShareAmmonia" .* [rigs; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin
@@ -5963,7 +5997,7 @@ end
         join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
     @test !PaperData.study_holds(PaperData.switched(:none))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
-    @test length(PaperData.side_force_numbers()) == 4length(PaperData.side_force_rigs)
+    @test length(PaperData.side_force_numbers()) == 2length(PaperData.side_force_rigs)
     @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
     @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end
