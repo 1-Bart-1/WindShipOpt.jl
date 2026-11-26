@@ -18,20 +18,11 @@ end
     force_rating(assumptions, force_per_area=assumptions[:kite_max_force_per_area])
 
 Force limit `force_per_area` [kN/m^2] over the `canopy_cloth_reference_force` that the
-canopy's cloth weight and mass overhead are stated at [-].
+canopy's mass overhead is stated at [-].
 """
 force_rating(assumptions::Assumptions,
     force_per_area=assumptions[:kite_max_force_per_area]) =
     force_per_area / assumptions[:canopy_cloth_reference_force]
-
-"""
-    cloth_weight(assumptions, rating=force_rating(assumptions))
-
-Weight [g/m^2] of the canopy cloth: `canopy_cloth_weight` times the force `rating`, so
-that the cloth carries the same tension per weight at any force limit.
-"""
-cloth_weight(assumptions::Assumptions, rating=force_rating(assumptions)) =
-    assumptions[:canopy_cloth_weight] * rating
 
 """
     cloth_area_ratio(assumptions, chord)
@@ -59,11 +50,12 @@ cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_base_p
     canopy_cost(assumptions, chord)
 
 Cost [USD/m^2] per projected m^2 of the canopy of mean projected `chord` [m]: the surveyed
-[`sewing_cost`](@ref) and its own [`cloth_area_ratio`](@ref) of [`cloth_weight`](@ref) at
+[`sewing_cost`](@ref) and its own [`cloth_area_ratio`](@ref) of `canopy_cloth_weight` at
 its [`cloth_price`](@ref).
 """
 canopy_cost(assumptions::Assumptions, chord) = sewing_cost(assumptions) +
-    cloth_area_ratio(assumptions, chord) * cloth_price(assumptions, cloth_weight(assumptions))
+    cloth_area_ratio(assumptions, chord) *
+    cloth_price(assumptions, assumptions[:canopy_cloth_weight])
 
 """
     sewing_cost(assumptions)
@@ -84,13 +76,14 @@ end
     Canopy(assumptions, area, aspect_ratio)
 
 [`Canopy`](@ref) of a kite of projected `area` [m^2] and projected `aspect_ratio`, sewn from
-[`cloth_weight`](@ref) in its [`cloth_area_ratio`](@ref) at its mean chord: its cloth plus
+`canopy_cloth_weight` in its [`cloth_area_ratio`](@ref) at its mean chord: its cloth plus
 the mass overhead of seams, tapes and reinforcements in proportion to the force limit, at
 its [`canopy_cost`](@ref).
 """
 function Canopy(assumptions::Assumptions, area, aspect_ratio)
     chord = sqrt(area / aspect_ratio)
-    return Canopy(1e-3cloth_area_ratio(assumptions, chord) * cloth_weight(assumptions) +
+    weight = assumptions[:canopy_cloth_weight]
+    return Canopy(1e-3cloth_area_ratio(assumptions, chord) * weight +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         canopy_cost(assumptions, chord))
 end
@@ -119,13 +112,13 @@ tube_mass(assumptions::Assumptions, area) = assumptions[:lei_tube_mass] *
     Canopy(assumptions, area, ::TubeFrame)
 
 [`Canopy`](@ref) of a leading-edge inflatable kite of projected `area` [m^2]: one skin of
-[`cloth_weight`](@ref) for its force limit with the mass overhead of a ram-air canopy, and
+`canopy_cloth_weight` with the mass overhead of a ram-air canopy for its force limit, and
 its [`tube_mass`](@ref) spread over `lei_tube_surface`, at the [`sewing_cost`](@ref) of a
 soft kite and the [`cloth_price`](@ref) of each.
 """
 function Canopy(assumptions::Assumptions, area, ::TubeFrame)
     rating = force_rating(assumptions, assumptions[:lei_max_force_per_area])
-    skin, skin_weight = assumptions[:lei_flat_area_ratio], cloth_weight(assumptions, rating)
+    skin, skin_weight = assumptions[:lei_flat_area_ratio], assumptions[:canopy_cloth_weight]
     tubes, surface = tube_mass(assumptions, area), assumptions[:lei_tube_surface]
     mass = 1e-3skin * skin_weight + assumptions[:canopy_mass_overhead] * rating + tubes
     return Canopy(mass,
@@ -144,12 +137,12 @@ struct SingleSkin end
 """
     Canopy(assumptions, area, ::SingleSkin)
 
-[`Canopy`](@ref) of a single-skin kite: one skin of [`cloth_weight`](@ref) on each flat m^2,
+[`Canopy`](@ref) of a single-skin kite: one skin of `canopy_cloth_weight` on each flat m^2,
 the mass overhead of a ram-air canopy grown with its `single_skin_line_ratio` of bridle line,
 at the [`sewing_cost`](@ref) of a soft kite and the skin's [`cloth_price`](@ref).
 """
 function Canopy(assumptions::Assumptions, area, ::SingleSkin)
-    skin, weight = assumptions[:canopy_flat_area_ratio], cloth_weight(assumptions)
+    skin, weight = assumptions[:canopy_flat_area_ratio], assumptions[:canopy_cloth_weight]
     overhead = assumptions[:single_skin_line_ratio] * assumptions[:canopy_mass_overhead] *
                force_rating(assumptions)
     return Canopy(1e-3skin * weight + overhead,

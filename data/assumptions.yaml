@@ -936,7 +936,7 @@ lei_max_force_per_area:
   high: 0.57
   unit: kN/m^2
   source: "@kitepower2024; @faggiani2018 [Table 16.1]: pumping LEI kites"
-  reason: "Maximum tether force per projected m^2 of a leading-edge inflatable kite: the 0.43-0.57 kN/m^2 that pumping kites are designed for [@kitepower2024] and the 0.45 of a 100 m^2 design [@faggiani2018, Table 16.1]. The low bound is the 5 kN the V2 kite of 16.7 m^2 projected was limited to [@vandervlugt2013, p. 409]. The tubes and the skin's cloth follow the limit."
+  reason: "Maximum tether force per projected m^2 of a leading-edge inflatable kite: the 0.43-0.57 kN/m^2 that pumping kites are designed for [@kitepower2024] and the 0.45 of a 100 m^2 design [@faggiani2018, Table 16.1]. The low bound is the 5 kN the V2 kite of 16.7 m^2 projected was limited to [@vandervlugt2013, p. 409]. The tubes follow the limit; the skin is canopy_cloth_weight."
 lei_reference_area:
   value: 16.7
   unit: m^2
@@ -1017,12 +1017,12 @@ canopy_cloth_weight:
   value: 100.0
   unit: g/m^2
   source: "@paulig2013 [p. 561]: the cloth SkySails flew at its design load"
-  reason: "What SkySails flew: the polyester ripstop of its 160 kN ship kite, fabric of slightly above 100 g/m^2 at the reference force limit, its design load [@paulig2013, p. 561], on its cells of canopy_cell_width. The cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "What SkySails flew: the polyester ripstop of its 160 kN ship kite, fabric of slightly above 100 g/m^2 at its design load [@paulig2013, p. 561], on its cells of canopy_cell_width. Every kite keeps it at every force limit: UV, flexing and flogging wear canopy cloth out rather than its tension [@northsails_durability; @maslanka2023], and woven polyester sailcloth of 177-415 g/m^2 loses a like share of its strength to the same UV [@ceylan2023, Table 3], so canopy_life holds for this cloth at any limit. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_cloth_reference_force:
   value: 0.9
   unit: kN/m^2
   source: "Set to the base force limit per area"
-  reason: "Force limit at which canopy_cloth_weight and canopy_mass_overhead are stated: the design load per projected m^2 of the SkySails kite whose cloth canopy_cloth_weight is, the base kite_max_force_per_area."
+  reason: "Force limit at which canopy_mass_overhead is stated: the design load per projected m^2 of the SkySails kite whose cloth canopy_cloth_weight is, the base kite_max_force_per_area."
 canopy_cloth_specific_strength:
   value: 170.0
   unit: N/m per g/m^2
@@ -1189,7 +1189,7 @@ kite_max_force_per_area:
   high: 1.3
   unit: kN/m^2
   source: "@paulig2013 [p. 561]: SkySails' design load per projected area"
-  reason: "Maximum tether force per projected m^2, what SkySails flew: its ship kite's design load of 160 kN on a flat area of 225 m^2 [@paulig2013, p. 561], 176 m^2 projected at the 1.28 flat over projected of a SkySails kite [@folkersma2020, Table 1]. Its 320 kN kite, 400 m^2 flat [@paulig2013, p. 554; @skysails2018], carries 1.0. The high bound reads SkySails' wing loads of up to 1 kN/m^2 [@skypower100_tib, sec. I.4] on the flat area; the low bound is the pumping kites designed for 0.45 [@faggiani2018, Table 16.1] and 0.43-0.57 kN/m^2 [@kitepower2024]. Cloth, seams and reinforcements follow the limit, so the canopy keeps its life and the bounds carry its mass and price."
+  reason: "Maximum tether force per projected m^2, what SkySails flew: its ship kite's design load of 160 kN on a flat area of 225 m^2 [@paulig2013, p. 561], 176 m^2 projected at the 1.28 flat over projected of a SkySails kite [@folkersma2020, Table 1]. Its 320 kN kite, 400 m^2 flat [@paulig2013, p. 554; @skysails2018], carries 1.0. The high bound reads SkySails' wing loads of up to 1 kN/m^2 [@skypower100_tib, sec. I.4] on the flat area; the low bound is the pumping kites designed for 0.45 [@faggiani2018, Table 16.1] and 0.43-0.57 kN/m^2 [@kitepower2024]. Seams, reinforcements, bridle, tether and winch follow the limit, so the bounds carry their mass and price; the cloth stays canopy_cloth_weight."
 kite_attach_height:
   value: 10.0
   unit: m
