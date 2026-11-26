@@ -1276,19 +1276,29 @@ function departure_saving(cell, rig, departures)
 end
 
 """
-    gap_error(cells, weights, rig, rival)
+    gaps_error(gaps)
 
-Jackknife standard error [points] over the shared departures of fleet `cells` of the
-`weights`-weighted mean over them of the cost saving of `rig` less that of `rival`, and the
-number of departures.
+Jackknife standard error over the shared departures of the fleet cells of `gaps`, each a
+cell, a weight, a rig and a rival, of the weighted sum over them of the cost saving [%] of
+the rig less that of the rival, and the number of departures.
 """
-function gap_error(cells, weights, rig, rival)
-    n = length(first(cells).departures["none"])
+function gaps_error(gaps)
+    n = length(first(first(gaps)).departures["none"])
     gap(departures) = sum(weight * (departure_saving(cell, rig, departures) -
                                     departure_saving(cell, rival, departures))
-                          for (cell, weight) in zip(cells, weights)) / sum(weights)
+                          for (cell, weight, rig, rival) in gaps)
     return jackknife_error(gap, n), n
 end
+
+"""
+    gap_error(cells, weights, rig, rival)
+
+[`gaps_error`](@ref) [points] of the `weights`-weighted mean over fleet `cells` of the cost
+saving of `rig` less that of `rival`, and the number of departures.
+"""
+gap_error(cells, weights, rig, rival) =
+    gaps_error([(cell, weight / sum(weights), rig, rival)
+                for (cell, weight) in zip(cells, weights)])
 
 "bands of the fleet's cost split by rig, in the order drawn"
 fleet_bands = (pair_rig, "kite", "level", "rotors", "wings", "suction", "vtol", "lei",
@@ -1339,12 +1349,55 @@ function fleet_split(cells)
 end
 
 """
+    cell_ranking(cell)
+
+The rig that saves a fleet `cell` most and the next best, `"none"` for no rig.
+"""
+function cell_ranking(cell)
+    savings = merge(Dict("none" => 0.0), cell.savings)
+    best, next = sort(collect(keys(savings)); by=rig -> savings[rig], rev=true)
+    return best, next
+end
+
+"""
+    fleet_margins(cells)
+
+Each rig that saves most on some of fleet `cells`, with those cells and the next best rig
+on each as `own`, and the yearly cost [USD] it saves on them against no rig (`saved`) and
+over the next best (`margin`), each with its [`gaps_error`](@ref) [USD] (`saved_error`,
+`margin_error`). A cell whose best rig does not clearly lead counts at its expected gap.
+"""
+function fleet_margins(cells)
+    ranked = [(cell, cell_ranking(cell)...) for cell in cells]
+    margins = Dict{String, Any}()
+    for rig in unique(best for (_, best, _) in ranked if best != "none")
+        own = [(cell, next) for (cell, best, next) in ranked if best == rig]
+        saved, saved_error = fleet_gap([(cell, "none") for (cell, _) in own], rig)
+        margin, margin_error = fleet_gap(own, rig)
+        margins[rig] = (; own, saved, saved_error, margin, margin_error)
+    end
+    return margins
+end
+
+"""
+    fleet_gap(rivals, rig)
+
+Yearly cost [USD] `rig` saves over the rival of each fleet cell of `rivals`, pairs of a
+cell and its rival, summed over them, with its [`gaps_error`](@ref) [USD].
+"""
+function fleet_gap(rivals, rig)
+    gap = sum(cell_saved(cell, rig) - cell_saved(cell, rival) for (cell, rival) in rivals)
+    error, _ = gaps_error([(cell, cell.bill / 100, rig, rival) for (cell, rival) in rivals])
+    return gap, error
+end
+
+"""
     cell_saved(cell, rig)
 
 Yearly cost [USD] `rig` saves on a fleet cell with the `bill` [USD a year] of the cell
-without a rig and the cost `savings` [%] of its rigs.
+without a rig and the cost `savings` [%] of its rigs; zero for `"none"`.
 """
-cell_saved(cell, rig) = cell.bill * cell.savings[rig] / 100
+cell_saved(cell, rig) = rig == "none" ? 0.0 : cell.bill * cell.savings[rig] / 100
 
 "each rig with its area column in designs.csv"
 rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
