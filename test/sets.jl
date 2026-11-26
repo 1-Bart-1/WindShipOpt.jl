@@ -1257,6 +1257,13 @@ end
     @test isnothing(layout(2, 1, 20000.0))
 end
 
+@testset "a copy with changed fields keeps the rest and refuses a field it lacks" begin
+    hull = Hull(140.0, assumptions)
+    wider = WindShipOpt.with_changed(hull; beam=2hull.beam)
+    @test wider.beam == 2hull.beam && wider.length == hull.length
+    @test_throws ArgumentError WindShipOpt.with_changed(hull; not_a_field=0.0)
+end
+
 @testset "a kite tows from its bow mast; a tow further aft loads the rudder more" begin
     hull = Hull(140.0, assumptions)
     design = ShipDesign(:methanol, 140.0; kite_area=800.0)
@@ -1762,12 +1769,10 @@ end
           WindShipOpt.handling_hours(base, assumptions)
 end
 
-@testset "a kite flies the assumed aspect ratio unless its design names its own" begin
+@testset "a design's kite flies the assumed aspect ratio" begin
     slender = WindShipOpt.with_value(assumptions, :kite_aspect_ratio, 4.0)
-    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0),
-        slender) == 4.0
-    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0,
-        kite_aspect_ratio=5.0), slender) == 5.0
+    design = ShipDesign(:vlsfo, 100.0; kite_area=800.0)
+    @test WindShipOpt.design_rig(design, PAPER_HULL, slender).aspect_ratio == 4.0
 end
 
 @testset "kite inputs give the SkySails kites at their projected areas" begin
@@ -4389,49 +4394,6 @@ end
     @test names == Set([:discount_rate])
 end
 
-module SizeSearch
-include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
-end
-
-@testset "the size grid holds both bounds and no step within half a step of them" begin
-    grid = SizeSearch.size_grid(500.0, 2441.4)
-    @test first(grid) == 500.0 && last(grid) == 2441.4
-    @test all(diff(log2.(grid)) .> 0.125)
-    @test 2.0^(45 / 4) ∉ grid
-end
-
-@testset "a size search whose best is a bound next tries the size just inside it" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test SizeSearch.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
-          grid[end - 1]
-    @test SizeSearch.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
-          grid[2]
-end
-
-@testset "a size search confirms its cheapest size once both neighbours cost more" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test isnothing(SizeSearch.next_size([(grid[k], cost) for (k, cost) in
-                                          ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
-    @test isnothing(SizeSearch.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
-    @test SizeSearch.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
-          grid[9:10]
-    @test isnothing(SizeSearch.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
-end
-
-@testset "a size search from a guess far off still finds the cheapest size" begin
-    grid = SizeSearch.size_grid(500.0, 64000.0)
-    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
-        cost(area) = (log(area / best))^2
-        points = [(area, cost(area)) for area in SizeSearch.start_sizes(guess, grid)]
-        while (area = SizeSearch.next_size(points, grid)) !== nothing
-            @test all(point -> !(first(point) ≈ area), points)
-            push!(points, (area, cost(area)))
-        end
-        @test first(points[argmin(last.(points))]) ≈
-              grid[SizeSearch.nearest_step(grid, best)]
-    end
-end
-
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
@@ -4952,6 +4914,45 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "size_search.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
+end
+
+@testset "the size grid holds both bounds and no step within half a step of them" begin
+    grid = PaperData.size_grid(500.0, 2441.4)
+    @test first(grid) == 500.0 && last(grid) == 2441.4
+    @test all(diff(log2.(grid)) .> 0.125)
+    @test 2.0^(45 / 4) ∉ grid
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test PaperData.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          grid[end - 1]
+    @test PaperData.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          grid[2]
+end
+
+@testset "a size search confirms its cheapest size once both neighbours cost more" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test isnothing(PaperData.next_size([(grid[k], cost) for (k, cost) in
+                                         ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
+    @test isnothing(PaperData.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test PaperData.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
+          grid[9:10]
+    @test isnothing(PaperData.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search from a guess far off still finds the cheapest size" begin
+    grid = PaperData.size_grid(500.0, 64000.0)
+    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
+        cost(area) = (log(area / best))^2
+        points = [(area, cost(area)) for area in PaperData.start_sizes(guess, grid)]
+        while (area = PaperData.next_size(points, grid)) !== nothing
+            @test all(point -> !(first(point) ≈ area), points)
+            push!(points, (area, cost(area)))
+        end
+        @test first(points[argmin(last.(points))]) ≈
+              grid[PaperData.nearest_step(grid, best)]
+    end
 end
 
 @testset "a rotor price is set against the model's price of the same unit as sold" begin
@@ -5484,6 +5485,21 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
+@testset "a rig's fleet margin is what the fleet loses fitting the next best instead" begin
+    rigs(kite, rotors) = Dict("kite" => kite, "rotors" => rotors)
+    margins = PaperData.fleet_margins([fleet_cell(100.0, rigs(10.0, 4.0)),
+        fleet_cell(200.0, rigs(3.0, 5.0), Dict("kite" => 1.0, "rotors" => 1.0)),
+        fleet_cell(50.0, rigs(2.0, -1.0)), fleet_cell(50.0, rigs(4.0, 4.1)),
+        fleet_cell(80.0, rigs(-1.0, -2.0))])
+    @test sort(collect(keys(margins))) == ["kite", "rotors"]
+    kite, rotors = margins["kite"], margins["rotors"]
+    @test kite.saved ≈ 10.0 + 1.0 && kite.margin ≈ 6.0 + 1.0
+    @test rotors.saved ≈ 10.0 + 2.05 && rotors.margin ≈ 4.0 + 0.05
+    @test rotors.margin_error ≈ 0 atol = 1e-12
+    @test rotors.saved_error ≈ 2.0
+    @test last.(kite.own) == ["rotors", "none"]
+end
+
 @testset "a rig is shown where it leads or is level, else given with its best and gap" begin
     rigs(kite, wings, rotors, suction, lei) = Dict("kite" => kite, "wings" => wings,
         "rotors" => rotors, "suction" => suction, "lei" => lei)
@@ -5943,7 +5959,7 @@ end
           (8760assumptions[:availability])
 end
 
-@testset "switching windage off removes the wind load, and a misnamed part is refused" begin
+@testset "switching windage off removes the wind load" begin
     ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
     function force(windage)
         load = WindShipOpt.wind_force(windage, ship.env, 15.0, π / 3, 5.0)
@@ -5952,7 +5968,6 @@ end
     @test any(component -> abs(component) > 1.0, force(ship.windage))
     @test all(component -> abs(component) < 1e-6,
         force(PaperData.simplified_ship(ship, :windage).windage))
-    @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
 end
 
 @testset "a free side force leaves the rig's side force without leeway or rudder drag" begin

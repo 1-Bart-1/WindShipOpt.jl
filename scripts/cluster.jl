@@ -25,8 +25,8 @@ Submit the job running `paper(steps...; fidelity, resume=true)` with jobs comput
 round trips, unless a job of a paper run is queued or running already.
 """
 function submit_run(fidelity, steps)
-    queued = read(`squeue --me --noheader --name=windship-run,windship-cases --format=%i`,
-        String)
+    names = join(job_names, ",")
+    queued = read(`squeue --me --noheader --name=$names --format=%i`, String)
     isempty(strip(queued)) || error("jobs of a paper run are queued or running already: ",
         join(split(queued), ", "))
     id = submit_run_job(fidelity, steps)
@@ -43,7 +43,7 @@ function submit_run_job(fidelity, steps; after=nothing)
     settings = cluster_settings()
     cores, memory_per_core = settings["run_cores"], settings["run_memory_per_core"]
     job = job_command(cores, "run", fidelity, steps...)
-    command = slurm_command(settings, cores, memory_per_core, "windship-run", run_log("%j"),
+    command = slurm_command(settings, cores, memory_per_core, job_names.run, run_log("%j"),
         job; after)
     return strip(read(command, String))
 end
@@ -81,7 +81,7 @@ Print the paper-run jobs queued or running, and for the latest run at each fidel
 steps it has done and how many departures of each of its batches are stored.
 """
 function print_jobs_status()
-    run(`squeue --me --name=windship-run,windship-cases`)
+    run(`squeue --me --name=$(join(job_names, ","))`)
     for fidelity in keys(fidelities)
         runs = fidelity_runs(fidelity)
         isempty(runs) && continue

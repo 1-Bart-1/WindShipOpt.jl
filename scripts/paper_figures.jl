@@ -2040,6 +2040,53 @@ function fleet_share_figure()
 end
 
 """
+    fleet_margin_figure()
+
+Per drive, a bar for each rig of the [`fleet_margins`](@ref) of every rig of the class
+study: what it saves a year against no rig on the classes and routes it suits best, pale,
+and the part of that it saves over the next best rig, solid, with its error.
+"""
+function fleet_margin_figure()
+    table = class_table()
+    figure = Figure(size=(column_width, 150))
+    for (k, (drive, title)) in enumerate(drive_panels)
+        margins = fleet_margins(fleet_cells(table, drive))
+        rigs = [rig for rig in class_rigs if haskey(margins, rig)]
+        axis = Axis(figure[k, 1]; title, yticks=(eachindex(rigs), rig_label.(rigs)),
+            xlabel=k == length(drive_panels) ? "saving [billion USD a year]" : "",
+            ygridvisible=false, yticksize=0)
+        for (i, rig) in enumerate(rigs)
+            (; saved, margin, margin_error) = margins[rig]
+            j = findfirst(==(rig), class_rigs)
+            fill_rect!(axis, Rect2f(0, i - 0.35, 1e-9saved, 0.7), range_colour(j))
+            fill_rect!(axis, Rect2f(0, i - 0.35, 1e-9margin, 0.7), palette[j])
+            rangebars!(axis, [i], [1e-9(margin - margin_error)],
+                [1e-9(margin + margin_error)]; direction=:x, color=:black,
+                whiskerwidth=pt(3))
+            text!(axis, 1e-9saved, i; text=margin_label(margin, margin_error, saved),
+                align=(:left, :center), fontsize=note_size,
+                offset=clear_offset((:left, :center), pt(2.5)))
+        end
+        high = 1e-9maximum(entry.saved for entry in values(margins))
+        limits!(axis, 0, 1.9high, length(rigs) + 0.5, 0.5)
+    end
+    rowgap!(figure.layout, 1, pt(3))
+    save_figure("fleet_margin", figure)
+end
+
+"""
+    margin_label(margin, error, saved)
+
+Label of a rig's `margin` [USD a year] over the next best, as an [`estimate_text`](@ref),
+with its `error` to the same place, of its `saved` [USD a year] against no rig.
+"""
+function margin_label(margin, error, saved)
+    places = max(0, 1 - floor(Int, log10(abs(rounded_estimate(1e-9margin)))))
+    return @sprintf("USD %s ± %.*f bn of %s bn", estimate_text(1e-9margin), places,
+        1e-9error, estimate_text(1e-9saved))
+end
+
+"""
     route_label(name)
 
 Name of the destination of route `name` for figure labels.
