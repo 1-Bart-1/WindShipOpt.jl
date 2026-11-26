@@ -132,21 +132,10 @@ Installation: no wing-specific figure exists; EMSA 2023 applies the same 15 % ne
 - **Zéphyr & Borée 1,800 TEU, BV AiP Dec 2021:** eight CWS wing sails on a mostly open-top ship with five holds; no capacity impact stated (https://maritime-executive.com/article/designs-for-1-800-teu-wind-assisted-containership-approved-by-bv).
 - **Deadweight, not slots:** EMSA 2023 §2.3.1: only on ships under 5,000 dwt is cargo-carrying capacity likely reduced by more than 1 % per WAPS unit, through the unit's mass. The model already carries rig mass (`wing_mass_per_area`, `rotor_mass_per_area`).
 
-### Geometric estimate for container ships (estimate)
-
-A rig standing on a hatch cover takes every on-deck slot in the rows and bay it covers, all tiers up, and blocks the pontoon over the hold cells below unless it sits on a fixed structure. Ingredients:
+### Container ships
 
 - 40 ft container: 12.192 m long, 2.438 m wide, 2.591 m (2.896 m high cube) tall (ISO 668, https://en.wikipedia.org/wiki/ISO_668). One 40 ft position is 2 TEU.
-- Row pitch ~2.5 m: Panamax beam 32.31 m carries 13 rows (2.49 m a row, https://www.wikipedia.org/wiki/Panamax); an APL post-Panamax of 39.4 m beam 16 rows above the hatches (2.46 m), and a ship of just over 40 m beam six tiers in 16 rows on deck (TRID abstracts https://trid.trb.org/View/400857 and https://trid.trb.org/View/431588, via search snippets); the 51.25 m Neo-Panamax limit fits 20 rows (2.56 m) (https://splash247.com/?p=104627).
-- Tiers on deck (estimate except the APL six): feeder ~4, Panamax ~6, Neo-Panamax ~8, Megamax ~10.
-
-Rows lost = ceil((footprint + 1 m clearance) / 2.5 m); TEU lost = rows × tiers on deck × 2 for one 40 ft bay.
-
-| Rig on a hatch, deck slots only                             | Rows | Feeder (4 tiers) | Panamax (6) | Neo-Panamax (8) | Megamax (10) |
-| ----------------------------------------------------------- | ---- | ---------------- | ----------- | --------------- | ------------ |
-| Rotor, 5 m diameter                                         | 3    | 24               | 36          | 48              | 60           |
-| Wing on a pedestal above the stacks, 2.5 m mast             | 2    | 16               | 24          | 32              | 40           |
-| Wing rooted at hatch level, 14 m chord, swept 18 m (2 bays) | 8    | 128              | 192         | 256             | 320          |
+- Tiers on deck (estimate): feeder ~4, Panamax ~6, Neo-Panamax ~8, Megamax ~10.
 
 The swept circle of a weathervaning wing is ~1.3 chords across (pivot near 35 % chord, estimate), which is why every container concept raises the wing above the stacks or retracts it. Bow or forecastle placement (Maersk) loses about nothing for one unit, since the foremost bay is short and visibility-limited. SOLAS V/22 limits each blind sector forward of the beam to 10° and their total to 20° (Gard, https://gard.no/insights/importance-ensuring-navigation-bridge-visibility); a 5 m rotor 100 m ahead of the bridge subtends ~3°, so visibility does not bind for one or two units.
 
