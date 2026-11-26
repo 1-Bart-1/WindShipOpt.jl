@@ -39,14 +39,11 @@ end
 """
     polar_value(polar, values, angle)
 
-`values` of `polar` linearly interpolated at angle of attack `angle` [rad].
+`values` of `polar` linearly interpolated at angle of attack `angle` [rad], held at the
+ends of the polar.
 """
-function polar_value(polar::KitePolar, values, angle)
-    angles = polar.angle_of_attack
-    i = clamp(searchsortedlast(angles, angle), 1, length(angles) - 1)
-    weight = (angle - angles[i]) / (angles[i + 1] - angles[i])
-    return (1 - weight) * values[i] + weight * values[i + 1]
-end
+polar_value(polar::KitePolar, values, angle) =
+    line_value(values, KnotWeight(polar.angle_of_attack, angle))
 
 """
     KiteModel

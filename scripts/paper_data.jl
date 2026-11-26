@@ -7,7 +7,7 @@
 "drives compared where the drive is a dimension of the study"
 study_drives = (:vlsfo, :ammonia)
 
-"projected aspect ratio of the kite of every design that names none"
+"projected aspect ratio of the kite of every design"
 design_aspect_ratio = assumptions[:kite_aspect_ratio]
 
 """
@@ -899,7 +899,7 @@ function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
-        WindShipOpt.kite_aspect_ratio(design, case.assumptions), design.wing_area,
+        case.assumptions[:kite_aspect_ratio], design.wing_area,
         design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
@@ -2202,7 +2202,7 @@ end
 `nothing` where `trip` is.
 """
 recosted_trip(case, trip) = isnothing(trip) ? nothing :
-    rebuilt(trip; cost_per_tonne_km=changed_cost(case, trip),
+    WindShipOpt.with_changed(trip; cost_per_tonne_km=changed_cost(case, trip),
     departures=empty(trip.departures))
 
 """
@@ -2255,8 +2255,7 @@ Variants of the base kite with the tether and the turn radius each about 2 % off
 base values, too little to change the kite: their spread is the noise of the routing.
 """
 function noise_variants(tether_length_ratio, kite_min_turn_radius)
-    return [(string("noise_", name, "_", factor), design_aspect_ratio,
-                NamedTuple{(name,)}((factor * value,)))
+    return [(string("noise_", name, "_", factor), NamedTuple{(name,)}((factor * value,)))
             for (name, value) in ((:tether_length_ratio, tether_length_ratio),
                 (:kite_min_turn_radius, kite_min_turn_radius)) for factor in (0.98, 1.02)]
 end
@@ -2264,21 +2263,22 @@ end
 """
     base_kite_variants()
 
-Variants of the base kite on the ships of the area basis study as (name, projected aspect
-ratio, changed inputs): the base, at aspect ratio 2.5 with the flight drag held and
-recalibrated, on the bounds of its tether length, at another reading of its canopy mass,
-and those of [`noise_variants`](@ref).
+Variants of the base kite on the ships of the area basis study as (name, changed inputs):
+the base, at aspect ratio 2.5 with the flight drag held and recalibrated, on the bounds of
+its tether length, at another reading of its canopy mass, and those of
+[`noise_variants`](@ref).
 """
 function base_kite_variants()
     low_aspect_ratio = 2.5
     recalibrated = WindShipOpt.recalibrated_flight_drag(low_aspect_ratio,
         design_aspect_ratio, assumptions)
     tether = assumptions.entries[:tether_length_ratio]
-    return [("base", design_aspect_ratio, (;)); ("held", low_aspect_ratio, (;));
-        ("recalibrated", low_aspect_ratio, (; kite_flight_drag=recalibrated));
-        ("tether_low", design_aspect_ratio, (; tether_length_ratio=tether.low));
-        ("tether_high", design_aspect_ratio, (; tether_length_ratio=tether.high));
-        ("overhead_0.19", design_aspect_ratio, (; canopy_mass_overhead=0.19));
+    return [("base", (;)); ("held", (; kite_aspect_ratio=low_aspect_ratio));
+        ("recalibrated",
+            (; kite_aspect_ratio=low_aspect_ratio, kite_flight_drag=recalibrated));
+        ("tether_low", (; tether_length_ratio=tether.low));
+        ("tether_high", (; tether_length_ratio=tether.high));
+        ("overhead_0.19", (; canopy_mass_overhead=0.19));
         noise_variants(assumptions[:tether_length_ratio],
             assumptions[:kite_min_turn_radius])]
 end
@@ -2293,9 +2293,8 @@ function base_kite_data(ships=sensitivity_ships())
     cases = []
     for (ship, bare, route, areas) in ships
         push!(cases, trip_case(bare; route, ship, variant="bare"))
-        for (variant, aspect_ratio, changes) in base_kite_variants()
-            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
-                kite_aspect_ratio=aspect_ratio)
+        for (variant, changes) in base_kite_variants()
+            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...)
             push!(cases, trip_case(design; route, ship, variant,
                 assumptions=changed_assumptions(changes)))
         end
@@ -2483,20 +2482,6 @@ simplified_parts = (:calibration, :waves, :windage, :limits, :rudder, :side_forc
     :weak_hull)
 
 """
-    rebuilt(object; changes...)
-
-A new object of the type of `object` with its fields, those named in `changes` replaced.
-"""
-function rebuilt(object; changes...)
-    unknown = setdiff(keys(changes), fieldnames(typeof(object)))
-    isempty(unknown) ||
-        throw(ArgumentError("$(typeof(object)) has no field $(first(unknown))"))
-    fields = (get(changes, name, getfield(object, name))
-              for name in fieldnames(typeof(object)))
-    return typeof(object).name.wrapper(fields...)
-end
-
-"""
     simplified_ship(ship, part)
 
 `ship` with model `part` switched off: `:none` keeps it whole, `:calibration` drops the
@@ -2507,26 +2492,27 @@ together, and `:weak_hull` takes the hull's side-force slope at the low bound of
 `hull_side_force_factor`.
 """
 function simplified_ship(ship, part)
+    changed = WindShipOpt.with_changed
     part == :none && return ship
     part == :calibration &&
-        return rebuilt(ship; hull=rebuilt(ship.hull; resistance_factor=1.0))
+        return changed(ship; hull=changed(ship.hull; resistance_factor=1.0))
     if part == :waves
         # the first two SNNM constants scale the motion and the reflection part
         x = (0.0, 0.0, ship.seakeeping.x[3:end]...)
-        return rebuilt(ship; seakeeping=rebuilt(ship.seakeeping; x))
+        return changed(ship; seakeeping=changed(ship.seakeeping; x))
     end
     part == :windage &&
-        return rebuilt(ship;
-            windage=rebuilt(ship.windage; frontal_area=0.0, lateral_area=eps()))
+        return changed(ship;
+            windage=changed(ship.windage; frontal_area=0.0, lateral_area=eps()))
     part == :limits &&
-        return rebuilt(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
-    part == :rudder && return rebuilt(ship; rudder_aspect_ratio=Inf)
+        return changed(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
+    part == :rudder && return changed(ship; rudder_aspect_ratio=Inf)
     part == :side_force &&
-        return rebuilt(ship; hull=rebuilt(ship.hull; side_force_factor=Inf),
+        return changed(ship; hull=changed(ship.hull; side_force_factor=Inf),
             rudder_aspect_ratio=Inf)
     part == :weak_hull &&
-        return rebuilt(ship;
-            hull=rebuilt(ship.hull;
+        return changed(ship;
+            hull=changed(ship.hull;
                 side_force_factor=assumptions.entries[:hull_side_force_factor].low))
     throw(ArgumentError("no model part $part"))
 end
