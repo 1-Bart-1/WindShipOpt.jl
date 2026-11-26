@@ -26,7 +26,7 @@ function router_search_data()
     ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=3200.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
-    corridor, departure = first(run_corridors(:caribbean)), departures[1]
+    corridor, departure = first(corridors(:caribbean)), departures[1]
     record = SearchRecord()
     leg = route(corridor, table, weather, departure; time_cost=hourly, record)
     isnothing(leg) && error("no passage to Guadeloupe from $departure h")
@@ -53,7 +53,7 @@ run in use: a named tuple of `corridor`, `departure` [h], the `weather`, `excess
 `wind_north` [m/s] and `flying`. Errors where the nodes are not those of the corridor.
 """
 function router_case()
-    corridor = first(run_corridors(:caribbean))
+    corridor = first(corridors(:caribbean))
     nodes = read_table(data_file("router_nodes.csv"))
     check_router_nodes(nodes, corridor)
     at = CartesianIndex.(Int.(nodes["stage"]), Int.(nodes["lateral"]))

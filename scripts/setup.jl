@@ -51,12 +51,12 @@ corridor_cache = Dict{Tuple{Symbol, Float64, Float64}, Tuple{Corridor, Corridor}
 corridor_lock = ReentrantLock()
 
 """
-    corridors(name, scale)
+    corridors(name, scale=1.0)
 
 Outbound and return corridors of route `name` at corridor `scale`, one number or a pair of
 stage and row scales, built once per session.
 """
-function corridors(name, scale)
+function corridors(name, scale=1.0)
     stage_scale, lateral_scale = scale isa Number ? (scale, scale) : scale
     return lock(corridor_lock) do
         get!(() -> route_corridors(name, mask; scale=stage_scale,
