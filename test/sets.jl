@@ -1257,6 +1257,13 @@ end
     @test isnothing(layout(2, 1, 20000.0))
 end
 
+@testset "a copy with changed fields keeps the rest and refuses a field it lacks" begin
+    hull = Hull(140.0, assumptions)
+    wider = WindShipOpt.with_changed(hull; beam=2hull.beam)
+    @test wider.beam == 2hull.beam && wider.length == hull.length
+    @test_throws ArgumentError WindShipOpt.with_changed(hull; not_a_field=0.0)
+end
+
 @testset "a kite tows from its bow mast; a tow further aft loads the rudder more" begin
     hull = Hull(140.0, assumptions)
     design = ShipDesign(:methanol, 140.0; kite_area=800.0)
@@ -1762,12 +1769,10 @@ end
           WindShipOpt.handling_hours(base, assumptions)
 end
 
-@testset "a kite flies the assumed aspect ratio unless its design names its own" begin
+@testset "a design's kite flies the assumed aspect ratio" begin
     slender = WindShipOpt.with_value(assumptions, :kite_aspect_ratio, 4.0)
-    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0),
-        slender) == 4.0
-    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0,
-        kite_aspect_ratio=5.0), slender) == 5.0
+    design = ShipDesign(:vlsfo, 100.0; kite_area=800.0)
+    @test WindShipOpt.design_rig(design, PAPER_HULL, slender).aspect_ratio == 4.0
 end
 
 @testset "kite inputs give the SkySails kites at their projected areas" begin
@@ -5484,6 +5489,21 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
+@testset "a rig's fleet margin is what the fleet loses fitting the next best instead" begin
+    rigs(kite, rotors) = Dict("kite" => kite, "rotors" => rotors)
+    margins = PaperData.fleet_margins([fleet_cell(100.0, rigs(10.0, 4.0)),
+        fleet_cell(200.0, rigs(3.0, 5.0), Dict("kite" => 1.0, "rotors" => 1.0)),
+        fleet_cell(50.0, rigs(2.0, -1.0)), fleet_cell(50.0, rigs(4.0, 4.1)),
+        fleet_cell(80.0, rigs(-1.0, -2.0))])
+    @test sort(collect(keys(margins))) == ["kite", "rotors"]
+    kite, rotors = margins["kite"], margins["rotors"]
+    @test kite.saved ≈ 10.0 + 1.0 && kite.margin ≈ 6.0 + 1.0
+    @test rotors.saved ≈ 10.0 + 2.05 && rotors.margin ≈ 4.0 + 0.05
+    @test rotors.margin_error ≈ 0 atol = 1e-12
+    @test rotors.saved_error ≈ 2.0
+    @test last.(kite.own) == ["rotors", "none"]
+end
+
 @testset "a rig is shown where it leads or is level, else given with its best and gap" begin
     rigs(kite, wings, rotors, suction, lei) = Dict("kite" => kite, "wings" => wings,
         "rotors" => rotors, "suction" => suction, "lei" => lei)
@@ -5943,7 +5963,7 @@ end
           (8760assumptions[:availability])
 end
 
-@testset "switching windage off removes the wind load, and a misnamed part is refused" begin
+@testset "switching windage off removes the wind load" begin
     ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
     function force(windage)
         load = WindShipOpt.wind_force(windage, ship.env, 15.0, π / 3, 5.0)
@@ -5952,7 +5972,6 @@ end
     @test any(component -> abs(component) > 1.0, force(ship.windage))
     @test all(component -> abs(component) < 1e-6,
         force(PaperData.simplified_ship(ship, :windage).windage))
-    @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
 end
 
 @testset "a free side force leaves the rig's side force without leeway or rudder drag" begin

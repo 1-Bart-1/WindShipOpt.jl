@@ -145,7 +145,7 @@ function Corridor(paths::Vector{Vector{NTuple{2, Float64}}}, mask; ocean_spacing
         width = open_sea[stage] ? half : 0
         for lateral in 1:lateral_count
             offset = (lateral - half - 1) * lateral_spacing * NAUTICAL_MILE
-            point = destination_point(stage_lat, stage_lon, course + π / 2, offset)
+            point = destination(stage_lat, stage_lon, course + π / 2, offset)
             lat[stage, lateral], lon[stage, lateral] = point
             water[stage, lateral] = abs(lateral - half - 1) <= width &&
                                     abs(first(point)) <= SAILABLE_LATITUDE &&
@@ -172,10 +172,6 @@ function along_centre_line(lat, lon)
                              lat[stage + 1, centre], lon[stage + 1, centre])
                          for stage in 1:(size(lat, 1) - 1)]])
 end
-
-destination_point(lat, lon, course, offset) =
-    offset >= 0 ? destination(lat, lon, course, offset) :
-    destination(lat, lon, course + π, -offset)
 
 function resample(waypoints, spacing)
     points = [first(waypoints)]
@@ -2183,11 +2179,16 @@ end
 """
     with_changed(item; changes...)
 
-An immutable `item` with its fields `changes` replaced.
+An immutable `item` with its fields `changes` replaced; a change naming no field of `item`
+is an `ArgumentError`.
 """
-with_changed(item; changes...) =
-    typeof(item).name.wrapper((get(changes, name, getfield(item, name))
-                               for name in fieldnames(typeof(item)))...)
+function with_changed(item; changes...)
+    unknown = setdiff(keys(changes), fieldnames(typeof(item)))
+    isempty(unknown) ||
+        throw(ArgumentError("$(typeof(item)) has no field $(first(unknown))"))
+    return typeof(item).name.wrapper((get(changes, name, getfield(item, name))
+                                      for name in fieldnames(typeof(item)))...)
+end
 
 known_weather(::Nothing, weather, time) = weather
 
