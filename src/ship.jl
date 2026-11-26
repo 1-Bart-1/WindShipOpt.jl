@@ -799,17 +799,53 @@ joint_setting(joint::JointTrim, position) =
     (joint.kite(range_value(joint.kite.trim_range, position[1])),
         joint.standing(range_value(joint.standing.trim_range, position[2])))
 
+"""
+    start_step(joint, start, i)
+
+Step [spacings] of trim variable `i` from `start` to the first Nelder-Mead simplex of
+[`JointTrim`](@ref) `joint`: up or down, whichever gives the lower output, each one spacing
+halved until the vertex is a trim the ship can sail.
+"""
+function start_step(joint::JointTrim, start, i)
+    output_at(step) = joint(Base.setindex(start, start[i] + step, i))
+    up, down = sailable_step(output_at, 1.0), sailable_step(output_at, -1.0)
+    return output_at(up) <= output_at(down) ? up : down
+end
+
+"`step` [spacings], halved until `output_at(step)` is finite or below the trim tolerance"
+function sailable_step(output_at, step)
+    while !isfinite(output_at(step)) && abs(step) > TRIM_TOLERANCE
+        step /= 2
+    end
+    return step
+end
+
+"""
+    StepSimplexer(steps)
+
+First Nelder-Mead simplex of the start and, for each variable, the start moved by its
+`steps`.
+"""
+struct StepSimplexer <: Optim.Simplexer
+    steps::Vector{Float64}
+end
+
+Optim.simplexer(simplexer::StepSimplexer, start) =
+    [[start]; [start .+ step .* (eachindex(start) .== i)
+               for (i, step) in enumerate(simplexer.steps)]]
+
 "most Nelder-Mead iterations of a joint trim of kite and standing rig"
 const JOINT_TRIM_ITERATIONS = 200
 
 "standard deviation of the engine output over the simplex that ends a joint trim [W]"
-const JOINT_TRIM_TOLERANCE = 1e-2
+const JOINT_TRIM_TOLERANCE = 1.0
 
 """
     best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
 
 [`best_trim`](@ref) of kite and standing rig together: the best pair of their scanned
-trim values, refined by the Nelder-Mead method in both at once.
+trim values, refined by the Nelder-Mead method in both at once from a simplex of that pair
+and its sailable neighbours within one spacing.
 """
 function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
         added_resistance=0.0)
@@ -830,8 +866,9 @@ function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
         end
     end
     isfinite(best_output) || return trim_result(output, joint_setting(best, start))
+    steps = [start_step(best, start, i) for i in eachindex(start)]
     result = Optim.optimize(best, collect(start),
-        Optim.NelderMead(; initial_simplex=Optim.AffineSimplexer(0.5, 0.0)),
+        Optim.NelderMead(; initial_simplex=StepSimplexer(steps)),
         Optim.Options(; iterations=JOINT_TRIM_ITERATIONS, g_tol=JOINT_TRIM_TOLERANCE))
     position = Optim.minimum(result) < best_output ? Optim.minimizer(result) : start
     return trim_result(output, joint_setting(best, position))

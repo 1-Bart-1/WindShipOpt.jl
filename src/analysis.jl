@@ -39,9 +39,10 @@ end
     LegTrace(table, leg, weather, departure)
 
 Re-evaluate the ship models along the path of `leg`: at the points [`sail_edge!`](@ref)
-sails its edges in, with the kite flying where [`kite_flights`](@ref) has it; the last
-point of an edge is the first of the next, so the two are one sample, except on the last
-edge.
+sails its edges in, each edge left once the ship has held at its node, with the kite flying
+where [`kite_flights`](@ref) has it; the last point of an edge is the first of the next, so
+the two are one sample, except on the last edge and where the ship holds between them.
+Errors where an edge cannot be sailed when the leg leaves it.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
     route_table = RouteTable(table)
@@ -52,16 +53,18 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
     edges = length(leg.path) - 1
     carried = (launched=false, landed=false, forced=false, hours=0.0)
     for i in 1:edges
-        lat, lon, time = leg.path[i]
+        lat, lon, arrival = leg.path[i]
+        time = departure + arrival + leg.held[i]
         next_lat, next_lon, _, speed = leg.path[i + 1]
         course = corridor.edge_course[i, 1, STRAIGHT_ON]
-        start = EdgeSample(table, weather, lat, lon, departure + time, course, 0.0)
-        sail_edge!(points, start, route_table, weather, corridor, i, 1, STRAIGHT_ON,
-            departure + time, searchsortedfirst(route_table.speeds, speed), leg.aloft[i])
+        start = EdgeSample(table, weather, lat, lon, time, course, 0.0)
+        hours = sail_edge!(points, start, route_table, weather, corridor, i, 1,
+            STRAIGHT_ON, time, searchsortedfirst(route_table.speeds, speed), leg.aloft[i])
+        isfinite(hours) || error("edge $i of the leg cannot be sailed at $time h")
         flights = kite_flights(route_table, points, leg.aloft[i], leg.aloft[i + 1], prices)
         for (k, point) in enumerate(points)
             flight = flights[k]
-            if k == length(points) && i < edges
+            if k == length(points) && i < edges && leg.held[i + 1] == 0
                 carried = (; flight.launched, flight.landed, flight.forced, point.hours)
                 continue
             end
