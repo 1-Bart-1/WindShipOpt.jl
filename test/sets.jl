@@ -5478,6 +5478,21 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
+@testset "a rig's fleet margin is what the fleet loses fitting the next best instead" begin
+    rigs(kite, rotors) = Dict("kite" => kite, "rotors" => rotors)
+    margins = PaperData.fleet_margins([fleet_cell(100.0, rigs(10.0, 4.0)),
+        fleet_cell(200.0, rigs(3.0, 5.0), Dict("kite" => 1.0, "rotors" => 1.0)),
+        fleet_cell(50.0, rigs(2.0, -1.0)), fleet_cell(50.0, rigs(4.0, 4.1)),
+        fleet_cell(80.0, rigs(-1.0, -2.0))])
+    @test sort(collect(keys(margins))) == ["kite", "rotors"]
+    kite, rotors = margins["kite"], margins["rotors"]
+    @test kite.saved ≈ 10.0 + 1.0 && kite.margin ≈ 6.0 + 1.0
+    @test rotors.saved ≈ 10.0 + 2.05 && rotors.margin ≈ 4.0 + 0.05
+    @test rotors.margin_error ≈ 0 atol = 1e-12
+    @test rotors.saved_error ≈ 2.0
+    @test last.(kite.own) == ["rotors", "none"]
+end
+
 @testset "a rig is shown where it leads or is level, else given with its best and gap" begin
     rigs(kite, wings, rotors, suction, lei) = Dict("kite" => kite, "wings" => wings,
         "rotors" => rotors, "suction" => suction, "lei" => lei)

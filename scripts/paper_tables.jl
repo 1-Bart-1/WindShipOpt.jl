@@ -2127,8 +2127,9 @@ the class study, and of its [`compared_table`](@ref) the [`class_numbers`](@ref)
 [`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref), [`route_numbers`](@ref),
 [`split_numbers`](@ref), [`payback_numbers`](@ref), [`premium_numbers`](@ref),
 [`fleet_share_numbers`](@ref), [`market_numbers`](@ref) and [`type_saving_numbers`](@ref),
-the [`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref),
-the [`side_force_numbers`](@ref) and the [`combination_numbers`](@ref).
+the class study's [`margin_numbers`](@ref) over every rig, the
+[`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref), the
+[`side_force_numbers`](@ref) and the [`combination_numbers`](@ref).
 """
 function numbers_file()
     every_rig = class_table()
@@ -2143,8 +2144,8 @@ function numbers_file()
                premium_numbers(classes);
                design_premium_numbers(read_table(data_file("designs.csv")));
                fleet_share_numbers(classes); market_numbers(classes);
-               type_saving_numbers(classes); forecast_numbers(); side_force_numbers();
-               combination_numbers()]
+               margin_numbers(every_rig); type_saving_numbers(classes);
+               forecast_numbers(); side_force_numbers(); combination_numbers()]
     draft = paper_run.fidelity != :final
     write_whole(joinpath(sections, "numbers.tex")) do io
         for (name, text) in goal_numbers()
@@ -2347,6 +2348,51 @@ function market_numbers(table)
         drive == "vlsfo" && push!(numbers, "FleetCarbon$word" => two_digits(1e-12carbon))
     end
     return numbers
+end
+
+"""
+    margin_numbers(table)
+
+Name and text, per drive of the class table `table` and per rig of its
+[`fleet_margins`](@ref) there: the rig's margin over the next best with its error and its
+saving against no rig [billion USD a year], the margin's share [%] of that saving, and the
+margin in tank-to-wake CO2 on VLSFO, in fuel elsewhere [million t a year]; and the sums of
+margin and saving over the rigs with the margin's share of the saving.
+"""
+function margin_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        margins = fleet_margins(fleet_cells(table, drive))
+        measure, measure_word, scale = drive == "vlsfo" ?
+                                       (:carbon, "Carbon", 1e-12) : (:fuel, "Fuel", 1e-9)
+        for (rig, (; own, saved, margin, margin_error)) in margins
+            name = word * macro_word(rig)
+            kept = sum(getfield(cell_margin(table, cell, rig, next), measure)
+                       for (cell, next) in own)
+            push!(numbers,
+                "Margin$name" => error_cell(1e-9margin, 1e-9margin_error; finest=1),
+                "MarginSaved$name" => two_digits(1e-9saved),
+                "MarginShare$name" => whole_number(100margin / saved),
+                "Margin$measure_word$name" => two_digits(scale * kept))
+        end
+        margin, saved = (sum(getfield(entry, measure) for entry in values(margins))
+                         for measure in (:margin, :saved))
+        push!(numbers, "MarginTotal$word" => two_digits(1e-9margin),
+            "MarginTotalShare$word" => whole_number(100margin / saved))
+    end
+    return numbers
+end
+
+"""
+    cell_margin(table, cell, rig, next)
+
+The [`cell_saving`](@ref) of `rig` on a fleet `cell` of class table `table` less that of
+the rig `next`, none for `"none"`.
+"""
+function cell_margin(table, cell, rig, next)
+    saving = cell_saving(table, cell, rig)
+    next == "none" && return saving
+    return map(-, saving, cell_saving(table, cell, next))
 end
 
 """
