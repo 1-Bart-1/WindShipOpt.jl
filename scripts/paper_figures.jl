@@ -2090,8 +2090,51 @@ function season_figure()
     save_figure("season", figure)
 end
 
+"""
+    speed_choice_figure()
+
+Cost-optimal speed of the 140 m ship in steady wind with each reference rig, a panel per
+drive, the median over the winds of speed_choice.csv: from the speed without a rig (line)
+to that with the rig (filled), with the rig's force held at its value at the speed without
+a rig (ring) and the speed that held force alone gives (cross).
+"""
+function speed_choice_figure()
+    table = read_table(data_file("speed_choice.csv"))
+    rigs = filter(((_, rig),) -> rig != "none", study_rigs(table))
+    median_speed(drive, rig, column) =
+        median(table[column][rows(table, "drive" => drive, "rig" => rig)])
+    figure = Figure(size=(column_width, 196))
+    axes = [Axis(figure[k, 1]; title, yticks=(eachindex(rigs), rig_label.(last.(rigs))),
+                yreversed=true, ygridvisible=false, xlabel="speed [kn]")
+            for (k, (drive, title)) in enumerate(drive_panels)]
+    for ((drive, _), axis) in zip(drive_panels, axes)
+        bare = median_speed(drive, last(first(rigs)), "bare")
+        vlines!(axis, bare; color=:black, linewidth=goal_width)
+        for (i, (j, rig)) in enumerate(rigs)
+            speed(column) = median_speed(drive, rig, column)
+            lines!(axis, [bare, speed("free")], [i, i]; color=palette[j],
+                linewidth=line_width)
+            scatter!(axis, speed("held"), i; color=white, strokecolor=palette[j],
+                strokewidth=outline_width, markersize=mean_marker_size)
+            scatter!(axis, speed("sailing"), i; color=palette[j], marker=:xcross)
+            scatter!(axis, speed("free"), i; color=palette[j])
+        end
+        ylims!(axis, length(rigs) + 0.6, 0.4)
+    end
+    linkxaxes!(axes...)
+    hidexdecorations!(first(axes); grid=false, ticks=false)
+    grey = :gray30
+    Legend(figure[3, 1],
+        [LineElement(color=:black, linewidth=goal_width), MarkerElement(color=grey,
+             marker=:circle), MarkerElement(color=white, strokecolor=grey, marker=:circle,
+             strokewidth=outline_width, markersize=mean_marker_size), MarkerElement(color=grey, marker=:xcross)],
+        ["no rig", "with rig", "force held", "force alone"]; orientation=:horizontal)
+    rowgap!(figure.layout, 2, pt(4))
+    save_figure("speed_choice", figure)
+end
+
 "routes in the order the paper names them"
-route_order = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
+route_order =["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
 
 """
     month_savings(routes_table, departures, name, ship)

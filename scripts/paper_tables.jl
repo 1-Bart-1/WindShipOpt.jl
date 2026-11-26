@@ -1680,31 +1680,6 @@ function write_flight_row(io, table, (angle, label))
     println(io, label, " & ", join(cells, " & "), " \\\\")
 end
 
-"""
-    speed_choice_table()
-
-Median over steady winds of the cost-optimal speed of the 140 m ship without and with the
-reference rigs, free of the rig's cost, with its force held and the speed that force alone
-gives: speed_choice_table.tex.
-"""
-function speed_choice_table()
-    table = read_table(data_file("speed_choice.csv"))
-    columns = ("bare", "free", "free_of_rig_cost", "held", "sailing")
-    write_whole(joinpath(sections, "speed_choice_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
-        println(io, "Drive & Rig & No rig & With rig & Rig free of cost & Force held & ",
-            "Force alone \\\\\n\\midrule")
-        rigs = filter(!=("none"), last.(study_rigs(table)))
-        for (drive, drive_label) in drive_labels[1:2], rig in rigs
-            found = rows(table, "drive" => drive, "rig" => rig)
-            cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
-            println(io, rig == first(rigs) ? drive_label : "", " & ", rig, " & ",
-                join(cells, " & "), " \\\\")
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
 "share of `rig`'s cost saving kept on `plan` with its error [%], in LaTeX"
 function kept_cell(table, rig, plan)
     found = only(rows(table, "rig" => rig, "plan" => plan))
