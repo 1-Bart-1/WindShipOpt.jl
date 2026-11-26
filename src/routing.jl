@@ -145,7 +145,7 @@ function Corridor(paths::Vector{Vector{NTuple{2, Float64}}}, mask; ocean_spacing
         width = open_sea[stage] ? half : 0
         for lateral in 1:lateral_count
             offset = (lateral - half - 1) * lateral_spacing * NAUTICAL_MILE
-            point = destination_point(stage_lat, stage_lon, course + π / 2, offset)
+            point = destination(stage_lat, stage_lon, course + π / 2, offset)
             lat[stage, lateral], lon[stage, lateral] = point
             water[stage, lateral] = abs(lateral - half - 1) <= width &&
                                     abs(first(point)) <= SAILABLE_LATITUDE &&
@@ -172,10 +172,6 @@ function along_centre_line(lat, lon)
                              lat[stage + 1, centre], lon[stage + 1, centre])
                          for stage in 1:(size(lat, 1) - 1)]])
 end
-
-destination_point(lat, lon, course, offset) =
-    offset >= 0 ? destination(lat, lon, course, offset) :
-    destination(lat, lon, course + π, -offset)
 
 function resample(waypoints, spacing)
     points = [first(waypoints)]
@@ -291,7 +287,8 @@ Optimal passage along a corridor: fuel energy [J], hours a kite flew patterns, i
 launches and forced landings, duration [h], the objective the router minimises [USD], the
 path as (latitude, longitude, time [h], commanded speed [m/s], mode) per stage, the mode of
 the edge into the stage being the one the kite spent most of the edge in: 0 down and 1
-flying, and whether the kite is aloft on arrival at each stage.
+flying, whether the kite is aloft on arrival at each stage, and the hours the ship holds at
+each stage before it leaves [h].
 """
 struct Leg
     fuel_energy::Float64
@@ -302,6 +299,7 @@ struct Leg
     objective::Float64
     path::Vector{NTuple{5, Float64}}
     aloft::Vector{Bool}
+    held::Vector{Float64}
 end
 
 # kite down or flying patterns, as the mode of an edge
@@ -2099,7 +2097,8 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
     end
     energy = workspace.energy[final...]
     return Leg(energy, workspace.flight_hours[final...], workspace.launches[final...],
-        workspace.forced_landings[final...], elapsed[final...], objective, path, aloft_path)
+        workspace.forced_landings[final...], elapsed[final...], objective, path, aloft_path,
+        zeros(length(path)))
 end
 
 """
@@ -2180,11 +2179,16 @@ end
 """
     with_changed(item; changes...)
 
-An immutable `item` with its fields `changes` replaced.
+An immutable `item` with its fields `changes` replaced; a change naming no field of `item`
+is an `ArgumentError`.
 """
-with_changed(item; changes...) =
-    typeof(item).name.wrapper((get(changes, name, getfield(item, name))
-                               for name in fieldnames(typeof(item)))...)
+function with_changed(item; changes...)
+    unknown = setdiff(keys(changes), fieldnames(typeof(item)))
+    isempty(unknown) ||
+        throw(ArgumentError("$(typeof(item)) has no field $(first(unknown))"))
+    return typeof(item).name.wrapper((get(changes, name, getfield(item, name))
+                                      for name in fieldnames(typeof(item)))...)
+end
 
 known_weather(::Nothing, weather, time) = weather
 
@@ -2301,7 +2305,8 @@ function rest_of_plan(plan::Leg, i)
     path = [(first_lat, first_lon, 0.0, 0.0, 0.0);
             [(lat, lon, time - start, speed, mode)
              for (lat, lon, time, speed, mode) in plan.path[(i + 1):end]]]
-    return Leg(NaN, NaN, 0, 0, plan.duration - start, NaN, path, plan.aloft[i:end])
+    return Leg(NaN, NaN, 0, 0, plan.duration - start, NaN, path, plan.aloft[i:end],
+        plan.held[i:end])
 end
 
 """
@@ -2544,9 +2549,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     launches, forced_landings = 0, 0
     objective = 0.0
     path = [(corridor.lat[1, lateral], corridor.lon[1, lateral], 0.0, 0.0, 0.0)]
-    aloft_path = [false]
+    aloft_path, held_path = [false], [0.0]
     points, steps = SailedPoint[], LiveStep[]
-    held = 0.0
     replanned = forecast isa ReplannedForecast ? forecast : ReplannedForecast(forecast)
     live = replanned.live
     rest, to_go = nothing, nothing
@@ -2591,25 +2595,25 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             launches += tally.launches
             forced_landings += tally.forced_landings
             time += hours
-            held = 0.0
             stage, lateral = stage + 1, next
             push!(path, (next_lat, next_lon, time, speed, summary_mode(tally, hours)))
             push!(aloft_path, aloft)
+            push!(held_path, 0.0)
             reached = i
             time - plan_start >= replanned.interval && break
         end
         isnothing(plan) || (rest = rest_of_plan(plan, reached))
         blocked || continue
-        held >= LONGEST_HOLD && return nothing
+        held_path[end] >= LONGEST_HOLD && return nothing
         energy = 3600FORECAST_INTERVAL * fuel_power(ship_table.ship.powertrain, 0.0)
         objective += edge_objective(energy * prices.fuel, FORECAST_INTERVAL, prices)
         fuel_energy += energy
         time += FORECAST_INTERVAL
-        held += FORECAST_INTERVAL
+        held_path[end] += FORECAST_INTERVAL
         aloft = false
     end
     return Leg(fuel_energy, flight_hours, launches, forced_landings, time, objective, path,
-        aloft_path)
+        aloft_path, held_path)
 end
 
 """

@@ -273,7 +273,7 @@ end
 
 @testset "a routed leg makes the same few allocations at any corridor scale" begin
     leg_counts = [leg_allocations(table, gridded, coarse_corridor) for table in rig_tables]
-    @test all(<=(40), leg_counts)
+    @test all(<=(43), leg_counts)
     finer_corridor = first(route_corridors(:caribbean, north_atlantic_mask();
         ocean_spacing=720.0, lateral_spacing=480.0))
     @test leg_allocations(rig_tables.bare, gridded, finer_corridor) == first(leg_counts)

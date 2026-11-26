@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Paper runs on a Slurm cluster, with the settings of cluster.toml; bin/cluster calls it.
-# A submitted run is one job running `paper`, which computes a share of each batch of round
-# trips and hands the rest to jobs of its own. A run job ended by its wall time leaves a
-# successor that resumes it. The jobs call this script as `run` and `shard`.
+# A submitted run is one job running `paper`, which hands each batch of round trips to jobs
+# of its own. A run job ended by its wall time leaves a successor that resumes it. The jobs
+# call this script as `run` and `shard`.
 using Printf
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
@@ -25,8 +25,8 @@ Submit the job running `paper(steps...; fidelity, resume=true)` with jobs comput
 round trips, unless a job of a paper run is queued or running already.
 """
 function submit_run(fidelity, steps)
-    queued = read(`squeue --me --noheader --name=windship-run,windship-cases --format=%i`,
-        String)
+    names = join(job_names, ",")
+    queued = read(`squeue --me --noheader --name=$names --format=%i`, String)
     isempty(strip(queued)) || error("jobs of a paper run are queued or running already: ",
         join(split(queued), ", "))
     id = submit_run_job(fidelity, steps)
@@ -41,9 +41,11 @@ has ended where one is given; return its id.
 """
 function submit_run_job(fidelity, steps; after=nothing)
     settings = cluster_settings()
-    job = job_command(settings["cores"], "run", fidelity, steps...)
-    return strip(read(slurm_command(settings, "windship-run", run_log("%j"), job; after),
-        String))
+    cores, memory_per_core = settings["run_cores"], settings["run_memory_per_core"]
+    job = job_command(cores, "run", fidelity, steps...)
+    command = slurm_command(settings, cores, memory_per_core, job_names.run, run_log("%j"),
+        job; after)
+    return strip(read(command, String))
 end
 
 "log file of the run job `id`"
@@ -53,9 +55,10 @@ run_log(id) = joinpath(mkpath(joinpath(root, "output", "slurm")), "run-$id.log")
     run_job(fidelity, steps)
 
 Run `paper(steps...; fidelity, resume=true)` in this Slurm job, handing round trips to jobs
-of its own, with a successor job queued that resumes the run should this job be ended at
-its wall time, and cancelled once the run finishes or fails. Stops before that once more
-run jobs in a row than the `retries` of cluster.toml found the run with nothing new done.
+of its own where the `jobs` of cluster.toml are more than one, with a successor job queued
+that resumes the run should this job be ended at its wall time, and cancelled once the run
+finishes or fails. Stops before that once more run jobs in a row than the `retries` of
+cluster.toml found the run with nothing new done.
 """
 function run_job(fidelity, steps)
     settings = cluster_settings()
@@ -63,7 +66,7 @@ function run_job(fidelity, steps)
     stalled > settings["retries"] && error(stalled, " run jobs in a row found the ",
         fidelity, " run with no step done and no departure stored since the one before")
     successor = submit_run_job(fidelity, steps; after=ENV["SLURM_JOB_ID"])
-    global case_jobs = SlurmJobs(settings)
+    global case_jobs = settings["jobs"] > 1 ? SlurmJobs(settings) : nothing
     try
         paper(Symbol.(steps)...; fidelity=Symbol(fidelity), resume=true)
     finally
@@ -78,7 +81,7 @@ Print the paper-run jobs queued or running, and for the latest run at each fidel
 steps it has done and how many departures of each of its batches are stored.
 """
 function print_jobs_status()
-    run(`squeue --me --name=windship-run,windship-cases`)
+    run(`squeue --me --name=$(join(job_names, ","))`)
     for fidelity in keys(fidelities)
         runs = fidelity_runs(fidelity)
         isempty(runs) && continue

@@ -21,16 +21,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  run:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.release.outputs.url }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Find the release of the run the paper's results name
+        id: release
+        run: |
+          run=$(python3 -I scripts/paper_run.py)
+          read -r commit fidelity <<< "$run"
+          url="https://github.com/${{ github.repository }}/releases/download/run-$commit/$fidelity.tar.gz"
+          status=$(curl -sSIL -o /dev/null -w '%{http_code}' "$url")
+          if [ "$status" = 404 ]; then
+            echo "::notice::Site not deployed: the $fidelity run at $commit has no release yet."
+            echo "The site was not deployed: the $fidelity run at commit $commit," \
+              "which the paper's results name, has no release yet (\`bin/runs push\`)." \
+              >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$status" = 200 ]; then
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::$url answered HTTP $status"
+            exit 1
+          fi
+
   build:
+    needs: run
+    if: needs.run.outputs.url
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - name: Fetch the run the paper's results name
         run: |
-          run=$(python3 -I scripts/paper_run.py)
-          read -r commit fidelity <<< "$run"
-          curl -fsSL "https://github.com/${{ github.repository }}/releases/download/run-$commit/$fidelity.tar.gz" |
-            tar -xz -C "$RUNNER_TEMP" runs
+          curl -fsSL "${{ needs.run.outputs.url }}" | tar -xz -C "$RUNNER_TEMP" runs
           echo "RUN_DIRECTORY=$(echo "$RUNNER_TEMP"/runs/*)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v7
         with:

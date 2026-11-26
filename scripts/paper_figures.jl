@@ -1227,7 +1227,8 @@ end
     canopy_tension_figure()
 
 From tether force to cloth tension on the reference kite: (a) the force balance at the force
-limit, (b) tether force and cloth tension over one optimal cycle, with its mean and peak.
+limit, (b) the strength margin of new cloth over the peak tension against the force limit,
+(c) tether force and cloth tension over one optimal cycle, with its mean and peak.
 """
 function canopy_tension_figure()
     area = Dict(reference_rigs)["kite"]
@@ -1239,19 +1240,19 @@ function canopy_tension_figure()
     skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
     strength = assumptions[:canopy_cloth_specific_strength] *
-               WindShipOpt.cloth_weight(assumptions) / 1e3
-    figure = Figure(size=(page_width, 185))
+               assumptions[:canopy_cloth_weight] / 1e3
+    figure = Figure(size=(page_width, 330))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
     draw_force_balance!(balance, area, limit, skin_radius)
-    force_axis = Axis(figure[1, 2]; xlabel="time in the cycle [s]",
+    force_axis = Axis(figure[2, 1:2]; xlabel="time in the cycle [s]",
         ylabel="tether force [MN]",
-        title=@sprintf("(b) one cycle, %.0f m/s, %.0f° off downwind", table["wind"][1],
+        title=@sprintf("(c) one cycle, %.0f m/s, %.0f° off downwind", table["wind"][1],
             table["course"][1]))
-    cloth_axis = Axis(figure[1, 2]; ylabel="cloth tension [kN/m]", yaxisposition=:right)
+    cloth_axis = Axis(figure[2, 1:2]; ylabel="cloth tension [kN/m]", yaxisposition=:right)
     hidespines!(cloth_axis)
     hidexdecorations!(cloth_axis)
-    lowest, highest = 0.9minimum(forces), 1.12peak_force
+    lowest, highest = 0.9minimum(forces), 1.2peak_force
     ylims!(force_axis, lowest, highest)
     ylims!(cloth_axis, tension(lowest), tension(highest))
     hlines!(force_axis, mean_force; color=category_colours[1], linestyle=:dash)
@@ -1270,8 +1271,38 @@ function canopy_tension_figure()
             estimate_text(strength / tension(peak_force))),
         fontsize=note_size, align=(:left, :bottom), color=category_colours[2],
         offset=clear_offset((:left, :bottom), pt(2)))
-    colsize!(figure.layout, 1, Relative(0.52))
+    draw_cloth_margin!(Axis(figure[1, 2]; xlabel="force limit [kN/m²]",
+            ylabel="new strength / peak tension", yscale=log10,
+            title="(b) strength margin of new cloth"), strength, skin_radius)
+    colsize!(figure.layout, 1, Relative(0.55))
     save_figure("canopy_tension", figure)
+end
+
+"""
+    draw_cloth_margin!(axis, strength, radius)
+
+Draw on `axis` the margin of cloth of `strength` [kN/m] on cells bulging to `radius` [m]
+over its peak tension against the force limit: at the canopy's mean pressure and on the top
+skin near the leading edge, with the force limits of the study and the margin of new
+paraglider cloth at 5.6 times the pressure of normal flight.
+"""
+function draw_cloth_margin!(axis, strength, radius)
+    entry = assumptions.entries[:kite_max_force_per_area]
+    leading_edge = 1 + 1 / 0.8
+    limits = range(0.3, 2.0; length=50)
+    margin = strength ./ (limits .* radius)
+    vspan!(axis, entry.low, entry.high; color=(:gray, 0.15))
+    hspan!(axis, 3.94, 6.0; color=(category_colours[2], 0.2),
+        label="new paraglider cloth")
+    lines!(axis, limits, margin; color=palette[1], label="mean pressure")
+    lines!(axis, limits, margin ./ leading_edge; color=palette[1], linestyle=:dash,
+        label="top skin, leading edge")
+    axislegend(axis; position=:rt)
+    text!(axis, (entry.low + entry.high) / 2, 2.6; text="studied", fontsize=note_size,
+        align=(:center, :bottom), color=:gray40)
+    xlims!(axis, first(limits), last(limits))
+    ylims!(axis, 2.5, 600.0)
+    axis.yticks = [3, 5, 10, 20, 50, 100, 200]
 end
 
 "the indices of the longest unbroken run of `true` in `flags`"
@@ -2009,6 +2040,53 @@ function fleet_share_figure()
 end
 
 """
+    fleet_margin_figure()
+
+Per drive, a bar for each rig of the [`fleet_margins`](@ref) of every rig of the class
+study: what it saves a year against no rig on the classes and routes it suits best, pale,
+and the part of that it saves over the next best rig, solid, with its error.
+"""
+function fleet_margin_figure()
+    table = class_table()
+    figure = Figure(size=(column_width, 150))
+    for (k, (drive, title)) in enumerate(drive_panels)
+        margins = fleet_margins(fleet_cells(table, drive))
+        rigs = [rig for rig in class_rigs if haskey(margins, rig)]
+        axis = Axis(figure[k, 1]; title, yticks=(eachindex(rigs), rig_label.(rigs)),
+            xlabel=k == length(drive_panels) ? "saving [billion USD a year]" : "",
+            ygridvisible=false, yticksize=0)
+        for (i, rig) in enumerate(rigs)
+            (; saved, margin, margin_error) = margins[rig]
+            j = findfirst(==(rig), class_rigs)
+            fill_rect!(axis, Rect2f(0, i - 0.35, 1e-9saved, 0.7), range_colour(j))
+            fill_rect!(axis, Rect2f(0, i - 0.35, 1e-9margin, 0.7), palette[j])
+            rangebars!(axis, [i], [1e-9(margin - margin_error)],
+                [1e-9(margin + margin_error)]; direction=:x, color=:black,
+                whiskerwidth=pt(3))
+            text!(axis, 1e-9saved, i; text=margin_label(margin, margin_error, saved),
+                align=(:left, :center), fontsize=note_size,
+                offset=clear_offset((:left, :center), pt(2.5)))
+        end
+        high = 1e-9maximum(entry.saved for entry in values(margins))
+        limits!(axis, 0, 1.9high, length(rigs) + 0.5, 0.5)
+    end
+    rowgap!(figure.layout, 1, pt(3))
+    save_figure("fleet_margin", figure)
+end
+
+"""
+    margin_label(margin, error, saved)
+
+Label of a rig's `margin` [USD a year] over the next best, as an [`estimate_text`](@ref),
+with its `error` to the same place, of its `saved` [USD a year] against no rig.
+"""
+function margin_label(margin, error, saved)
+    places = max(0, 1 - floor(Int, log10(abs(rounded_estimate(1e-9margin)))))
+    return @sprintf("USD %s ± %.*f bn of %s bn", estimate_text(1e-9margin), places,
+        1e-9error, estimate_text(1e-9saved))
+end
+
+"""
     route_label(name)
 
 Name of the destination of route `name` for figure labels.
@@ -2059,8 +2137,55 @@ function season_figure()
     save_figure("season", figure)
 end
 
+"""
+    speed_choice_figure()
+
+Cost-optimal speed of the 140 m ship in steady wind with each reference rig, a group of
+rows per drive, the median over the winds of speed_choice.csv: from the speed without a rig
+(line) to that with the rig (filled), with the rig's force held at its value at the speed
+without a rig (ring) and the speed that held force alone gives (cross).
+"""
+function speed_choice_figure()
+    table = read_table(data_file("speed_choice.csv"))
+    rigs = filter(((_, rig),) -> rig != "none", study_rigs(table))
+    median_speed(drive, rig, column) =
+        median(table[column][rows(table, "drive" => drive, "rig" => rig)])
+    group = length(rigs) + 1
+    row(k, i) = (k - 1) * group + i
+    figure = Figure(size=(column_width, 170))
+    axis = Axis(figure[1, 1]; xlabel="speed [kn]", yreversed=true, ygridvisible=false,
+        yticks=([row(k, i) for k in eachindex(drive_labels) for i in eachindex(rigs)],
+            repeat(rig_label.(last.(rigs)), length(drive_labels))))
+    for (k, (drive, label)) in enumerate(drive_labels)
+        bare = median_speed(drive, last(first(rigs)), "bare")
+        lines!(axis, [bare, bare], [row(k, 0.5), row(k, length(rigs) + 0.5)];
+            color=:black, linewidth=goal_width)
+        text!(axis, bare, row(k, 1); text=label, align=(:right, :center),
+            fontsize=note_size, offset=clear_offset((:right, :center), pt(3)))
+        for (i, (j, rig)) in enumerate(rigs)
+            speed(column) = median_speed(drive, rig, column)
+            lines!(axis, [bare, speed("free")], fill(row(k, i), 2); color=palette[j],
+                linewidth=line_width)
+            scatter!(axis, speed("held"), row(k, i); color=white, strokecolor=palette[j],
+                strokewidth=outline_width, markersize=mean_marker_size)
+            scatter!(axis, speed("sailing"), row(k, i); color=palette[j], marker=:xcross)
+            scatter!(axis, speed("free"), row(k, i); color=palette[j])
+        end
+    end
+    ylims!(axis, row(length(drive_labels), length(rigs)) + 0.6, row(1, 0.4))
+    grey = :gray30
+    Legend(figure[2, 1],
+        [LineElement(color=:black, linewidth=goal_width), MarkerElement(color=grey,
+             marker=:circle), MarkerElement(color=white, strokecolor=grey, marker=:circle,
+             strokewidth=outline_width, markersize=mean_marker_size),
+         MarkerElement(color=grey, marker=:xcross)],
+        ["no rig", "with rig", "force held", "force alone"]; orientation=:horizontal)
+    rowgap!(figure.layout, 1, pt(4))
+    save_figure("speed_choice", figure)
+end
+
 "routes in the order the paper names them"
-route_order = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
+route_order =["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
 
 """
     month_savings(routes_table, departures, name, ship)

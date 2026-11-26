@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Hands the departures of a run's round trips to Slurm jobs that route them into the case
-# store, the run's own job routing one share. The run waits for the store, launches a job
-# again that ended with departures missing, takes over the jobs a stopped run left running,
-# and stops naming the departures still missing once jobs store nothing more. Included by
-# paper_runs.jl; cluster.jl starts the jobs.
+# store. The run waits for the store, launches a job again that ended with departures
+# missing, takes over the jobs a stopped run left running, and stops naming the departures
+# still missing once jobs store nothing more. Included by paper_runs.jl; cluster.jl starts
+# the jobs.
 
 """
     SlurmJobs
@@ -20,6 +20,9 @@ end
 
 "where the run in use hands the departures of its missing round trips, or nothing"
 case_jobs = nothing
+
+"Slurm job names of a paper run's own job and of the jobs computing its round trips"
+job_names = (run="windship-run", cases="windship-cases")
 
 cores(jobs::SlurmJobs) = jobs.settings["cores"]
 job_count(jobs::SlurmJobs) = jobs.settings["jobs"]
@@ -44,10 +47,10 @@ handed_out(jobs, count) = !isnothing(jobs) && count > Threads.nthreads()
 """
     shard_count(jobs, count)
 
-Shards `count` departures are split into: one per `cores(jobs)` of them, at most
-`job_count(jobs)`, the run's own job included.
+Shards `count` departures are split into: one per `cores(jobs)` of them, at most one per
+job of `job_count(jobs)` besides the run's own.
 """
-shard_count(jobs, count) = clamp(cld(count, cores(jobs)), 1, job_count(jobs))
+shard_count(jobs, count) = clamp(cld(count, cores(jobs)), 1, job_count(jobs) - 1)
 
 """
     write_batch(cases, directories, departures)
@@ -221,15 +224,13 @@ job_command(cores, arguments...) = `$(Base.julia_cmd()) --project=$(@__DIR__) -t
 """
     launch(jobs, batch, shard, shards)
 
-Start routing the missing departures of shard `shard` of `shards` of the batch file
-`batch`: the first shard in a task of this process, the run's own job, every other in a job
-of its own whose id goes to its [`job_file`](@ref); return the task or job id.
+Submit a job routing the missing departures of shard `shard` of `shards` of the batch file
+`batch`, its id written to its [`job_file`](@ref); return the id.
 """
 function launch(jobs::SlurmJobs, batch, shard, shards)
-    shard == 1 && return Threads.@spawn shard_trips(batch, shard, shards)
     log = string(batch, "-", shard, "-%j.log")
-    command = slurm_command(jobs.settings, "windship-cases", log,
-        job_command(cores(jobs), "shard", batch, shard, shards))
+    command = slurm_command(jobs.settings, cores(jobs), jobs.settings["memory_per_core"],
+        job_names.cases, log, job_command(cores(jobs), "shard", batch, shard, shards))
     id = strip(read(command, String))
     write(job_file(batch, shard), id)
     return id
@@ -253,25 +254,15 @@ end
 """
     running(jobs, handles)
 
-Those of `handles` whose task or job has not ended, every job while the queue cannot be
-read. A task that failed has ended, as a job that failed has, and its error is printed.
+Those of the job ids `handles` whose job is queued or running, every one while the queue
+cannot be read.
 """
 function running(::SlurmJobs, handles)
-    tasks = filter(handle -> handle isa Task, handles)
-    for task in filter(istaskfailed, tasks)
-        println("  the run's own share failed:")
-        showerror(stdout, task.result)
-        println()
-    end
-    ids = filter(handle -> !(handle isa Task), handles)
     queue = IOBuffer()
-    squeue = pipeline(`squeue --me --noheader --format=%i`; stdout=queue)
-    if isempty(ids) || success(squeue)
-        ids = filter(in(split(String(take!(queue)))), ids)
-    else
-        println("  squeue failed at ", floor(now(), Second), "; waiting for every job")
-    end
-    return [filter(!istaskdone, tasks); ids]
+    success(pipeline(`squeue --me --noheader --format=%i`; stdout=queue)) &&
+        return filter(in(split(String(take!(queue)))), handles)
+    println("  squeue failed at ", floor(now(), Second), "; waiting for every job")
+    return handles
 end
 
 """
@@ -297,20 +288,20 @@ function stalled_run_jobs(fidelity)
 end
 
 """
-    slurm_command(settings, name, log, command; after=nothing)
+    slurm_command(settings, cores, memory_per_core, name, log, command; after=nothing)
 
-The `sbatch` call submitting `command` as one task named `name` with the wall time, cores,
-memory, account and partition of `settings`, writing to `log`, which prints its job id; with
-`after` a job id, the task starts once that job has ended.
+The `sbatch` call submitting `command` as one task named `name` on `cores` cores with
+`memory_per_core` each, as Slurm's `--mem-per-cpu`, and the wall time, account and partition
+of `settings`, writing to `log`, which prints its job id; with `after` a job id, the task
+starts once that job has ended.
 """
-function slurm_command(settings, name, log, command; after=nothing)
+function slurm_command(settings, cores, memory_per_core, name, log, command; after=nothing)
     for setting in ("account", "partition")
         isempty(settings[setting]) && error("set the $setting in scripts/cluster.toml")
     end
     dependency = isnothing(after) ? `` : `--dependency=afterany:$after`
     return `sbatch --parsable --job-name=$name --account=$(settings["account"])
         --partition=$(settings["partition"]) --time=$(settings["wall_time"]) $dependency
-        --ntasks=1 --cpus-per-task=$(settings["cores"])
-        --mem-per-cpu=$(settings["memory_per_core"]) --output=$log
+        --ntasks=1 --cpus-per-task=$cores --mem-per-cpu=$memory_per_core --output=$log
         --wrap=$(Base.shell_escape(command.exec...))`
 end

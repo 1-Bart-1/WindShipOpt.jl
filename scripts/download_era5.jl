@@ -161,8 +161,9 @@ function profile_speeds(speed10, level_speeds, level_heights, heights)
     order = above[sortperm(level_heights[above])]
     profile_heights = [10.0; level_heights[order]]
     profile = [speed10; level_speeds[order]]
-    return [WindShipOpt.log_height_value(profile_heights, profile, height)
-            for height in heights]
+    log_heights = log.(profile_heights)
+    return [WindShipOpt.line_value(profile,
+                WindShipOpt.KnotWeight(log_heights, log(height))) for height in heights]
 end
 
 function download(source::Source, group, names=sort(collect(keys(source.variables)));

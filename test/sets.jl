@@ -326,13 +326,13 @@ end
     @test heavy_wind > light_wind
 end
 
-@testset "a kite built for more force gets cloth and reinforcements in proportion" begin
+@testset "a kite built for more force keeps its cloth and grows its reinforcements" begin
     stronger = with_value(assumptions, :kite_max_force_per_area,
         2assumptions[:kite_max_force_per_area])
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
-    @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
-    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
+    @test strong_canopy.mass_per_area ≈
+          base_canopy.mass_per_area + assumptions[:canopy_mass_overhead]
+    @test strong_canopy.cost_per_area ≈ base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
@@ -834,10 +834,8 @@ end
           surveyed + (11.0 + 0.031 * 100) * rib_cloth(32.0)
     stronger = with_value(assumptions, :kite_max_force_per_area,
         2assumptions[:kite_max_force_per_area])
-    surveyed_cloth = 1.17 * (2.05 + 0.101 * 8.2 / 0.5)
     @test WindShipOpt.canopy_cost(stronger, 32.0) ≈
-          surveyed + 0.031 * 100 * surveyed_cloth +
-          (11.0 + 0.031 * 200) * rib_cloth(32.0)
+          surveyed + (11.0 + 0.031 * 100) * rib_cloth(32.0)
     @test WindShipOpt.canopy_price(assumptions, 800.0, 3.0) ≈
           assumptions[:market_price_factor] *
           WindShipOpt.canopy_cost(assumptions, sqrt(800.0 / 3.0))
@@ -1162,10 +1160,16 @@ end
 end
 
 @testset "a kite and the rotors beside it trim jointly to the least engine output" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0), assumptions)
+    design = ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0)
     speed = 10.5KNOT
     weights = range(0.0, 3.0; length=31)
-    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+    # a wider-turning kite in more shear puts a trim the ship cannot hold beside the best
+    wider_turns = with_value(with_value(assumptions, :kite_min_turn_radius, 3.0),
+        :wind_shear_exponent, 0.06)
+    cases = [[(assumptions, wind, angle) for wind in (10.0, 16.0)
+              for angle in deg2rad.(45:15:165)]; (wider_turns, 16.0, deg2rad(60))]
+    for (inputs, wind, angle) in cases
+        ship = Ship(design, inputs)
         spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
         bare = engine_output(ship, speed,
             WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
@@ -1251,6 +1255,13 @@ end
     most = WindShipOpt.most_in_column(1, 3000.0, :rotor, hull, assumptions, 0.0)
     @test !isnothing(layout(1, most, 3000.0)) && isnothing(layout(1, most + 1, 3000.0))
     @test isnothing(layout(2, 1, 20000.0))
+end
+
+@testset "a copy with changed fields keeps the rest and refuses a field it lacks" begin
+    hull = Hull(140.0, assumptions)
+    wider = WindShipOpt.with_changed(hull; beam=2hull.beam)
+    @test wider.beam == 2hull.beam && wider.length == hull.length
+    @test_throws ArgumentError WindShipOpt.with_changed(hull; not_a_field=0.0)
 end
 
 @testset "a kite tows from its bow mast; a tow further aft loads the rudder more" begin
@@ -1758,12 +1769,10 @@ end
           WindShipOpt.handling_hours(base, assumptions)
 end
 
-@testset "a kite flies the assumed aspect ratio unless its design names its own" begin
+@testset "a design's kite flies the assumed aspect ratio" begin
     slender = WindShipOpt.with_value(assumptions, :kite_aspect_ratio, 4.0)
-    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0),
-        slender) == 4.0
-    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0,
-        kite_aspect_ratio=5.0), slender) == 5.0
+    design = ShipDesign(:vlsfo, 100.0; kite_area=800.0)
+    @test WindShipOpt.design_rig(design, PAPER_HULL, slender).aspect_ratio == 4.0
 end
 
 @testset "kite inputs give the SkySails kites at their projected areas" begin
@@ -2302,6 +2311,18 @@ WindShipOpt.known_weather(source::FixedForecast, weather, time) = source.weather
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly))
+end
+
+@testset "a leg's trace sails on once the ship has held through a gale" begin
+    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=720.0,
+        lateral_spacing=480.0)
+    departure = 24.0 * 31
+    weather = GaleWeather(SyntheticWeather(), departure + 10.0)
+    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly)
+    trace = LegTrace(table.table, sailed, weather, departure)
+    @test all(isfinite, trace.hours)
+    @test first(trace.time) == 12.0
+    @test sum(trace.hours) ≈ sailed.duration - 12.0
 end
 
 """
@@ -3870,7 +3891,7 @@ StubJobs(wall, retries; left=Dict{Int, Task}()) =
     StubJobs(wall, retries, left, Dict{Int, Int}(), Threads.Atomic{Int}(0))
 
 PaperRuns.cores(::StubJobs) = 3
-PaperRuns.job_count(::StubJobs) = 4
+PaperRuns.job_count(::StubJobs) = 5
 PaperRuns.retries(jobs::StubJobs) = jobs.retries
 PaperRuns.poll_seconds(::StubJobs) = 0.01
 PaperRuns.running(::StubJobs, handles) = filter(!istaskdone, handles)
@@ -3992,9 +4013,10 @@ end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
     settings = merge(PaperRuns.cluster_settings(), Dict("account" => "", "partition" => ""))
-    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "log", `true`)
+    @test_throws "set the account" PaperRuns.slurm_command(settings, 4, "800M", "run",
+        "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
-    command = PaperRuns.slurm_command(settings, "run", "log", `true`)
+    command = PaperRuns.slurm_command(settings, 4, "800M", "run", "log", `true`)
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
 end
 
@@ -4008,13 +4030,6 @@ end
         PaperRuns.StepTally())
     newer = PaperRuns.write_batch(handed_cases, directories, [24.0])
     @test newer != batch && PaperRuns.deserialize(newer).trip_model == "newer code"
-end
-
-@testset "the run's own share that fails has ended, as a failed job has" begin
-    failed = Threads.@spawn error("a trip failed")
-    wait(Threads.@spawn try wait(failed) catch end)
-    jobs = PaperRuns.SlurmJobs(PaperRuns.cluster_settings())
-    @test isempty(PaperRuns.running(jobs, Any[failed]))
 end
 
 @testset "run jobs that find their run unmoved are counted until it moves" begin
@@ -4035,16 +4050,26 @@ end
     @test PaperRuns.stalled_run_jobs(:draft) == 0
 end
 
-@testset "the jobs of a run are short enough to pass the queue fast and fit the cluster" begin
+@testset "the jobs of a run are short and a quarter node at most, to fit the gaps" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
-    command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
-    option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
-    hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
-    @test parse(Int, option("cpus-per-task")) <= 64
-    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
-    @test option("dependency") == "afterany:7"
+    jobs = PaperRuns.SlurmJobs(settings)
+    run = PaperRuns.slurm_command(settings, settings["run_cores"],
+        settings["run_memory_per_core"], "run", "log", `true`; after="7")
+    cases = PaperRuns.slurm_command(settings, PaperRuns.cores(jobs),
+        settings["memory_per_core"], "cases", "log", `true`)
+    option(command, name) =
+        only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
+    megabytes(memory) = parse(Int, chop(memory)) * (endswith(memory, "G") ? 1024 : 1)
+    for command in (run, cases)
+        hours, minutes, seconds = parse.(Int, split(option(command, "time"), ":"))
+        @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
+        cores = parse(Int, option(command, "cpus-per-task"))
+        @test cores <= 64 ÷ 4
+        @test cores * megabytes(option(command, "mem-per-cpu")) <= 250 * 1024 ÷ 4
+    end
+    @test PaperRuns.shard_count(jobs, 10^6) == settings["jobs"] - 1
+    @test option(run, "dependency") == "afterany:7"
 end
 
 """
@@ -4369,93 +4394,6 @@ end
     @test names == Set([:discount_rate])
 end
 
-module SizeSearch
-include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
-end
-
-@testset "the size grid holds both bounds and no step within half a step of them" begin
-    grid = SizeSearch.size_grid(500.0, 2441.4)
-    @test first(grid) == 500.0 && last(grid) == 2441.4
-    @test all(diff(log2.(grid)) .> 0.125)
-    @test 2.0^(45 / 4) ∉ grid
-end
-
-"""
-    searched_points(cost, starts, grid)
-
-The (area, cost) points a size search on `grid` routes from the areas `starts`, with the
-cost of each area given by the function `cost`.
-"""
-function searched_points(cost, starts, grid)
-    points = [(area, cost(area)) for area in starts]
-    sizes = SizeSearch.next_sizes(points, grid)
-    while !isempty(sizes)
-        @test !any(area -> any(point -> first(point) ≈ area, points), sizes)
-        append!(points, [(area, cost(area)) for area in sizes])
-        sizes = SizeSearch.next_sizes(points, grid)
-    end
-    return points
-end
-
-@testset "a size search with no guess starts from every doubling and both bounds" begin
-    @test SizeSearch.coarse_sizes(SizeSearch.size_grid(500.0, 2441.4)) ≈
-          [500.0, 2^10.0, 2^11.0, 2441.4]
-    @test SizeSearch.coarse_sizes(SizeSearch.size_grid(800.0, 800.0)) == [800.0]
-end
-
-@testset "a size search whose best is a bound next tries the size just inside it" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test SizeSearch.next_sizes([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
-          [grid[end - 1]]
-    @test SizeSearch.next_sizes([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
-          [grid[2]]
-end
-
-@testset "a size search confirms its cheapest size once both neighbours cost more" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test isempty(SizeSearch.next_sizes([(grid[k], cost) for (k, cost) in
-                                         ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
-    @test isempty(SizeSearch.next_sizes([(grid[1], 1.0), (grid[2], 2.0)], grid))
-    @test only(SizeSearch.next_sizes([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)],
-        grid)) ∈ grid[9:10]
-    @test isempty(SizeSearch.next_sizes([(grid[7], Inf), (grid[8], Inf)], grid))
-end
-
-@testset "a size search refines every valley among the sizes it has tried" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    points = [(grid[k], cost) for (k, cost) in ((1, 1.0), (8, 3.0), (9, 4.0), (21, 2.0))]
-    @test SizeSearch.next_sizes(points, grid) ≈ [grid[2], grid[20]]
-end
-
-@testset "a size search from a guess far off still finds the cheapest size" begin
-    grid = SizeSearch.size_grid(500.0, 64000.0)
-    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
-        points = searched_points(area -> log(area / best)^2,
-            SizeSearch.start_sizes(guess, grid), grid)
-        @test first(points[argmin(last.(points))]) ≈
-              grid[SizeSearch.nearest_step(grid, best)]
-    end
-end
-
-@testset "a size search with no guess finds the cheaper of two valleys" begin
-    grid = SizeSearch.size_grid(50.0, 2715.0)
-    # wing sails on a feeder container ship in raised pairs: USD per 1000 tonne-km
-    areas = log.([50.0, 108.0, 215.0, 512.0, 1024.0, 2048.0, 2715.0])
-    costs = [10.713, 10.705, 10.676, 10.715, 10.762, 10.777, 10.772]
-    measured(area) = begin
-        k = clamp(searchsortedlast(areas, log(area)), 1, length(areas) - 1)
-        share = (log(area) - areas[k]) / (areas[k + 1] - areas[k])
-        costs[k] + share * (costs[k + 1] - costs[k])
-    end
-    valleys = [area -> min(log(area / small)^2, 0.5log(area / large)^2 + depth)
-               for small in (60.0, 80.0, 120.0), large in (1000.0, 2000.0),
-               depth in (-0.1, 0.1)]
-    for cost in [measured; vec(valleys)]
-        points = searched_points(cost, SizeSearch.coarse_sizes(grid), grid)
-        @test minimum(last.(points)) == minimum(cost.(grid))
-    end
-end
-
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
@@ -4694,7 +4632,7 @@ soft_mass_per_area(area, inputs) =
 @testset "a soft kite's mass per area grows with its chord, in its ribs" begin
     @test soft_mass_per_area(3000.0, assumptions) >
           1.1soft_mass_per_area(200.0, assumptions)
-    skins = 1e-3WindShipOpt.cloth_weight(assumptions) *
+    skins = 1e-3assumptions[:canopy_cloth_weight] *
             assumptions[:canopy_flat_area_ratio] * assumptions[:canopy_skin_cloth_ratio]
     ribs(area) = WindShipOpt.Canopy(assumptions, area, 3.0).mass_per_area -
                  assumptions[:canopy_mass_overhead] - skins
@@ -4708,7 +4646,6 @@ end
         @test WindShipOpt.cloth_area_ratio(assumptions, chord) ≈
               1.17 * (2.05 + 0.101 * chord / 0.5)
     end
-    @test WindShipOpt.cloth_weight(assumptions) ≈ assumptions[:canopy_cloth_weight]
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
@@ -4977,6 +4914,89 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "size_search.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
+end
+
+@testset "the size grid holds both bounds and no step within half a step of them" begin
+    grid = PaperData.size_grid(500.0, 2441.4)
+    @test first(grid) == 500.0 && last(grid) == 2441.4
+    @test all(diff(log2.(grid)) .> 0.125)
+    @test 2.0^(45 / 4) ∉ grid
+end
+
+"""
+    searched_points(cost, starts, grid)
+
+The (area, cost) points a size search on `grid` routes from the areas `starts`, with the
+cost of each area given by the function `cost`.
+"""
+function searched_points(cost, starts, grid)
+    points = [(area, cost(area)) for area in starts]
+    sizes = PaperData.next_sizes(points, grid)
+    while !isempty(sizes)
+        @test !any(area -> any(point -> first(point) ≈ area, points), sizes)
+        append!(points, [(area, cost(area)) for area in sizes])
+        sizes = PaperData.next_sizes(points, grid)
+    end
+    return points
+end
+
+@testset "a size search with no guess starts from every doubling and both bounds" begin
+    @test PaperData.coarse_sizes(PaperData.size_grid(500.0, 2441.4)) ≈
+          [500.0, 2^10.0, 2^11.0, 2441.4]
+    @test PaperData.coarse_sizes(PaperData.size_grid(800.0, 800.0)) == [800.0]
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test PaperData.next_sizes([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          [grid[end - 1]]
+    @test PaperData.next_sizes([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          [grid[2]]
+end
+
+@testset "a size search confirms its cheapest size once both neighbours cost more" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test isempty(PaperData.next_sizes([(grid[k], cost) for (k, cost) in
+                                         ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
+    @test isempty(PaperData.next_sizes([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test only(PaperData.next_sizes([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)],
+        grid)) ∈ grid[9:10]
+    @test isempty(PaperData.next_sizes([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search refines every valley among the sizes it has tried" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    points = [(grid[k], cost) for (k, cost) in ((1, 1.0), (8, 3.0), (9, 4.0), (21, 2.0))]
+    @test PaperData.next_sizes(points, grid) ≈ [grid[2], grid[20]]
+end
+
+@testset "a size search from a guess far off still finds the cheapest size" begin
+    grid = PaperData.size_grid(500.0, 64000.0)
+    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
+        points = searched_points(area -> log(area / best)^2,
+            PaperData.start_sizes(guess, grid), grid)
+        @test first(points[argmin(last.(points))]) ≈
+              grid[PaperData.nearest_step(grid, best)]
+    end
+end
+
+@testset "a size search with no guess finds the cheaper of two valleys" begin
+    grid = PaperData.size_grid(50.0, 2715.0)
+    # wing sails on a feeder container ship in raised pairs: USD per 1000 tonne-km
+    areas = log.([50.0, 108.0, 215.0, 512.0, 1024.0, 2048.0, 2715.0])
+    costs = [10.713, 10.705, 10.676, 10.715, 10.762, 10.777, 10.772]
+    measured(area) = begin
+        k = clamp(searchsortedlast(areas, log(area)), 1, length(areas) - 1)
+        share = (log(area) - areas[k]) / (areas[k + 1] - areas[k])
+        costs[k] + share * (costs[k + 1] - costs[k])
+    end
+    valleys = [area -> min(log(area / small)^2, 0.5log(area / large)^2 + depth)
+               for small in (60.0, 80.0, 120.0), large in (1000.0, 2000.0),
+               depth in (-0.1, 0.1)]
+    for cost in [measured; vec(valleys)]
+        points = searched_points(cost, PaperData.coarse_sizes(grid), grid)
+        @test minimum(last.(points)) == minimum(cost.(grid))
+    end
 end
 
 @testset "a rotor price is set against the model's price of the same unit as sold" begin
@@ -5300,7 +5320,7 @@ end
     frame, area = WindShipOpt.TubeFrame(), 200.0
     rating = assumptions[:lei_max_force_per_area] /
              assumptions[:canopy_cloth_reference_force]
-    weight = assumptions[:canopy_cloth_weight] * rating
+    weight = assumptions[:canopy_cloth_weight]
     tubes = WindShipOpt.tube_mass(assumptions, area)
     surface = assumptions[:lei_tube_surface]
     canopy = WindShipOpt.Canopy(assumptions, area, frame)
@@ -5358,7 +5378,7 @@ end
     canopy = WindShipOpt.Canopy(assumptions, 500.0, WindShipOpt.SingleSkin())
     rating = WindShipOpt.force_rating(assumptions)
     skin = assumptions[:canopy_flat_area_ratio]
-    weight = WindShipOpt.cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     @test canopy.mass_per_area ≈ 1e-3skin * weight +
                                  assumptions[:single_skin_line_ratio] *
                                  assumptions[:canopy_mass_overhead] * rating
@@ -5507,6 +5527,21 @@ end
     @test split["level"] == (bill=50.0, saved=2.0)
     @test split["none"] == (bill=50.0, saved=0.0)
     @test split["rotors"].bill == split["wings"].bill == 0
+end
+
+@testset "a rig's fleet margin is what the fleet loses fitting the next best instead" begin
+    rigs(kite, rotors) = Dict("kite" => kite, "rotors" => rotors)
+    margins = PaperData.fleet_margins([fleet_cell(100.0, rigs(10.0, 4.0)),
+        fleet_cell(200.0, rigs(3.0, 5.0), Dict("kite" => 1.0, "rotors" => 1.0)),
+        fleet_cell(50.0, rigs(2.0, -1.0)), fleet_cell(50.0, rigs(4.0, 4.1)),
+        fleet_cell(80.0, rigs(-1.0, -2.0))])
+    @test sort(collect(keys(margins))) == ["kite", "rotors"]
+    kite, rotors = margins["kite"], margins["rotors"]
+    @test kite.saved ≈ 10.0 + 1.0 && kite.margin ≈ 6.0 + 1.0
+    @test rotors.saved ≈ 10.0 + 2.05 && rotors.margin ≈ 4.0 + 0.05
+    @test rotors.margin_error ≈ 0 atol = 1e-12
+    @test rotors.saved_error ≈ 2.0
+    @test last.(kite.own) == ["rotors", "none"]
 end
 
 @testset "a rig is shown where it leads or is level, else given with its best and gap" begin
@@ -5767,9 +5802,9 @@ end
     both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
     both["drive"][(length(held) + 1):end] .= "ammonia"
     shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
-    bands = ["Kite", "Wings", "Rotors", "Level"]
-    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
-                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
+    rigs = ["Kite", "Wings", "Rotors"]
+    @test Set(shares) == Set(["FleetShareOil" .* rigs;
+                              "FleetShareAmmonia" .* [rigs; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin
@@ -5968,7 +6003,7 @@ end
           (8760assumptions[:availability])
 end
 
-@testset "switching windage off removes the wind load, and a misnamed part is refused" begin
+@testset "switching windage off removes the wind load" begin
     ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
     function force(windage)
         load = WindShipOpt.wind_force(windage, ship.env, 15.0, π / 3, 5.0)
@@ -5977,7 +6012,6 @@ end
     @test any(component -> abs(component) > 1.0, force(ship.windage))
     @test all(component -> abs(component) < 1e-6,
         force(PaperData.simplified_ship(ship, :windage).windage))
-    @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
 end
 
 @testset "a free side force leaves the rig's side force without leeway or rudder drag" begin
@@ -6003,7 +6037,7 @@ end
         join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
     @test !PaperData.study_holds(PaperData.switched(:none))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
-    @test length(PaperData.side_force_numbers()) == 4length(PaperData.side_force_rigs)
+    @test length(PaperData.side_force_numbers()) == 2length(PaperData.side_force_rigs)
     @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
     @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end

@@ -281,19 +281,18 @@ function resistance_calibration(class::ShipClass, hull::Hull, assumptions::Assum
 end
 
 """
-    ShipDesign(drive, length; wing_area=0, kite_area=0, kite_aspect_ratio=nothing,
-        rotor_area=0, rigid_kite_area=0, suction_area=0, lei_kite_area=0,
-        single_skin_kite_area=0)
+    ShipDesign(drive, length; wing_area=0, kite_area=0, rotor_area=0, rigid_kite_area=0,
+        suction_area=0, lei_kite_area=0, single_skin_kite_area=0)
     ShipDesign(drive, class::ShipClass; kwargs...)
 
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
 or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2], a
-positive `kite_area` a ram-air towing kite of that projected area and projected
-`kite_aspect_ratio`, by default the assumption `kite_aspect_ratio`, a positive
-`rigid_kite_area` a rigid VTOL kite of that area, a positive `lei_kite_area` a
-leading-edge inflatable kite of that projected area, a positive `single_skin_kite_area` a
-single-skin kite of that projected area, a positive `rotor_area` Flettner rotors of that
-total height times diameter, a positive `suction_area` suction sails of that total area.
+positive `kite_area` a ram-air towing kite of that projected area at the projected aspect
+ratio of the assumption `kite_aspect_ratio`, a positive `rigid_kite_area` a rigid VTOL
+kite of that area, a positive `lei_kite_area` a leading-edge inflatable kite of that
+projected area, a positive `single_skin_kite_area` a single-skin kite of that projected
+area, a positive `rotor_area` Flettner rotors of that total height times diameter, a
+positive `suction_area` suction sails of that total area.
 The rigs of [`LONE_RIGS`](@ref) stand alone. A kite may fly over wings or rotors as a
 [`CombinedRig`](@ref); wings and rotors exclude each other. A rig area that is not finite
 is an `ArgumentError`. With a `class` the hull, engine power, price and cargo value are
@@ -305,20 +304,19 @@ Base.@kwdef struct ShipDesign
     length::Float64
     wing_area::Float64 = 0.0
     kite_area::Float64 = 0.0
-    kite_aspect_ratio::Union{Nothing, Float64} = nothing
     rotor_area::Float64 = 0.0
     rigid_kite_area::Float64 = 0.0
     suction_area::Float64 = 0.0
     lei_kite_area::Float64 = 0.0
     single_skin_kite_area::Float64 = 0.0
     class::Union{Nothing, ShipClass} = nothing
-    function ShipDesign(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
-            rigid_kite_area, suction_area, lei_kite_area, single_skin_kite_area, class)
+    function ShipDesign(drive, length, wing_area, kite_area, rotor_area, rigid_kite_area,
+            suction_area, lei_kite_area, single_skin_kite_area, class)
         all(isfinite, (wing_area, kite_area, rotor_area, rigid_kite_area, suction_area,
             lei_kite_area, single_skin_kite_area)) ||
             throw(ArgumentError("a rig area must be finite"))
-        return new(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
-            rigid_kite_area, suction_area, lei_kite_area, single_skin_kite_area, class)
+        return new(drive, length, wing_area, kite_area, rotor_area, rigid_kite_area,
+            suction_area, lei_kite_area, single_skin_kite_area, class)
     end
 end
 
@@ -471,15 +469,6 @@ end
 has_rig(design::ShipDesign) = any(field -> getfield(design, field) > 0, RIG_AREAS)
 
 """
-    kite_aspect_ratio(design, assumptions)
-
-Projected aspect ratio of the kite of `design`: its own, else the assumption
-`kite_aspect_ratio`.
-"""
-kite_aspect_ratio(design::ShipDesign, assumptions::Assumptions) =
-    something(design.kite_aspect_ratio, assumptions[:kite_aspect_ratio])
-
-"""
     design_rig(design, hull, assumptions; columns=1, in_column=1)
 
 Rig of `design` on `hull`, its wings, rotors or suction sails `columns` times `in_column`
@@ -500,7 +489,7 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; co
     standing_type, standing_area = design.wing_area > 0 ? (WingRig, design.wing_area) :
                                    (RotorRig, design.rotor_area)
     if design.kite_area > 0
-        aspect_ratio = kite_aspect_ratio(design, assumptions)
+        aspect_ratio = assumptions[:kite_aspect_ratio]
         standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
             standing_type, standing_area, hull, assumptions; layout...)
         return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
@@ -799,17 +788,53 @@ joint_setting(joint::JointTrim, position) =
     (joint.kite(range_value(joint.kite.trim_range, position[1])),
         joint.standing(range_value(joint.standing.trim_range, position[2])))
 
+"""
+    start_step(joint, start, i)
+
+Step [spacings] of trim variable `i` from `start` to the first Nelder-Mead simplex of
+[`JointTrim`](@ref) `joint`: up or down, whichever gives the lower output, each one spacing
+halved until the vertex is a trim the ship can sail.
+"""
+function start_step(joint::JointTrim, start, i)
+    output_at(step) = joint(Base.setindex(start, start[i] + step, i))
+    up, down = sailable_step(output_at, 1.0), sailable_step(output_at, -1.0)
+    return output_at(up) <= output_at(down) ? up : down
+end
+
+"`step` [spacings], halved until `output_at(step)` is finite or below the trim tolerance"
+function sailable_step(output_at, step)
+    while !isfinite(output_at(step)) && abs(step) > TRIM_TOLERANCE
+        step /= 2
+    end
+    return step
+end
+
+"""
+    StepSimplexer(steps)
+
+First Nelder-Mead simplex of the start and, for each variable, the start moved by its
+`steps`.
+"""
+struct StepSimplexer <: Optim.Simplexer
+    steps::Vector{Float64}
+end
+
+Optim.simplexer(simplexer::StepSimplexer, start) =
+    [[start]; [start .+ step .* (eachindex(start) .== i)
+               for (i, step) in enumerate(simplexer.steps)]]
+
 "most Nelder-Mead iterations of a joint trim of kite and standing rig"
 const JOINT_TRIM_ITERATIONS = 200
 
 "standard deviation of the engine output over the simplex that ends a joint trim [W]"
-const JOINT_TRIM_TOLERANCE = 1e-2
+const JOINT_TRIM_TOLERANCE = 1.0
 
 """
     best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
 
 [`best_trim`](@ref) of kite and standing rig together: the best pair of their scanned
-trim values, refined by the Nelder-Mead method in both at once.
+trim values, refined by the Nelder-Mead method in both at once from a simplex of that pair
+and its sailable neighbours within one spacing.
 """
 function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
         added_resistance=0.0)
@@ -830,8 +855,9 @@ function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
         end
     end
     isfinite(best_output) || return trim_result(output, joint_setting(best, start))
+    steps = [start_step(best, start, i) for i in eachindex(start)]
     result = Optim.optimize(best, collect(start),
-        Optim.NelderMead(; initial_simplex=Optim.AffineSimplexer(0.5, 0.0)),
+        Optim.NelderMead(; initial_simplex=StepSimplexer(steps)),
         Optim.Options(; iterations=JOINT_TRIM_ITERATIONS, g_tol=JOINT_TRIM_TOLERANCE))
     position = Optim.minimum(result) < best_output ? Optim.minimizer(result) : start
     return trim_result(output, joint_setting(best, position))
