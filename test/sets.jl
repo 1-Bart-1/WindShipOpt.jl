@@ -4002,8 +4002,8 @@ end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
     settings = merge(PaperRuns.cluster_settings(), Dict("account" => "", "partition" => ""))
-    @test_throws "set the account" PaperRuns.slurm_command(settings, 4, "800M", "run", "log",
-        `true`)
+    @test_throws "set the account" PaperRuns.slurm_command(settings, 4, "800M", "run",
+        "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
     command = PaperRuns.slurm_command(settings, 4, "800M", "run", "log", `true`)
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
@@ -4039,7 +4039,7 @@ end
     @test PaperRuns.stalled_run_jobs(:draft) == 0
 end
 
-@testset "the jobs of a run are short and a quarter node at most, to start in the gaps" begin
+@testset "the jobs of a run are short and a quarter node at most, to fit the gaps" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
     jobs = PaperRuns.SlurmJobs(settings)
