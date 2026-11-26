@@ -5522,6 +5522,7 @@ end
 
 @testset "a number the departures do not move is written without an error" begin
     @test PaperData.error_cell(1.234, 0.0; finest=1) == "\\(1.2\\)"
+    @test PaperData.error_cell(1.234, 0.004; finest=1) == "\\(1.2\\)"
     @test PaperData.error_cell(1.234, 0.21; finest=1) == "\\(1.2 \\pm 0.2\\)"
 end
 
