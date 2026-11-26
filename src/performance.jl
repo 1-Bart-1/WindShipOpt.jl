@@ -46,8 +46,17 @@ Base.@propagate_inbounds Base.getindex(knots::Knots, i::Int) = knots.values[i]
     KnotWeight(knots, value)
 
 Weights of `value` in the sorted `knots`, held at the end knot beyond the grid; a value
-on an interior knot lies at the top of the interval below it.
+on an interior knot lies at the top of the interval below it, and all weight lies on the
+one knot of a grid of one.
 """
+function KnotWeight(knots::AbstractVector, value)
+    isone(length(knots)) && return KnotWeight(1, 1.0, 0.0)
+    value = clamp(value, first(knots), last(knots))
+    i = clamp(searchsortedfirst(knots, value) - 1, 1, length(knots) - 1)
+    fraction = (value - knots[i]) / (knots[i + 1] - knots[i])
+    return KnotWeight(i, 1 - fraction, fraction)
+end
+
 function KnotWeight(knots::Knots, value)
     (; values, step_intervals) = knots
     value = min(max(first(values), value), last(values))
@@ -88,6 +97,23 @@ end
 
 LinearTable(knots::NTuple{N, AbstractVector}, values::Array{Float64, N}) where {N} =
     LinearTable(map(Knots, knots), values)
+
+"""
+    knot_ends(weight)
+
+The lower and the upper knot of the [`KnotWeight`](@ref) `weight`, each as its index and
+weight.
+"""
+knot_ends(weight::KnotWeight) =
+    ((weight.index, weight.lower), (weight.index + 1, weight.upper))
+
+"""
+    line_value(values, weight)
+
+Linear interpolation of the vector `values` at the [`KnotWeight`](@ref) `weight`.
+"""
+line_value(values, weight::KnotWeight) =
+    weight.lower * values[weight.index] + weight.upper * values[weight.index + 1]
 
 """
     layer_value(values, y, z, layer)
@@ -208,7 +234,7 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
     waves = [added_resistance(ship.seakeeping, ship.env, speed, 1.0, period, heading)
              for speed in speeds, period in periods, heading in headings]
     kite = kite_rig(ship.rig)
-    height = kite_height(kite)
+    height = isnothing(kite) ? 0.0 : rig_height(kite)
     return PerformanceTable(ship, flown_thrust, stowed_thrust, rig_power, stowed_power,
         LinearTable((speeds, periods, headings), waves), wear_cost(ship.rig, assumptions),
         cycle_cost(ship.rig, assumptions), handling_hours(kite, assumptions), speeds,
@@ -393,10 +419,6 @@ function trim_resistance(table::PerformanceTable, waves)
     knots = table.flown_thrust.knots[4]
     return clamp(waves, first(knots), last(knots))
 end
-
-"reference height of the kite `rig` [m]; zero for `nothing`"
-kite_height(rig) = 0.0
-kite_height(rig::KiteRig) = rig.reference_height
 
 """
     kite_aloft(table, speed, headwind, crosswind)
@@ -590,21 +612,14 @@ function screened_out(table::RouteTable, speed_index, condition::SeaCondition, w
 end
 
 """
-    edge_fuels(table::RouteTable, speed_index, condition,
-               (waves, layer)=sea_layer(table, speed_index, condition))
+    edge_fuels(table::RouteTable, speed_index, condition, sea=nothing)
 
-[`edge_fuels`](@ref) at routing speed number `speed_index` of `table`, given the added
-resistance `waves` [N] of the sea of `condition` and its [`KnotWeight`](@ref) `layer`.
+[`edge_fuels`](@ref) at routing speed number `speed_index` of `table`, given the
+[`sea_layer`](@ref) `sea` of `condition`, which is computed where it is `nothing`.
 """
-function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition)
+function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition, sea=nothing)
     screened_out(table, speed_index, condition) && return Inf, Inf
-    return edge_fuels(table, speed_index, condition,
-        sea_layer(table, speed_index, condition))
-end
-
-function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition,
-        (waves, layer))
-    screened_out(table, speed_index, condition) && return Inf, Inf
+    waves, layer = isnothing(sea) ? sea_layer(table, speed_index, condition) : sea
     screened_out(table, speed_index, condition, waves, layer) && return Inf, Inf
     return edge_fuels(table.table, table.slices[speed_index], condition, waves, layer)
 end
