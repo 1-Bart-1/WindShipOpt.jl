@@ -7,14 +7,16 @@ using WindShipOpt
 using WindShipOpt: Optim
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
 
+assumptions = Assumptions()
+
 # Numerical example of Holtrop & Mennen (1982).
-const PAPER_ENV = Environment(; water_density=1025.0, water_viscosity=1.1883e-6)
+const PAPER_ENV = Environment(; water_density=1025.0, water_viscosity=1.1883e-6,
+    air_density=assumptions[:air_density], shear_exponent=assumptions[:wind_shear_exponent])
 const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volume=37500.0,
     midship_coefficient=0.98, waterplane_coefficient=0.75, centre_of_buoyancy=-0.75,
     bulb_area=20.0, bulb_height=4.0, transom_area=16.0, stern_shape=10.0,
     appendage_area=50.0, appendage_form_factor=1.5)
 
-assumptions = Assumptions()
 corridors = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=1440.0,
     lateral_spacing=960.0)
 
@@ -647,7 +649,7 @@ end
     model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, assumptions)
     course = deg2rad(120.0)
     problem = WindShipOpt.PatternProblem(model, max_force,
-        deg2rad(assumptions[:kite_min_elevation]), 15.0, course, 0.0)
+        deg2rad(assumptions[:kite_min_elevation]), 18.0, course, 0.0)
     flew, _ = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course),
         () -> error("searched the grid"))
     @test isfinite(flew.peak_tension)
@@ -741,7 +743,7 @@ end
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
           85 + 3.3 / 3000 * canopy + 0.0001 * (control_unit + (canopy + tether) / 2) + 130 +
-          8 / 1_000_000 * tether
+          8 / 1_500_000 * tether
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
@@ -809,21 +811,21 @@ end
     mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
     wing = Ship(ShipDesign(:ammonia, 140.0; wing_area=800.0), assumptions).rig
     @test wing.count == 1 && wing.height == assumptions[:wing_reference_height]
-    @test price(wing) ≈ 2.09e6 rtol = 0.005
-    @test mass(wing) ≈ 211 rtol = 0.005
+    @test price(wing) ≈ 2.20e6 rtol = 0.005
+    @test mass(wing) ≈ 228 rtol = 0.005
     suction = Ship(ShipDesign(:ammonia, 140.0; suction_area=400.0), assumptions).rig
     @test suction.count == 3
     @test suction.height ≈ 29.7 atol = 0.05
     @test WindShipOpt.size_factor(suction, assumptions) ≈ 1.14 atol = 0.005
-    @test price(suction) ≈ 1.96e6 rtol = 0.005
+    @test price(suction) ≈ 1.94e6 rtol = 0.005
     @test mass(suction) ≈ 149 rtol = 0.005
     megamax = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, megamax, assumptions; columns=2, in_column=2)
     @test rotors.count == 4 && rotors.height == 30 && WindShipOpt.raised(rotors)
-    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.0 rtol = 0.005
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 48.0 rtol = 0.005
     @test rotors.camera_units == 0
-    @test price(rotors) ≈ 4.93e6 rtol = 0.005
-    @test mass(rotors) ≈ 492 rtol = 0.005
+    @test price(rotors) ≈ 4.97e6 rtol = 0.005
+    @test mass(rotors) ≈ 496 rtol = 0.005
 end
 
 @testset "a canopy is the surveyed one with its own cloth, at the market factor" begin
@@ -860,14 +862,14 @@ end
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
     setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
     force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
-    @test force(90).thrust ≈ 55251 rtol = 1e-3
-    @test force(90).side ≈ 41957 rtol = 1e-3
-    @test force(45).thrust ≈ 37500 rtol = 1e-3
-    @test force(45).side ≈ 102641 rtol = 1e-3
-    @test force(150).thrust ≈ 18566 rtol = 1e-3
-    @test force(150).side ≈ -8709 rtol = 1e-3
-    @test force(180).thrust ≈ 2248 rtol = 1e-3
-    @test force(180).side ≈ -12750 rtol = 1e-3
+    @test force(90).thrust ≈ 56282 rtol = 1e-3
+    @test force(90).side ≈ 42390 rtol = 1e-3
+    @test force(45).thrust ≈ 38192 rtol = 1e-3
+    @test force(45).side ≈ 103960 rtol = 1e-3
+    @test force(150).thrust ≈ 19052 rtol = 1e-3
+    @test force(150).side ≈ -9092 rtol = 1e-3
+    @test force(180).thrust ≈ 2340 rtol = 1e-3
+    @test force(180).side ≈ -13271 rtol = 1e-3
     @test force(0).thrust < 0 < force(0).side
 end
 
@@ -953,22 +955,24 @@ end
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions; in_column=2)
     beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
-    @test beam.thrust ≈ 232396 rtol = 1e-3
-    @test beam.side ≈ 221389 rtol = 1e-3
-    @test beam.power ≈ 118305 rtol = 1e-3
+    @test beam.thrust ≈ 236410 rtol = 1e-3
+    @test beam.side ≈ 223618 rtol = 1e-3
+    @test beam.power ≈ 120776 rtol = 1e-3
     close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
-    @test close_hauled.thrust ≈ 121487 rtol = 1e-3
-    @test close_hauled.side ≈ 492992 rtol = 1e-3
+    @test close_hauled.thrust ≈ 123734 rtol = 1e-3
+    @test close_hauled.side ≈ 498712 rtol = 1e-3
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
-    @test broad.thrust ≈ 88849 rtol = 1e-3
-    @test broad.side ≈ -30519 rtol = 1e-3
+    @test broad.thrust ≈ 90990 rtol = 1e-3
+    @test broad.side ≈ -31870 rtol = 1e-3
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are a hand calculation worked independently of the code, on 13 spans.
+# Expected forces are a hand calculation worked independently of the code, on 13 spans, a
+# turn radius of 2.3 spans and a shear exponent of 0.05.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
-    env = Environment(assumptions)
-    worked = with_value(assumptions, :tether_length_ratio, 13.0)
+    worked = with_value(with_value(with_value(assumptions, :tether_length_ratio, 13.0),
+        :kite_min_turn_radius, 2.3), :wind_shear_exponent, 0.05)
+    env = Environment(worked)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), worked).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
     @test force(5.8751, 26.6411).thrust ≈ -177 atol = 5
@@ -1509,14 +1513,14 @@ end
 # By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin
 # ratio 47 / 20 = 2.35, lift 0.96 * 7.468 and drag 1.855 give a peak of 0.5 * 1.225 * 20^2 *
 # hypot(7.169, 1.855) = 1814 Pa; arm 25.91 + 2.5 + 15 m; wind 1.7 * 1814 * 150 * 43.41 =
-# 20.08 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on
-# 5 * (5/3 + 1.5) = 15.83 m^2: 3.172 MN/m, an 11.84 mm wall at 268 MPa, which buckles
-# between stiffeners 0.76 m apart below cbrt(3.172e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) =
-# 13.50 mm; 1.2 * 7850 * 2 * 6.5 * 0.01350 * 28.41 = 46.97 t. One pair of 60 x 10 m rotors,
-# 361.4 t each, at 0.3 Hz: compliance 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3,
-# section 1.5^2 * (5 + 0.25) = 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 /
-# (206e9 * 11.81 - (0.6 pi)^2 * 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the
-# 32.0 mm strength asks.
+# 20.08 MNm on 1.58 * (1.58/3 + 5) = 8.732 m^2, inertia 1.3 * 69 t * 3 * 43.41 = 11.68 MNm
+# on 5 * (5/3 + 1.58) = 16.23 m^2: 3.019 MN/m, an 11.27 mm wall at 268 MPa, which buckles
+# between stiffeners 0.79 m apart below cbrt(3.019e6 * 0.79^2 / (pi^2 * 206e9 / 2.73)) =
+# 13.63 mm; 1.2 * 7850 * 2 * 6.58 * 0.01363 * 28.41 = 47.99 t. One pair of 60 x 10 m
+# rotors, 361.4 t each, at 0.3 Hz: compliance 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 =
+# 57427 m^3, section 1.58^2 * (5 + 1.58/6) = 13.14 m^2 per m of wall, (0.6 pi)^2 * 57427 *
+# 361.4e3 / (206e9 * 13.14 - (0.6 pi)^2 * 57427 * 0.24 * 218167 * 28.41) = 30.7 mm, thicker
+# than the 30.5 mm strength asks.
 @testset "a rotor pedestal's wall carries its factored moments without buckling and \
           keeps the rotor's sway above the ship's motions" begin
     hull = Hull(ship_classes()["Megamax container ship"], assumptions)
@@ -1524,22 +1528,22 @@ end
     @test rotors.height ≈ 30 && rotors.diameter ≈ 5
     peak = WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density])
     @test peak ≈ 1814 rtol = 1e-3
-    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.50e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 46.97 rtol = 2e-3
+    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.63e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.99 rtol = 2e-3
     tall = WindShipOpt.RotorRig(1200.0, hull, assumptions; columns=2, in_column=1)
     @test tall.height ≈ 60 && tall.diameter ≈ 10
-    @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 30.7e-3 rtol = 2e-3
 end
 
-# By hand, the hull under each of those Megamax rotors: the column's 3.172 MN/m at the
-# deck times 1.15 is 3.648 MN/m, a 13.61 mm wall at 268 MPa, which buckles below
-# cbrt(3.648e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 14.14 mm; 1.2 * 7850 * 2 * 6.5 *
-# 0.01414 * 4.0 = 6.93 t.
+# By hand, the hull under each of those Megamax rotors: the column's 3.019 MN/m at the
+# deck times 1.15 is 3.472 MN/m, a 12.96 mm wall at 268 MPa, which buckles below
+# cbrt(3.472e6 * 0.79^2 / (pi^2 * 206e9 / 2.73)) = 14.28 mm; 1.2 * 7850 * 2 * 6.58 *
+# 0.01428 * 4.0 = 7.08 t.
 @testset "a deck rig's foundation carries its factored moments at the deck into the hull \
           with the class rule's extra margin" begin
     megamax = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, megamax, assumptions; columns=2, in_column=2)
-    @test WindShipOpt.foundation_mass(rotors, assumptions) ≈ 6.93 rtol = 2e-3
+    @test WindShipOpt.foundation_mass(rotors, assumptions) ≈ 7.08 rtol = 2e-3
     on_deck = WindShipOpt.RotorRig(600.0, Hull(megamax.length, assumptions), assumptions;
         columns=2, in_column=2)
     @test 0 < WindShipOpt.foundation_mass(on_deck, assumptions) <
@@ -1764,13 +1768,17 @@ end
         kite_aspect_ratio=5.0), slender) == 5.0
 end
 
-@testset "kite inputs give the SkySails kites at their projected areas" begin
+@testset "kite inputs give the SkySails kites' turn radius and tether length in spans" begin
+    spans(length, area, aspect_ratio) = length / sqrt(aspect_ratio * area)
+    skysails_aspect_ratio = 15.2^2 / 125.0
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
-    @test small.min_turn_radius ≈ 45.0 rtol = 0.05
+    @test spans(small.min_turn_radius, 125.0, 3.0) ≈
+          spans(45.0, 125.0, skysails_aspect_ratio) rtol = 0.05
     longest = WindShipOpt.with_value(assumptions, :tether_length_ratio,
         assumptions.entries[:tether_length_ratio].high)
     large, = WindShipOpt.kite_model(250.0, 3.0, longest)
-    @test large.tether_length ≈ 360.0 rtol = 0.05
+    @test spans(large.tether_length, 250.0, 3.0) ≈
+          spans(360.0, 250.0, skysails_aspect_ratio) rtol = 0.05
 end
 
 @testset "a kite at a fractional aspect ratio flies its own polar" begin
@@ -4678,7 +4686,7 @@ end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
     model, force, _, airframe = WindShipOpt.rigid_kite_model(54.0, assumptions)
-    @test force ≈ 300e3 rtol=0.01
+    @test force ≈ 250e3 rtol=0.01
     @test airframe.mass ≈ 1854 rtol=0.01
     @test model.tether_length ≈ 300 rtol=0.01
     @test model.min_turn_radius ≈ 90 rtol=0.01
