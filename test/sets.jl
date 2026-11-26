@@ -4383,49 +4383,6 @@ end
     @test names == Set([:discount_rate])
 end
 
-module SizeSearch
-include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
-end
-
-@testset "the size grid holds both bounds and no step within half a step of them" begin
-    grid = SizeSearch.size_grid(500.0, 2441.4)
-    @test first(grid) == 500.0 && last(grid) == 2441.4
-    @test all(diff(log2.(grid)) .> 0.125)
-    @test 2.0^(45 / 4) ∉ grid
-end
-
-@testset "a size search whose best is a bound next tries the size just inside it" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test SizeSearch.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
-          grid[end - 1]
-    @test SizeSearch.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
-          grid[2]
-end
-
-@testset "a size search confirms its cheapest size once both neighbours cost more" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test isnothing(SizeSearch.next_size([(grid[k], cost) for (k, cost) in
-                                          ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
-    @test isnothing(SizeSearch.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
-    @test SizeSearch.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
-          grid[9:10]
-    @test isnothing(SizeSearch.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
-end
-
-@testset "a size search from a guess far off still finds the cheapest size" begin
-    grid = SizeSearch.size_grid(500.0, 64000.0)
-    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
-        cost(area) = (log(area / best))^2
-        points = [(area, cost(area)) for area in SizeSearch.start_sizes(guess, grid)]
-        while (area = SizeSearch.next_size(points, grid)) !== nothing
-            @test all(point -> !(first(point) ≈ area), points)
-            push!(points, (area, cost(area)))
-        end
-        @test first(points[argmin(last.(points))]) ≈
-              grid[SizeSearch.nearest_step(grid, best)]
-    end
-end
-
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
@@ -4946,6 +4903,45 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "size_search.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
+end
+
+@testset "the size grid holds both bounds and no step within half a step of them" begin
+    grid = PaperData.size_grid(500.0, 2441.4)
+    @test first(grid) == 500.0 && last(grid) == 2441.4
+    @test all(diff(log2.(grid)) .> 0.125)
+    @test 2.0^(45 / 4) ∉ grid
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test PaperData.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          grid[end - 1]
+    @test PaperData.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          grid[2]
+end
+
+@testset "a size search confirms its cheapest size once both neighbours cost more" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test isnothing(PaperData.next_size([(grid[k], cost) for (k, cost) in
+                                         ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
+    @test isnothing(PaperData.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test PaperData.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
+          grid[9:10]
+    @test isnothing(PaperData.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search from a guess far off still finds the cheapest size" begin
+    grid = PaperData.size_grid(500.0, 64000.0)
+    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
+        cost(area) = (log(area / best))^2
+        points = [(area, cost(area)) for area in PaperData.start_sizes(guess, grid)]
+        while (area = PaperData.next_size(points, grid)) !== nothing
+            @test all(point -> !(first(point) ≈ area), points)
+            push!(points, (area, cost(area)))
+        end
+        @test first(points[argmin(last.(points))]) ≈
+              grid[PaperData.nearest_step(grid, best)]
+    end
 end
 
 @testset "a rotor price is set against the model's price of the same unit as sold" begin

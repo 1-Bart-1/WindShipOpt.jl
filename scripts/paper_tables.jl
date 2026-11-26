@@ -603,10 +603,6 @@ end
 price_citation(price) = join(cite_part.(split(
     match(r"\[([^\]]*)\]", price.source).captures[1], ';')), "; ")
 
-"share of time each rig is out of service at its goal, the same for all [-]"
-out_of_service_goal() = only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
-                                    for rig in rig_names))
-
 """
     goals_table()
 
@@ -1268,7 +1264,7 @@ Transport work [tonne-km] and round trips of the trip in `row` of `table`, on `r
 a year's trading hours.
 """
 function yearly_trips(table, row, route)
-    outbound, inbound = run_corridors(Symbol(route))
+    outbound, inbound = corridors(Symbol(route))
     tonne_km = table["cargo"][row] * (outbound.track_length +
                                       assumptions[:backhaul_fraction] *
                                       inbound.track_length) / 1e3
