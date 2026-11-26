@@ -1160,10 +1160,16 @@ end
 end
 
 @testset "a kite and the rotors beside it trim jointly to the least engine output" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0), assumptions)
+    design = ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0)
     speed = 10.5KNOT
     weights = range(0.0, 3.0; length=31)
-    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+    # a wider-turning kite in more shear puts a trim the ship cannot hold beside the best
+    wider_turns = with_value(with_value(assumptions, :kite_min_turn_radius, 3.0),
+        :wind_shear_exponent, 0.06)
+    cases = [[(assumptions, wind, angle) for wind in (10.0, 16.0)
+              for angle in deg2rad.(45:15:165)]; (wider_turns, 16.0, deg2rad(60))]
+    for (inputs, wind, angle) in cases
+        ship = Ship(design, inputs)
         spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
         bare = engine_output(ship, speed,
             WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
@@ -5732,9 +5738,9 @@ end
     both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
     both["drive"][(length(held) + 1):end] .= "ammonia"
     shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
-    bands = ["Kite", "Wings", "Rotors", "Level"]
-    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
-                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
+    rigs = ["Kite", "Wings", "Rotors"]
+    @test Set(shares) == Set(["FleetShareOil" .* rigs;
+                              "FleetShareAmmonia" .* [rigs; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin
@@ -5968,7 +5974,7 @@ end
         join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
     @test !PaperData.study_holds(PaperData.switched(:none))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
-    @test length(PaperData.side_force_numbers()) == 4length(PaperData.side_force_rigs)
+    @test length(PaperData.side_force_numbers()) == 2length(PaperData.side_force_rigs)
     @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
     @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end
