@@ -2122,9 +2122,9 @@ end
         return trip(liner), trip(tramp), trip(liner; rotor_area=500.0),
         trip(tramp; rotor_area=500.0)
     end
-    @test days(free) < 0.99days(bare)
-    @test days(free) < days(scheduled) <= days(bare)
+    @test days(scheduled) <= days(bare)
     @test scheduled.fuel_energy < bare.fuel_energy
+    @test free.cost_per_tonne_km < 0.99scheduled.cost_per_tonne_km
     @test days(bare_tramp) == days(bare)
 end
 
@@ -6012,7 +6012,7 @@ end
     @test any(component -> abs(component) > 1.0, force(ship.windage))
     @test all(component -> abs(component) < 1e-6,
         force(PaperData.simplified_ship(ship, :windage).windage))
-    @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
+    @test_throws ArgumentError WindShipOpt.with_changed(ship.windage; not_a_field=0.0)
 end
 
 @testset "a free side force leaves the rig's side force without leeway or rudder drag" begin

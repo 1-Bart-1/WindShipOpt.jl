@@ -9,7 +9,6 @@
 # Corridors are built on first use by `corridors`, at a scale relative to stages of 90 nmi.
 using Dates
 using WindShipOpt
-using WindShipOpt: with_changed
 
 assumptions = Assumptions()
 

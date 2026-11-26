@@ -4,6 +4,8 @@
 # Data steps of the paper: each runs one study and writes its data files to the directory
 # of the run in use. Included by paper.jl.
 
+using WindShipOpt: with_changed
+
 "drives compared where the drive is a dimension of the study"
 study_drives = (:vlsfo, :ammonia)
 
@@ -2250,7 +2252,7 @@ end
 `nothing` where `trip` is.
 """
 recosted_trip(case, trip) = isnothing(trip) ? nothing :
-    WindShipOpt.with_changed(trip; cost_per_tonne_km=changed_cost(case, trip),
+    with_changed(trip; cost_per_tonne_km=changed_cost(case, trip),
     departures=empty(trip.departures))
 
 """
@@ -3314,8 +3316,8 @@ function router_decision_case(ship, drive, rig, area, route)
 end
 
 "`table` with the kite's launches and landings free"
-free_launch_table(table::RouteTable) = WindShipOpt.with_changed(table;
-    table=WindShipOpt.with_changed(table.table; cycle_cost=0.0))
+free_launch_table(table::RouteTable) = with_changed(table;
+    table=with_changed(table.table; cycle_cost=0.0))
 
 """
     stateless_table(table)
@@ -3325,11 +3327,11 @@ open to any wind, sea and hour, so its state carries nothing.
 """
 function stateless_table(table::RouteTable)
     performance = table.table
-    rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
+    rig = with_changed(performance.ship.rig; launch_min_wind=0.0,
         launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
         landing_max_wave_height=Inf, rough_sea_launch_wind=0.0)
-    return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
-        ship=WindShipOpt.with_changed(performance.ship; rig), cycle_cost=0.0,
+    return with_changed(table; table=with_changed(performance;
+        ship=with_changed(performance.ship; rig), cycle_cost=0.0,
         handling_hours=0.0))
 end
 
