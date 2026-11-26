@@ -178,7 +178,7 @@ function print_estimate(; box_cores=20)
         end
         @printf("%-20s %34.0f to %5.0f\n", "total", hours...)
         for (place, cores) in (("cluster, jobs of cluster.toml",
-                                   settings["jobs"] * settings["cores"]),
+                                   (settings["jobs"] - 1) * settings["cores"]),
             ("cluster, one job", settings["cores"]), ("$box_cores cores here", box_cores))
             @printf("  on %-32s %5.1f to %5.1f days\n", place, (hours ./ cores ./ 24)...)
         end

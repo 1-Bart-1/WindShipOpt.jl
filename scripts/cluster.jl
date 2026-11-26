@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Paper runs on a Slurm cluster, with the settings of cluster.toml; bin/cluster calls it.
-# A submitted run is one job running `paper`, which computes a share of each batch of round
-# trips and hands the rest to jobs of its own. A run job ended by its wall time leaves a
-# successor that resumes it. The jobs call this script as `run` and `shard`.
+# A submitted run is one job running `paper`, which hands each batch of round trips to jobs
+# of its own. A run job ended by its wall time leaves a successor that resumes it. The jobs
+# call this script as `run` and `shard`.
 using Printf
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
@@ -41,9 +41,11 @@ has ended where one is given; return its id.
 """
 function submit_run_job(fidelity, steps; after=nothing)
     settings = cluster_settings()
-    job = job_command(settings["cores"], "run", fidelity, steps...)
-    return strip(read(slurm_command(settings, "windship-run", run_log("%j"), job; after),
-        String))
+    cores, memory_per_core = settings["run_cores"], settings["run_memory_per_core"]
+    job = job_command(cores, "run", fidelity, steps...)
+    command = slurm_command(settings, cores, memory_per_core, "windship-run", run_log("%j"),
+        job; after)
+    return strip(read(command, String))
 end
 
 "log file of the run job `id`"
@@ -53,9 +55,10 @@ run_log(id) = joinpath(mkpath(joinpath(root, "output", "slurm")), "run-$id.log")
     run_job(fidelity, steps)
 
 Run `paper(steps...; fidelity, resume=true)` in this Slurm job, handing round trips to jobs
-of its own, with a successor job queued that resumes the run should this job be ended at
-its wall time, and cancelled once the run finishes or fails. Stops before that once more
-run jobs in a row than the `retries` of cluster.toml found the run with nothing new done.
+of its own where the `jobs` of cluster.toml are more than one, with a successor job queued
+that resumes the run should this job be ended at its wall time, and cancelled once the run
+finishes or fails. Stops before that once more run jobs in a row than the `retries` of
+cluster.toml found the run with nothing new done.
 """
 function run_job(fidelity, steps)
     settings = cluster_settings()
@@ -63,7 +66,7 @@ function run_job(fidelity, steps)
     stalled > settings["retries"] && error(stalled, " run jobs in a row found the ",
         fidelity, " run with no step done and no departure stored since the one before")
     successor = submit_run_job(fidelity, steps; after=ENV["SLURM_JOB_ID"])
-    global case_jobs = SlurmJobs(settings)
+    global case_jobs = settings["jobs"] > 1 ? SlurmJobs(settings) : nothing
     try
         paper(Symbol.(steps)...; fidelity=Symbol(fidelity), resume=true)
     finally
