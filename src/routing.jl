@@ -2183,11 +2183,17 @@ end
 """
     with_changed(item; changes...)
 
-An immutable `item` with its fields `changes` replaced.
+An immutable `item` with its fields `changes` replaced; an `ArgumentError` for a change
+naming no field.
 """
-with_changed(item; changes...) =
-    typeof(item).name.wrapper((get(changes, name, getfield(item, name))
-                               for name in fieldnames(typeof(item)))...)
+function with_changed(item; changes...)
+    names = fieldnames(typeof(item))
+    unknown = setdiff(keys(changes), names)
+    isempty(unknown) ||
+        throw(ArgumentError("$(typeof(item)) has no field $(first(unknown))"))
+    return typeof(item).name.wrapper((get(changes, name, getfield(item, name))
+                                      for name in names)...)
+end
 
 known_weather(::Nothing, weather, time) = weather
 

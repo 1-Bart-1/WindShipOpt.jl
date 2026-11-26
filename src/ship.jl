@@ -142,6 +142,8 @@ Base.@kwdef struct ShipClass
     draft::Float64
     "block coefficient at the design draught [-]"
     block_coefficient::Float64
+    "summer load-line draught, to which the structure is built [m]"
+    scantling_draft::Float64
     "deadweight at the scantling draught [t]"
     deadweight::Float64
     "service speed of the source design [kn]"
@@ -204,11 +206,11 @@ function ship_classes()
     for line in lines[2:end]
         row = Dict(zip(header, csv_fields(line)))
         values = Dict(Symbol(name) => parse(Float64, row[name]) for name in ("length",
-            "beam", "draft", "block_coefficient", "deadweight", "service_speed",
-            "power", "source_load", "centre_of_buoyancy", "propeller_diameter_ratio",
-            "newbuild_price", "cargo_value", "deck_tiers", "bridge_position",
-            "air_draft_limit", "restricted_call_share", "fixed_rig_port_hours",
-            "unit_capacity"))
+            "beam", "draft", "scantling_draft", "block_coefficient", "deadweight",
+            "service_speed", "power", "source_load", "centre_of_buoyancy",
+            "propeller_diameter_ratio", "newbuild_price", "cargo_value", "deck_tiers",
+            "bridge_position", "air_draft_limit", "restricted_call_share",
+            "fixed_rig_port_hours", "unit_capacity"))
         classes[row["name"]] = ShipClass(; name=row["name"], type=row["type"],
             cargo_unit=Symbol(lowercase(row["cargo_unit"])),
             two_stroke=Dict("two-stroke" => true, "four-stroke" => false)[row["engine"]],
@@ -405,14 +407,13 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     env = Environment(assumptions)
     hull = isnothing(design.class) ? Hull(design.length, assumptions) :
            Hull(design.class, assumptions)
-    stiffness = displacement_mass(hull, env) * env.gravity *
-                assumptions[:metacentric_height_ratio] * hull.beam
     drive = Drive(design.drive, assumptions; design.class,
         carbon_coverage=carbon_coverage(hull, route, assumptions))
     hotel_load = 1e3assumptions[:hotel_load]
     hull_parts = (design, env, hull, WaveCoefficients(hull),
         SeakeepingHull(hull, assumptions), Propeller(design, hull, assumptions))
-    other_parts = (drive.fuel, Windage(design, hull, assumptions), stiffness,
+    other_parts = (drive.fuel, Windage(design, hull, assumptions),
+        righting_stiffness(hull, env, assumptions),
         deg2rad(assumptions[:heel_limit]), deg2rad(assumptions[:leeway_limit]),
         rudder_area(hull), assumptions[:rudder_aspect_ratio],
         assumptions[:rudder_wake_fraction], assumptions[:rudder_max_lift],
@@ -431,16 +432,79 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
 end
 
 """
+    righting_stiffness(hull, env, assumptions)
+
+Righting moment per radian of heel [N m/rad] of `hull`: its displacement at the metacentric
+height `metacentric_height_ratio` times its beam.
+"""
+righting_stiffness(hull::Hull, env::Environment, assumptions::Assumptions) =
+    displacement_mass(hull, env) * env.gravity * assumptions[:metacentric_height_ratio] *
+    hull.beam
+
+"""
+    at_draft(ship, draft, assumptions)
+
+`ship` floating at `draft` [m]: its [`Hull`](@ref) at that draught with the resistance,
+seakeeping and righting moment that go with it, and its hull windage and rig raised by the
+freeboard it gains; its propeller, rudder, engines and rig layout as built.
+"""
+function at_draft(ship::Ship, draft, assumptions::Assumptions)
+    hull = Hull(ship.hull, draft)
+    rise = ship.hull.draft - draft
+    return with_changed(ship; hull, wave_coefficients=WaveCoefficients(hull),
+        seakeeping=SeakeepingHull(hull, assumptions), rig=lifted(ship.rig, rise),
+        windage=lifted(ship.windage, rise, hull.beam),
+        righting_stiffness=righting_stiffness(hull, ship.env, assumptions))
+end
+
+"assumption giving the lightest draught of each kind of ship over its summer draught"
+const LIGHT_DRAFTS = Dict("general cargo" => :general_cargo_light_draft,
+    "bulk carrier" => :bulk_carrier_light_draft,
+    "oil product tanker" => :tanker_light_draft, "crude oil tanker" => :tanker_light_draft,
+    "container" => :container_light_draft,
+    "vehicle carrier" => :vehicle_carrier_light_draft)
+
+"""
+    light_draft(class, draft, assumptions)
+
+Lightest draught [m] a ship of `class` sails at, in ballast where it sails in ballast: its
+kind's [`LIGHT_DRAFTS`](@ref) of its summer draught, which on the reference coaster family
+(`class` `nothing`) is its design draught `draft` [m].
+"""
+light_draft(class::ShipClass, draft, assumptions::Assumptions) =
+    assumptions[LIGHT_DRAFTS[class.type]] * class.scantling_draft
+light_draft(::Nothing, draft, assumptions::Assumptions) =
+    assumptions[LIGHT_DRAFTS["general cargo"]] * draft
+
+"""
+    return_draft(ship, assumptions)
+
+Draught [m] of `ship` on the return leg: its design draught less what a wall-sided hull
+rises when all but `backhaul_fraction` of its cargo is unloaded, but no lighter than its
+[`light_draft`](@ref) and no deeper than its design draught.
+"""
+function return_draft(ship::Ship, assumptions::Assumptions)
+    (; draft) = ship.hull
+    unloaded = (1 - assumptions[:backhaul_fraction]) *
+               cargo_mass(CargoHold(ship, assumptions))
+    rise = 1e3unloaded / (ship.env.water_density * waterplane_area(ship.hull))
+    return min(draft, max(draft - rise, light_draft(ship.design.class, draft, assumptions)))
+end
+
+"""
+    return_ship(ship, assumptions)
+
+`ship` as it sails its return leg: [`at_draft`](@ref) its [`return_draft`](@ref).
+"""
+return_ship(ship::Ship, assumptions::Assumptions) =
+    at_draft(ship, return_draft(ship, assumptions), assumptions)
+
+"""
     with_rig(ship, rig)
 
 `ship` with its aerodynamics from `rig`, everything else as it was built.
 """
-with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coefficients,
-    ship.seakeeping, ship.propeller, ship.powertrain, rig, ship.fuel, ship.windage,
-    ship.righting_stiffness, ship.heel_limit,
-    ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio,
-    ship.rudder_wake_fraction, ship.rudder_max_lift,
-    ship.max_speed)
+with_rig(ship::Ship, rig) = with_changed(ship; rig)
 
 """
     service_speed(ship, assumptions)

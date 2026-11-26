@@ -1185,6 +1185,20 @@ end
 standing_rig(down::DownRig) = down
 
 """
+    lifted(rig, rise)
+
+`rig` standing `rise` [m] higher above the water: the feet of wings and rotors and the
+tether attachment of a kite.
+"""
+lifted(rig::Union{WingRig, RotorRig}, rise) =
+    with_changed(rig; foot_height=rig.foot_height + rise)
+lifted(rig::KiteRig, rise) = with_changed(rig; attach_height=rig.attach_height + rise)
+lifted(rig::CombinedRig, rise) = CombinedRig(lifted(rig.kite, rise),
+    lifted(rig.standing, rise))
+lifted(down::DownRig, rise) = with_changed(down; rig=lifted(down.rig, rise))
+lifted(::Nothing, rise) = nothing
+
+"""
     rig_height(rig)
 
 Height [m] at which `rig` takes its apparent wind, 10 m without a rig.
