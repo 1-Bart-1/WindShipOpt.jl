@@ -21,6 +21,9 @@ end
 "where the run in use hands the departures of its missing round trips, or nothing"
 case_jobs = nothing
 
+"Slurm job names of a paper run's own job and of the jobs computing its round trips"
+job_names = (run="windship-run", cases="windship-cases")
+
 cores(jobs::SlurmJobs) = jobs.settings["cores"]
 job_count(jobs::SlurmJobs) = jobs.settings["jobs"]
 retries(jobs::SlurmJobs) = jobs.settings["retries"]
@@ -227,7 +230,7 @@ Submit a job routing the missing departures of shard `shard` of `shards` of the 
 function launch(jobs::SlurmJobs, batch, shard, shards)
     log = string(batch, "-", shard, "-%j.log")
     command = slurm_command(jobs.settings, cores(jobs), jobs.settings["memory_per_core"],
-        "windship-cases", log, job_command(cores(jobs), "shard", batch, shard, shards))
+        job_names.cases, log, job_command(cores(jobs), "shard", batch, shard, shards))
     id = strip(read(command, String))
     write(job_file(batch, shard), id)
     return id

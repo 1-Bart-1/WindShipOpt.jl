@@ -54,18 +54,17 @@ function grid_node_columns(corridor)
 end
 
 """
-    grid_data(corridor, scale)
+    grid_data(corridor)
 
-The nodes of `corridor`, built at corridor `scale`, for the site, stage after stage:
-positions [deg ×100], kinds (`w` water, `x` unusable) and the [`grid_node_columns`](@ref);
-its stage and row spacing [nmi].
+The nodes of `corridor` for the site, stage after stage: positions [deg ×100], kinds (`w`
+water, `x` unusable) and the [`grid_node_columns`](@ref); its stage and row spacing [nmi].
 """
-function grid_data(corridor, scale)
+function grid_data(corridor)
     stage_count, lateral_count = size(corridor.lat)
     kind = [corridor.water[stage, lateral] ? 'w' : 'x'
             for lateral in 1:lateral_count, stage in 1:stage_count]
     return (; stages=stage_count, laterals=lateral_count, corridor.reach,
-        stage_spacing=WindShipOpt.OCEAN_SPACING * scale,
+        stage_spacing=WindShipOpt.OCEAN_SPACING,
         lateral_spacing=corridor.lateral_spacing / NAUTICAL_MILE,
         lat=vec(round.(Int, 100 .* permutedims(corridor.lat))),
         lon=vec(round.(Int, 100 .* permutedims(corridor.lon))), kind=String(vec(kind)),
@@ -79,9 +78,7 @@ Write grids.json: the [`grid_data`](@ref) of the outbound corridor of every rout
 run in use routes it.
 """
 function grids_data()
-    scale = run_settings().corridor_scale
-    grids = Dict(string(name) => grid_data(first(run_corridors(name)), scale)
-                 for name in route_names)
+    grids = Dict(string(name) => grid_data(first(corridors(name))) for name in route_names)
     document = (; fidelity=string(paper_run.fidelity),
         git_commit=paper_run.record["git_commit"], weather=weather_name,
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
