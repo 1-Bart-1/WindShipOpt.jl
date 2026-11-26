@@ -254,7 +254,7 @@ function passage_case(index, rig, area)
     ship = Ship(design, assumptions)
     patterns = rig == "kite" ?
                kite_patterns(ship, first(WindShipOpt.kite_model(area,
-                   WindShipOpt.kite_aspect_ratio(design, assumptions), assumptions))) :
+                   assumptions[:kite_aspect_ratio], assumptions))) :
                nothing
     return (; index, rig, area, design, ship, patterns)
 end
@@ -314,7 +314,7 @@ function passage_design(case)
             foot_height=rig.foot_height, diameter=rig.diameter, positions=positions(rig),
             offsets=offsets(rig))
     elseif rig isa WindShipOpt.KiteRig
-        aspect_ratio = WindShipOpt.kite_aspect_ratio(case.design, assumptions)
+        aspect_ratio = assumptions[:kite_aspect_ratio]
         return (; common..., span=sqrt(aspect_ratio * rig.area),
             tether_length=rig.tether_length, attach_height=rig.attach_height,
             attach_position=rig.attach_position)

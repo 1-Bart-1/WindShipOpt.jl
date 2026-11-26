@@ -10,7 +10,7 @@
 #     paper(:designs, :routes; fidelity=:draft)  # only these steps
 #     paper(:figures; fidelity=:final)         # all figures from the latest final data
 #     paper(; fidelity=:draft, resume=true)    # continue this branch's unfinished run
-#     paper(:sea_effect; fidelity=:draft)      # a method study, its run and its tables
+#     paper(:routing_value; fidelity=:draft)   # a method study, its run and its tables
 #
 # A paper run computes the results. Method studies, which choose or check a method, run
 # only by name: paper/study_runs.toml records the run each comes from, which its figures
@@ -63,11 +63,11 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
 method studies, which choose or check a method or setting, run only by name: each records
 its run for its figures and writes its tables
 """
-study_steps = [:base_kite => base_kite_data, :sea_effect => sea_effect_data,
+study_steps = [:base_kite => base_kite_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
-    :measured_savings => measured_savings_data, :wind_height => wind_height_data]
+    :measured_savings => measured_savings_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:published_terms => [:published_table => published_table],
@@ -122,7 +122,8 @@ output_steps = [:kite => kite_figure, :wind_load => wind_load_figure,
     :validation_sea => validation_sea_figure,
     :canopy_cells => canopy_cells_figure, :rig_variants => rig_variant_figure,
     :input_sources => input_sources_figure,
-    :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :fleet_share => fleet_share_figure, :fleet_margin => fleet_margin_figure,
+    :numbers => numbers_file,
     :today_numbers => today_numbers_file,
     :recosting_numbers => recosting_numbers_file,
     :figure_style => figure_style_file, :ship_pictures => ship_pictures_file]

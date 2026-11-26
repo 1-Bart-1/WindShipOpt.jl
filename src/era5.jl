@@ -176,18 +176,6 @@ function wind_aloft(weather::ERA5Weather, lat, lon, time, height)
 end
 
 """
-    log_height_value(heights, values, height)
-
-Value at `height` of the profile of `values` at the ascending `heights`, linear in the
-logarithm of height between them and held at their ends.
-"""
-function log_height_value(heights, values, height)
-    i = clamp(searchsortedlast(heights, height), 1, length(heights) - 1)
-    share = clamp(log(height / heights[i]) / log(heights[i + 1] / heights[i]), 0, 1)
-    return (1 - share) * values[i] + share * values[i + 1]
-end
-
-"""
     waves(weather, lat, lon, time)
 
 Significant wave height [m], peak period [s] and the direction the waves come from
