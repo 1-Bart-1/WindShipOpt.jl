@@ -14,7 +14,8 @@
 #
 # A paper run computes the results. Method studies, which choose or check a method, run
 # only by name: paper/study_runs.toml records the run each comes from, which its figures
-# read and the paper names with its commit, and its tables are written only then.
+# read and the paper names with its commit, its tables are written only then, and the run
+# goes to its commit's GitHub release.
 # Data steps write CSV files to a run directory output/runs/<start time>/ with the record
 # run.toml and the finished round trips, so that a run cut short resumes; without `resume`
 # paper() asks whether to continue an unfinished run. A final run needs a clean tree on a
@@ -41,6 +42,8 @@ include("paper_drawings.jl")
 include("hull_drawing.jl")
 include("router_figures.jl")
 include("paper_tables.jl")
+include("run_releases.jl")
+include("github_releases.jl")
 
 "data steps of the results in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
@@ -142,7 +145,8 @@ holds for the code and inputs are reused. A draft with `only`, labels and their 
 as `(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
 the latest stored round trip of the others, of any code. A final run errors on a dirty tree
 or unpushed commit. Figure and table steps alone read the run named `source`, such as
-"2026-11-20T2000", before any other.
+"2026-11-20T2000", before any other. A run that recorded a method study is pushed to its
+GitHub release ([`keep_run`](@ref)).
 """
 function paper(names::Symbol...; fidelity, resume=nothing, only=nothing, source=nothing)
     steps = isempty(names) ? [data_steps; output_steps; site_steps] :
@@ -151,7 +155,25 @@ function paper(names::Symbol...; fidelity, resume=nothing, only=nothing, source=
         resume, only, source)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
         first.(output_steps))
+    any(step -> endswith(string(first(step)), "_record"), steps) &&
+        keep_run(basename(paper_run.directory))
     check_drawn(failed)
+end
+
+"""
+    keep_run(name)
+
+Push run `name` to its GitHub release ([`push_run`](@ref)), or raise an error saying how to
+push it by hand.
+"""
+function keep_run(name)
+    try
+        push_run(paper_releases, name)
+    catch exception
+        exception isa InterruptException && rethrow()
+        error("run $name is not on GitHub yet; push it with `bin/runs push $name` where ",
+            "gh is signed in: ", sprint(showerror, exception))
+    end
 end
 
 """

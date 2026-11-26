@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Keeps paper runs as assets of GitHub releases, so that no run lives only on the machine
-# that ran it. Each commit has one release, tagged run-<commit>, with at most one run per
-# fidelity: an archive of the run's directory and the round trips it uses, labelled with
-# the run's name and steps done. A run is copied with rsync from a checkout, here or on a
-# cluster, and back. Included by runs.jl after paper_runs.jl; github_releases.jl reaches
-# GitHub, and test/sets.jl stands in for it.
+# that ran it. Each commit has one release, tagged run-<commit>, with at most one paper run
+# per fidelity and every method study's run beside them: an archive of the run's directory
+# and the round trips it uses, labelled with the run's name and steps done. A run is copied
+# with rsync from a checkout, here or on a cluster, and back. Included by runs.jl and
+# paper.jl after paper_runs.jl; github_releases.jl reaches GitHub, and test/sets.jl stands
+# in for it.
 
 "largest archive a release takes [B]"
 ASSET_LIMIT = 2^31
@@ -14,8 +15,28 @@ ASSET_LIMIT = 2^31
 "tag of the release keeping the runs of `commit`"
 release_tag(commit) = "run-$commit"
 
-"name of the asset holding the run at `fidelity`"
-asset_name(fidelity) = "$fidelity.tar.gz"
+"whether `studies`, as paper/study_runs.toml, names run `name` as a method study's run"
+study_named(name, studies) = any(study -> study["run"] == name, values(studies))
+
+"""
+    study_run(name, record, studies)
+
+Whether run `name` of record `record` holds a method study: one `studies` names
+([`study_named`](@ref)), or one that recorded a study.
+"""
+study_run(name, record, studies) =
+    study_named(name, studies) ||
+    any(endswith("_record"), [get(record, "requested", String[]);
+                              [step["name"] for step in record["steps"]]])
+
+"""
+    asset_name(name, record, studies)
+
+Name of the asset holding run `name` of record `record`: its own for a method study's run
+([`study_run`](@ref)), else the one its fidelity's paper runs share.
+"""
+asset_name(name, record, studies) =
+    (study_run(name, record, studies) ? name : record["fidelity"]) * ".tar.gz"
 
 "label of the asset holding run `name` of record `record`: its name and steps done"
 run_label(name, record) = "run $name, $(length(record["steps"])) steps"
@@ -72,14 +93,15 @@ function download_asset end
     push_run(releases, name, checkout=root)
 
 Copy run `name` and the round trips it uses from the repository `checkout`, a path here or
-`user@host:path`, and upload them as the asset of its fidelity in the release of its
+`user@host:path`, and upload them as its asset ([`asset_name`](@ref)) in the release of its
 commit, unless that holds another run with at least as many steps done.
 """
 function push_run(releases, name, checkout=root)
     mktempdir() do scratch
         copy_run(checkout, name, scratch)
         record = TOML.parsefile(joinpath(scratch, "runs", name, "run.toml"))
-        tag, asset = release_tag(record["git_commit"]), asset_name(record["fidelity"])
+        tag = release_tag(record["git_commit"])
+        asset = asset_name(name, record, TOML.parsefile(study_runs_path))
         for kept in run_assets(releases)
             (kept.tag, kept.name) == (tag, asset) || continue
             other, steps = labelled_run(kept.label)
@@ -203,33 +225,33 @@ end
 """
     backfill_runs(directory=runs_directory, studies=TOML.parsefile(study_runs_path))
 
-The runs in `directory` worth keeping, and those skipped, each with why: of the runs at one
-commit and fidelity the one named in `studies`, else the one with most steps done; a
-method study's run that `studies` does not name is skipped.
+The runs in `directory` worth keeping, and those skipped, each with why: every run named
+in `studies`, and of the paper runs at one commit and fidelity the one with most steps
+done; a method study's run that `studies` does not name is skipped.
 """
 function backfill_runs(directory=runs_directory, studies=TOML.parsefile(study_runs_path))
-    named = Set(study["run"] for study in values(studies))
-    candidates = Dict{Tuple{String, String}, Vector{Tuple{Bool, Int, String}}}()
+    kept = String[]
+    candidates = Dict{Tuple{String, String}, Vector{Tuple{Int, String}}}()
     skipped = Pair{String, String}[]
     for name in readdir(directory)
         path = joinpath(directory, name, "run.toml")
         isfile(path) || continue
         record = TOML.parsefile(path)
-        study = any(step -> endswith(step["name"], "_record"), record["steps"])
-        if study && !(name in named)
-            push!(skipped, name => "a method study's run the paper does not read")
-        elseif !haskey(record, "git_commit")
+        if !haskey(record, "git_commit")
             push!(skipped, name => "its record names no commit")
+        elseif study_named(name, studies)
+            push!(kept, name)
+        elseif study_run(name, record, studies)
+            push!(skipped, name => "a method study's run the paper does not read")
         else
             runs = get!(candidates, (record["git_commit"], record["fidelity"]), [])
-            push!(runs, (name in named, length(record["steps"]), name))
+            push!(runs, (length(record["steps"]), name))
         end
     end
-    kept = String[]
     for ((commit, fidelity), runs) in candidates
         sort!(runs; rev=true)
         push!(kept, last(first(runs)))
-        for (_, _, name) in runs[2:end]
+        for (_, name) in runs[2:end]
             push!(skipped, name => "run $(last(first(runs))) is kept for its $fidelity " *
                                    "at $(first(commit, 7))")
         end

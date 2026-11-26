@@ -4182,7 +4182,23 @@ end
         "2026-01-01T0002", "run.toml"))["steps"]) == 4
 end
 
-@testset "a back-fill keeps a commit's named or most complete run, no unnamed study" begin
+@testset "a method study's run keeps its own asset beside its commit's paper run" begin
+    checkout = in_checkout()
+    written_run("2026-01-01T0000", 3)
+    written_run("2026-01-01T0001", 1; study=true)
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    PaperRuns.push_run(releases, "2026-01-01T0001", checkout)
+    @test first(releases.assets[("run-c", "2026-01-01T0001.tar.gz")]) ==
+          "run 2026-01-01T0001, 1 steps"
+    @test first(releases.assets[("run-c", "draft.tar.gz")]) ==
+          "run 2026-01-01T0000, 3 steps"
+    rm(PaperRuns.runs_directory; recursive=true)
+    PaperRuns.pull_runs(releases, "c", checkout)
+    @test isfile(joinpath(PaperRuns.runs_directory, "2026-01-01T0001", "run.toml"))
+end
+
+@testset "a back-fill keeps each named run, a commit's fullest one, no unnamed study" begin
     in_checkout()
     written_run("2026-01-01T0000", 3)
     written_run("2026-01-01T0001", 1; study=true)
@@ -4190,10 +4206,13 @@ end
     written_run("2026-01-01T0003", 2; commit="d")
     written_run("2026-01-01T0004", 5; commit="d")
     written_run("2026-01-01T0005", 1; commit="d", fidelity="final")
-    studies = Dict("sea_effect" => Dict("run" => "2026-01-01T0001"))
+    written_run("2026-01-01T0006", 2; commit="d")
+    studies = Dict("sea_effect" => Dict("run" => "2026-01-01T0001"),
+        "base_kite" => Dict("run" => "2026-01-01T0006"))
     kept, skipped = PaperRuns.backfill_runs(PaperRuns.runs_directory, studies)
-    @test kept == ["2026-01-01T0001", "2026-01-01T0004", "2026-01-01T0005"]
-    @test first.(skipped) == ["2026-01-01T0000", "2026-01-01T0002", "2026-01-01T0003"]
+    @test kept == ["2026-01-01T0000", "2026-01-01T0001", "2026-01-01T0004",
+        "2026-01-01T0005", "2026-01-01T0006"]
+    @test first.(skipped) == ["2026-01-01T0002", "2026-01-01T0003"]
 end
 
 module JobTrips
