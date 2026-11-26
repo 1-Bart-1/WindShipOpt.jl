@@ -10,7 +10,7 @@
 #     paper(:designs, :routes; fidelity=:draft)  # only these steps
 #     paper(:figures; fidelity=:final)         # all figures from the latest final data
 #     paper(; fidelity=:draft, resume=true)    # continue this branch's unfinished run
-#     paper(:sea_effect; fidelity=:draft)      # a method study, its run and its tables
+#     paper(:routing_value; fidelity=:draft)   # a method study, its run and its tables
 #
 # A paper run computes the results. Method studies, which choose or check a method, run
 # only by name: paper/study_runs.toml records the run each comes from, which its figures
@@ -25,6 +25,7 @@
 # pack the run's results into the companion website's data in the run directory, routing
 # nothing of their own. The LaTeX build is separate.
 using CairoMakie
+using Downloads
 
 include("trips.jl")
 include("map_plotting.jl")
@@ -62,23 +63,20 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
 method studies, which choose or check a method or setting, run only by name: each records
 its run for its figures and writes its tables
 """
-study_steps = [:base_kite => base_kite_data, :sea_effect => sea_effect_data,
+study_steps = [:base_kite => base_kite_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
-    :fuel_method => fuel_method_data, :measured_savings => measured_savings_data,
-    :wind_height => wind_height_data]
+    :fuel_method => fuel_method_data, :measured_savings => measured_savings_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
-study_tables = Dict(:sea_effect => [:sea_effect_table => sea_effect_table],
-    :published_terms => [:published_table => published_table],
+study_tables = Dict(:published_terms => [:published_table => published_table],
     :routing_value => [:routing_value_numbers => routing_value_numbers_file],
     :today_routing => [:today_routing_numbers => today_routing_numbers_file],
     :fuel_method => [:fuel_method_numbers => fuel_method_numbers],
     :measured_savings => [:measured_table => measured_table,
         :measured_numbers => measured_numbers_file],
-    :wind_height => [:wind_height_numbers => wind_height_numbers_file,
-        :wind_height_table => wind_height_table])
+    :wind_height => [:wind_height_numbers => wind_height_numbers_file])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -101,26 +99,30 @@ output_steps = [:kite => kite_figure, :wind_load => wind_load_figure,
     :fuels => fuel_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure,
-    :forecast_figure => forecast_figure, :input_tables => input_tables,
+    :forecast_figure => forecast_figure, :known_errors => known_errors_figure,
+    :model_limits => model_limits_figure, :input_tables => input_tables,
     :rotor_prices_table => rotor_prices_table,
     :development_table => development_table,
     :class_table => class_dimension_table,
-    :drift_check_table => drift_check_table,
-    :centre_check_table => centre_check_table,
+    :validation_numbers => validation_numbers_file,
     :split_table => split_table,
     :payback_table => payback_table, :market_table => market_table,
     :goals_table => goals_table,
     :missed_goals_table => missed_goals_table,
     :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure,
-    :flight_table => flight_table, :speed_choice_table => speed_choice_table,
+    :flight_table => flight_table, :flight_numbers => flight_numbers_file,
+    :speed_choice_figure => speed_choice_figure,
     :min_wind => min_wind_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
     :large_rigs => large_rigs_figure, :kite_mass => kite_mass_figure,
     :deck_mass => deck_mass_figure,
+    :validation_ship => validation_ship_figure,
+    :validation_sea => validation_sea_figure,
     :canopy_cells => canopy_cells_figure, :rig_variants => rig_variant_figure,
+    :input_sources => input_sources_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
     :today_numbers => today_numbers_file,
     :recosting_numbers => recosting_numbers_file,

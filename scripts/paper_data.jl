@@ -217,41 +217,6 @@ one_at_a_time(inputs, names, entries=[assumptions.entries[name] for name in name
     [with_value(inputs, name, bound) for (name, entry) in zip(names, entries)
      for bound in (entry.low, entry.high)]
 
-"the ship classes of the sea effect study, in order of length"
-sea_effect_classes = ("general cargo coaster", "feeder container ship",
-    "Kamsarmax bulk carrier", "VLCC", "Neo-Panamax container ship")
-
-"""
-    sea_effect_data()
-
-On every route on e-ammonia, the 140 m ship with the 3,200 m^2 kite and each of
-[`sea_effect_classes`](@ref) with the kite the class study found cheapest on fuel oil,
-without a rig, with the kite as modelled and with no extra launch wind from the sea:
-sea_effect.csv.
-"""
-function sea_effect_data()
-    classes_table = read_classes(data_file("classes.csv"))
-    no_sea = with_value(assumptions, :kite_launch_sea_wind, 0.0)
-    ships = Any[("140 m", 140.0),
-        ((name, ship_classes()[name]) for name in sea_effect_classes)...]
-    cases = []
-    for route in route_names, (ship, build) in ships
-        area = sea_effect_area(classes_table, ship, route)
-        bare = ShipDesign(:ammonia, build)
-        push!(cases, trip_case(bare; route, ship, rig="none", area=0.0, sea="none"))
-        rigged = ShipDesign(:ammonia, build; rig_size("kite", area)...)
-        kite = (; route, ship, rig="kite", area)
-        push!(cases, trip_case(rigged; kite..., sea="model"))
-        push!(cases, trip_case(rigged; kite..., sea="none", assumptions=no_sea))
-    end
-    write_trips("sea_effect.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :route, :rig, :area, :sea)
-end
-
-"kite area [m^2] of `ship` in the sea effect study on `route`, read from `classes_table`"
-sea_effect_area(classes_table, ship, route) = ship == "140 m" ? 3200.0 :
-    best_area(classes_table, ship, string(route), "vlsfo", "kite")
-
 """
     patterns_data()
 
@@ -1549,6 +1514,13 @@ function read_table(path)
     return table
 end
 
+"rows of the CSV file at `path` as named tuples of its columns ([`read_table`](@ref))"
+function read_rows(path)
+    table = read_table(path)
+    return [(; (Symbol(name) => table[name][k] for name in keys(table))...)
+            for k in eachindex(first(values(table)))]
+end
+
 """
     fleet_total(split, measure)
 
@@ -2390,29 +2362,10 @@ function base_kite_variants()
 end
 
 """
-    cargo_kite_variants()
-
-Variants of the kite that flew on cargo ships, as (name, projected area [m^2], changed
-inputs): the base, its flat size read as projected, no flight drag, and canopy wear and
-launches free, with those of [`noise_variants`](@ref).
-"""
-function cargo_kite_variants()
-    free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
-        kite_launch_loss_probability=0.0, kite_cycle_course_cost=0.0)
-    return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
-        ("no_flight_drag", 125.0, (; kite_flight_drag=0.0));
-        ("free_operation", 125.0, free);
-        [(name, 125.0, changes)
-         for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
-            assumptions[:kite_min_turn_radius])]]
-end
-
-"""
     base_kite_data(ships=sensitivity_ships())
 
 The base kite of `ships`, as those of [`sensitivity_ships`](@ref), at each of
-[`base_kite_variants`](@ref), and a 130 m VLSFO ship at each of
-[`cargo_kite_variants`](@ref), each with the ship without a rig: base_kite.csv.
+[`base_kite_variants`](@ref), each with the ship without a rig: base_kite.csv.
 """
 function base_kite_data(ships=sensitivity_ships())
     cases = []
@@ -2424,11 +2377,6 @@ function base_kite_data(ships=sensitivity_ships())
             push!(cases, trip_case(design; route, ship, variant,
                 assumptions=changed_assumptions(changes)))
         end
-    end
-    push!(cases, trip_case(ShipDesign(:vlsfo, 130.0); ship="130 m", variant="bare"))
-    for (variant, area, changes) in cargo_kite_variants()
-        push!(cases, trip_case(ShipDesign(:vlsfo, 130.0; kite_area=area); ship="130 m",
-            variant, assumptions=changed_assumptions(changes)))
     end
     write_trips("base_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :variant)
@@ -2665,52 +2613,13 @@ end
     model_parts_data()
 
 Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, whole and with
-each of [`simplified_parts`](@ref) switched off: model_parts.csv; the leeway each rig sails
-at, by [`write_leeway`](@ref): leeway.csv.
+each of [`simplified_parts`](@ref) switched off: model_parts.csv.
 """
 function model_parts_data()
     cases = [case for ship_case in sensitivity_ships(), part in (:none, simplified_parts...)
              for case in rig_cases(ship_case...; part)]
-    write_leeway("leeway.csv")
     write_trips("model_parts.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :rig, :part)
-end
-
-"""
-    write_leeway(name)
-
-Write `name` with the leeway of each rigged ship of [`sensitivity_ships`](@ref), whole, over
-the hours of its [`traced_legs`](@ref): the median and 95th percentile [deg] and the share
-of hours within half a degree of `leeway_limit` [-].
-"""
-function write_leeway(name)
-    cases = [case for ship_case in sensitivity_ships() for case in rig_cases(ship_case...)
-             if case.rig != "none"]
-    traces = fetch.([Threads.@spawn last.(traced_legs(Ship(case.design, assumptions),
-                         case.route)) for case in cases])
-    limit = assumptions[:leeway_limit]
-    open(run_file(name), "w") do io
-        println(io, "ship,rig,median,high,at_limit")
-        for (case, legs) in zip(cases, traces)
-            leeway = rad2deg.(reduce(vcat, (trace.leeway for trace in legs)))
-            hours = reduce(vcat, (trace.hours for trace in legs))
-            @printf(io, "%s,%s,%.2f,%.2f,%.4f\n", case.ship, case.rig,
-                weighted_quantile(leeway, hours, 0.5),
-                weighted_quantile(leeway, hours, 0.95),
-                sum(hours[leeway .>= limit - 0.5]) / sum(hours))
-        end
-    end
-end
-
-"""
-    weighted_quantile(values, weights, share)
-
-The smallest of `values` below which at least `share` of the total `weights` lies.
-"""
-function weighted_quantile(values, weights, share)
-    order = sortperm(values)
-    k = findfirst(>=(share * sum(weights)), cumsum(weights[order]))
-    return values[order[k]]
 end
 
 """
@@ -3301,15 +3210,55 @@ measured_ships = [
     ("mol2024shofu", "Shofu Maru", "Aframax tanker", "wings", 800.0, :tubarao)]
 
 """
+First Atlantic crossing of the Beluga SkySails with its kite, Bremen to Guanta from 22
+January to 5 February 2008 (VerkehrsRundschau 2008), on our ship nearest it that holds its
+speed: the month it sailed in, the kite areas [m^2] its nominal 160 m^2 may mean, flat or
+projected, our ship's length [m] and its service speed [kn].
+"""
+beluga_crossing = (month=1, areas=(125.0, 160.0), length=130.0, knots=10.5)
+
+"""
+    beluga_crossing_data()
+
+Each of the [`beluga_crossing`](@ref) ships, without a kite and with each kite area, held at
+its speed on the shortest course out to Guadeloupe from every departure in its month: the
+area [m^2], the departure [h], the fuel energy [GJ], hours at sea and hours the kite flies,
+beluga.csv.
+"""
+function beluga_crossing_data()
+    (; month, areas, length, knots) = beluga_crossing
+    paths = WindShipOpt.shortest_corridor.(run_corridors(:caribbean))
+    sailed = filter(departure -> Dates.month(weather.origin + Hour(departure)) == month,
+        departures)
+    open(run_file("beluga.csv"), "w") do io
+        println(io, "area,departure,fuel_energy,hours,flight_hours")
+        for area in (0.0, areas...)
+            case = trip_case(ShipDesign(:vlsfo, length; kite_area=area); route=:caribbean,
+                paths, course=:shortest, held_knots=knots)
+            state = first(case_routing(case).routing.states)
+            legs = fetch.([Threads.@spawn WindShipOpt.forecast_route(first(paths),
+                state.table, weather, departure; time_cost=first(state.hourly))
+                           for departure in sailed])
+            for (departure, leg) in zip(sailed, legs)
+                isnothing(leg) && continue
+                println(io, join((area, departure, leg.fuel_energy / 1e9, leg.duration,
+                        leg.flight_hours), ","))
+            end
+        end
+    end
+end
+
+"""
     measured_savings_data()
 
-Our model on the terms of rotors and wing sails measured at sea: the rotor of the ferry
-Copenhagen at the conditions of its speed trial, copenhagen.csv, and each of
-[`measured_ships`](@ref) with and without its rig on the shortest course at its class's
-operating speed, its fuel energy [GJ] per departure and its days at sea per round trip,
-measured_savings.csv.
+Our model on the terms of rigs measured at sea: the rotor of the ferry Copenhagen at the
+conditions of its speed trial, copenhagen.csv, the kite of the Beluga SkySails on its
+first crossing, [`beluga_crossing_data`](@ref), and each of [`measured_ships`](@ref) with
+and without its rig on the shortest course at its class's operating speed, its fuel energy
+[GJ] per departure and its days at sea per round trip, measured_savings.csv.
 """
 function measured_savings_data()
+    beluga_crossing_data()
     open(run_file("copenhagen.csv"), "w") do io
         println(io, "true_angle,apparent_angle,apparent_wind,spin_ratio,thrust_model,",
             "thrust_measured,spin_power")
@@ -3491,147 +3440,6 @@ function today_routing_data()
                     @sprintf("%.6f", again.cost_per_tonne_km)], ","))
         end
     end
-end
-
-"""
-    ProfileWind(weather)
-
-`weather` without its wind aloft: a kite takes the 10 m wind on the power-law profile of
-its ship's table.
-"""
-struct ProfileWind
-    weather::ERA5Weather
-end
-
-WindShipOpt.wind(profile::ProfileWind, lat, lon, time) =
-    wind(profile.weather, lat, lon, time)
-WindShipOpt.waves(profile::ProfileWind, lat, lon, time) =
-    waves(profile.weather, lat, lon, time)
-WindShipOpt.duration(profile::ProfileWind) = WindShipOpt.duration(profile.weather)
-
-"heights [m] of ERA5's wind aloft that the kite's patterns span, to fit a profile over"
-shear_fit_heights = 100:100:700
-
-"""
-    shear_fit(cells, times)
-
-Over the wind grid's `cells` (longitude and latitude index) and time steps `times`: the
-ERA5 mean wind speed at 100 and 500 m per unit of the mean 10 m wind [-], and the exponents
-[-] of the power law through 10 m fitted, by least squares in the logarithms, to that ratio
-over [`shear_fit_heights`](@ref) and to the ratio of the cube roots of the mean cubes.
-"""
-function shear_fit(cells, times)
-    levels = [findfirst(==(height), weather.aloft_heights) for height in shear_fit_heights]
-    speeds, cubes = zeros(length(levels) + 1), zeros(length(levels) + 1)
-    for (i, j) in cells, t in times
-        for (k, speed) in enumerate((hypot(weather.wind_arrays[1][i, j, t],
-                    weather.wind_arrays[2][i, j, t]),
-                (weather.aloft_arrays[level][i, j, t] for level in levels)...))
-            speeds[k] += speed
-            cubes[k] += speed^3
-        end
-    end
-    logs = log.(shear_fit_heights ./ 10)
-    exponent(ratios) = sum(logs .* log.(ratios)) / sum(abs2, logs)
-    ratios = speeds[2:end] ./ speeds[1]
-    return (ratio_100=ratios[1], ratio_500=ratios[findfirst(==(500), shear_fit_heights)],
-        exponent=exponent(ratios), cube_exponent=exponent(cbrt.(cubes[2:end] ./ cubes[1])))
-end
-
-"whether the wind grid's cell at longitude index `i` and latitude index `j` lies at sea"
-at_sea(i, j) = !isnan(first(WindShipOpt.sample(weather.waves, (weather.wave_arrays[1],),
-    weather.wind.lats[j], weather.wind.lons[i], 0.0)))
-
-"""
-    route_cells(route)
-
-Wind grid cells (longitude and latitude index) at sea nearest the centre line of the
-outbound corridor of `route`.
-"""
-function route_cells(route)
-    outbound = first(corridors(route, run_settings().corridor_scale))
-    centre = centre_index(outbound)
-    nearest(grid, value) = argmin(abs.(grid .- value))
-    cells = unique((nearest(weather.wind.lons, outbound.lon[stage, centre]),
-                    nearest(weather.wind.lats, outbound.lat[stage, centre]))
-                   for stage in axes(outbound.lat, 1))
-    return filter(cell -> at_sea(cell...), cells)
-end
-
-"""
-    wind_shear_rows()
-
-[`shear_fit`](@ref) over 2017-2019 at sea in the whole region, in its trade-wind belt
-(10-25 deg N) and north of 40 deg N, along all routes, along each, and along all routes in
-each season.
-"""
-function wind_shear_rows()
-    lons, lats = eachindex(weather.wind.lons), eachindex(weather.wind.lats)
-    sea = [(i, j) for i in lons, j in lats if at_sea(i, j)]
-    band(low, high) = filter(((i, j),) -> low <= weather.wind.lats[j] <= high, sea)
-    along = Dict(route => route_cells(route) for route in route_names)
-    routes = unique(reduce(vcat, values(along)))
-    times = axes(first(weather.wind_arrays), 3)
-    month(t) = Dates.month(weather.origin + Hour(weather.wind.step_hours * (t - 1)))
-    seasons = ("winter" => (12, 1, 2), "spring" => (3, 4, 5), "summer" => (6, 7, 8),
-        "autumn" => (9, 10, 11))
-    places = ["sea" => (sea, times), "trade winds" => (band(10, 25), times),
-        "north of 40" => (band(40, 90), times), "routes" => (routes, times),
-        [string(route) => (along[route], times) for route in route_names]...,
-        [season => (routes, filter(t -> month(t) in months, times))
-         for (season, months) in seasons]...]
-    return [(; place, shear_fit(cells, chosen)...) for (place, (cells, chosen)) in places]
-end
-
-"""
-    wind_height_data()
-
-How a kite's wind at its height bears on its saving. ERA5's shear by [`wind_shear_rows`]
-(@ref): wind_shear.csv. The 140 m e-ammonia ship to Guadeloupe without a rig, with the kite
-and with the rotors at their reference sizes, on each departure of a final run alone, with
-the kite on ERA5's hourly wind at its height and on the power laws of the exponent fitted
-along the routes, that plus 0.01 and the one fitted to the cubes: its cost [USD/tkm] and
-share of the time aloft, wind_height.csv.
-"""
-function wind_height_data()
-    shear = wind_shear_rows()
-    open(run_file("wind_shear.csv"), "w") do io
-        println(io, join(keys(first(shear)), ","))
-        foreach(row -> println(io, join(csv_value.(values(row)), ",")), shear)
-    end
-    fit = only(filter(row -> row.place == "routes", shear))
-    exponents = round.([fit.exponent, fit.exponent + 0.01, fit.cube_exponent]; digits=3)
-    design(rig) = ShipDesign(:ammonia, 140.0;
-        rig_size(rig, Dict(reference_rigs_and_none)[rig])...)
-    arms = [[("hourly", 0.0, rig, assumptions, weather) for rig in ("none", "kite", "rotors")];
-        [("profile", exponent, "kite",
-          with_value(assumptions, :wind_shear_exponent, exponent), ProfileWind(weather))
-         for exponent in exponents]]
-    jobs = [(arm, departure) for arm in arms for departure in paper_departures]
-    outcomes = fetch.([Threads.@spawn wind_height_outcome(arm, departure, design)
-                       for (arm, departure) in jobs])
-    open(run_file("wind_height.csv"), "w") do io
-        println(io, "wind,exponent,rig,departure,cost,flight_share")
-        for (((wind, exponent, rig), departure), outcome) in zip(jobs, outcomes)
-            isnothing(outcome) && continue
-            println(io, join([wind, csv_value(exponent), rig, csv_value(departure),
-                    @sprintf("%.6f", outcome.cost_per_tonne_km),
-                    @sprintf("%.4f", outcome.flight_share)], ","))
-        end
-    end
-end
-
-"""
-    wind_height_outcome((wind, exponent, rig, assumptions, weather), departure, design)
-
-Outcome of the round trip to Guadeloupe from `departure` [h] of the ship `design(rig)`
-under `assumptions` in `weather`; `nothing` where it fails.
-"""
-function wind_height_outcome((_, _, rig, assumptions, weather), departure, design)
-    ship = Ship(design(rig), assumptions; route=:caribbean)
-    trip = round_trip(ship, corridors(:caribbean, run_settings().corridor_scale)...,
-        weather, [departure], assumptions)
-    return isnothing(trip) ? nothing : only(trip.departures)
 end
 
 """

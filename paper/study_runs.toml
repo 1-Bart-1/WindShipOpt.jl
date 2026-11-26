@@ -44,9 +44,9 @@ fidelity = "draft"
 run = "2026-11-23T1709"
 
 [measured_savings]
-commit = "bd866f972b02aa7b07e9897dd372ccf840ebe703"
+commit = "b6c4726402451e4335395e5febe40729ca510bdc"
 fidelity = "final"
-run = "2026-11-23T1311"
+run = "2026-11-25T2022"
 
 [model_parts]
 commit = "38a96a22585f8f3fcdfd6c3e9f78c46b99a7af0b"
