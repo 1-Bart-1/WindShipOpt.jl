@@ -3057,6 +3057,211 @@ forecast_error_lines = (("forecast", (; color=:black)), ("blend", (; color=palet
     ("climate", (; color=:gray50, linestyle=:dash)))
 
 """
+    effect(rig, low, high; centre=NaN, directed=true, points=Float64[])
+
+One rig's effect on a row of an effect figure [points]: its range, its best value where one
+is known or the range is a single value, whether it has a direction or scatters either way,
+and the cases it spans.
+"""
+effect(rig, low, high; centre=low == high ? low : NaN, directed=true, points=Float64[]) =
+    (; rig, low, high, centre, directed, points)
+
+"""
+    effect_rows!(axis, entries, rigs)
+
+Draw on `axis` each row of `entries`, label => [`effect`](@ref)s, as one range bar per rig
+of `rigs` in its colour, with its cases as small dots and its best value as a marker, hollow
+where the effect has no direction, around a line at zero.
+"""
+function effect_rows!(axis, entries, rigs)
+    reference_line!(axis; vertical=true)
+    for (i, (_, effects)) in enumerate(entries), drawn in effects
+        y = i + rig_offset(findfirst(==(drawn.rig), rigs), length(rigs), 0.22)
+        colour = rig_colour(drawn.rig)
+        rangebars!(axis, [y], [drawn.low], [drawn.high]; direction=:x, color=colour,
+            linewidth=goal_width, whiskerwidth=whisker_width)
+        isempty(drawn.points) || scatter!(axis, drawn.points, fill(y, length(drawn.points));
+            color=colour, strokecolor=:white, strokewidth=rule_width,
+            markersize=0.7marker_size)
+        isfinite(drawn.centre) && scatter!(axis, [drawn.centre], [y];
+            color=drawn.directed ? colour : :white, strokecolor=colour,
+            strokewidth=outline_width)
+    end
+end
+
+"""
+    effect_figure(name, panels, rigs)
+
+Save as `name` a figure of one [`effect_rows!`](@ref) axis per panel of `panels`, (title,
+x label, entries, width), side by side, over a legend of `rigs` and of an effect with no
+direction.
+"""
+function effect_figure(name, panels, rigs)
+    rows_drawn = maximum(length(panel[3]) for panel in panels)
+    figure = Figure(size=(page_width, 60 + 16rows_drawn))
+    for (column, (title, xlabel, entries, width)) in enumerate(panels)
+        axis = Axis(figure[1, column]; title, xlabel, yreversed=true,
+            xticks=WilkinsonTicks(4; k_min=3, k_max=5,
+                Q=[(1.0, 1.0), (2.0, 0.7), (5.0, 0.5)]),
+            yticks=(eachindex(entries), first.(entries)),
+            limits=(nothing, (0.5, length(entries) + 0.5)))
+        colsize!(figure.layout, column, width)
+        effect_rows!(axis, entries, rigs)
+    end
+    Legend(figure[2, 1:length(panels)],
+        [[MarkerElement(marker=:circle, color=rig_colour(rig)) for rig in rigs];
+            MarkerElement(marker=:circle, color=:white, strokecolor=:gray35,
+                strokewidth=outline_width)],
+        [rig_label.(rigs); "either way"]; orientation=:horizontal)
+    rowgap!(figure.layout, 1, pt(4))
+    save_figure(name, figure)
+end
+
+"rigs of the effect figures, the three main ones"
+effect_rigs = ["kite", "wings", "rotors"]
+
+"""
+Errors of a rig's cost saving [points], as the stated saving less the better estimate, that
+method studies measured and whose code has left the repository, by row label.
+"""
+recorded_errors = [
+    "router's grid and search" =>
+        [effect("kite", -2.9, -2.4), effect("rotors", -1.3, -1.2)],
+    "one speed per edge" => [effect("kite", -3.0, -1.8; centre=-2.4),
+        effect("wings", -0.2, 0.0), effect("rotors", -0.2, 0.0)],
+    "units picked by a score" => [effect("wings", -0.3, 0.0), effect("rotors", -0.8, 0.0)],
+    "kite's pattern search" => [effect("kite", -0.34, 0.34; centre=0.0, directed=false)]]
+
+"""
+Changes of a rig's cost saving [points] if one limit of the model were otherwise, measured
+by method studies whose code has left the repository, by row label.
+"""
+recorded_limits = ["no flight drag on the kite" => [effect("kite", 1.4, 2.0)],
+    "rails and winches as on TR Lady" => [effect("rotors", -1.0, 0.0)]]
+
+"""
+    departure_errors()
+
+Standard error [points] of the mean cost saving over the departures of each of
+[`effect_rigs`](@ref) at its reference size on the 140 m e-ammonia ship to Guadeloupe, as an
+[`effect`](@ref) with no direction.
+"""
+function departure_errors()
+    table = read_table(data_file("route_departures.csv"))
+    ship = ("route" => "caribbean", "drive" => "ammonia", "length" => 140.0)
+    bare = departure_costs(table, ship..., "rig" => "none")
+    return map(effect_rigs) do rig
+        costs = departure_costs(table, ship..., "rig" => rig,
+            "area" => Dict(reference_rigs)[rig])
+        savings = [percent_saving(costs[date], bare[date]) for date in keys(costs)]
+        spread = std(savings) / sqrt(length(savings))
+        effect(rig, -spread, spread; centre=0.0, directed=false)
+    end
+end
+
+"""
+    forecast_errors()
+
+Cost saving [points] with perfect foresight less that re-planned on the forecasts, mean and
+standard error over the departures of the forecast result, per rig of
+[`effect_rigs`](@ref).
+"""
+function forecast_errors()
+    table = read_table(data_file("forecast_result.csv"))
+    return map(effect_rigs) do rig
+        gaps = 100 .* (forecast_ratios(table, rig, "live") .-
+                       forecast_ratios(table, rig, "false"))
+        centre, spread = mean(gaps), std(gaps) / sqrt(length(gaps))
+        effect(rig, centre - spread, centre + spread; centre)
+    end
+end
+
+"""
+    known_errors_figure()
+
+Each known error of a rig's saving, as the stated saving less the better estimate
+[points] of the method, on the 140 m e-ammonia ship to Guadeloupe where the paper run holds
+it, from the departures sampled, the [`recorded_errors`](@ref), the forecast result and the
+hull's side-force slope at its low bound.
+"""
+function known_errors_figure()
+    method = ["departures sampled" => departure_errors(); recorded_errors;
+        "forecasts, not foresight" => forecast_errors();
+        "hull's side force at its low bound" =>
+            [effect(rig, extrema(weak_hull_losses(rig))...) for rig in effect_rigs]]
+    effect_figure("known_errors",
+        [("", "stated less better estimate [points]", method, Auto())], effect_rigs)
+end
+
+"""
+    offered_unit_changes()
+
+Change of the cost saving [points] of wing sails and rotors on each class of
+[`offered_units`](@ref) on e-ammonia, from their cheapest size to the best with no more
+units than offered, as one [`effect`](@ref) per rig over the classes.
+"""
+function offered_unit_changes()
+    all_rows = class_rows(dirname(data_file("classes.csv")))
+    cheapest = cheapest_rows(all_rows)
+    return map(("wings", "rotors")) do rig
+        changes = map(collect(offered_units)) do (name, units)
+            ours = [row for row in all_rows if row.class == name && row.drive == "ammonia"]
+            bare = Dict(row.route => row for row in ours if row.rig == "none")
+            best = mean(saving(cheapest[(name, "ammonia", route, rig)], bare[route])
+                        for route in keys(bare))
+            100(offered_saving([row for row in ours if row.rig == rig], bare, units) - best)
+        end
+        effect(rig, extrema(changes)...; points=changes)
+    end
+end
+
+"""
+    model_limits_figure()
+
+Change of each rig's cost saving [points] if one limit of the model were otherwise: the
+kite with no extra launch wind in a rough sea over the sea-effect study's ships, the kite on
+the power law fitted to ERA5 instead of its hourly wind on the wind height study's
+departures, wing sails and rotors with no more units than makers offer, and the
+[`recorded_limits`](@ref).
+"""
+function model_limits_figure()
+    sea = read_table(study_file(:sea_effect, "sea_effect.csv"))
+    sea_changes = [sea_effect_saving(sea, ship, "none") -
+                   sea_effect_saving(sea, ship, "model") for ship in unique(sea["ship"])]
+    entries = ["no rough-sea launch wind" =>
+            [effect("kite", extrema(sea_changes)...; points=sea_changes)];
+        "one wind profile for the kite" => [wind_profile_change()];
+        "no more deck units than offered" => collect(offered_unit_changes());
+        recorded_limits]
+    effect_figure("model_limits",
+        [("", "change of cost saving [points]", entries, Auto())], effect_rigs)
+end
+
+"""
+    wind_profile_change()
+
+Change of the kite's cost saving [points] over the wind height study's departures when it
+flies on the power law fitted to ERA5's mean along the routes instead of ERA5's hourly
+wind at its height, as an [`effect`](@ref) of its mean and standard error.
+"""
+function wind_profile_change()
+    table = read_table(study_file(:wind_height, "wind_height.csv"))
+    shear = read_table(study_file(:wind_height, "wind_shear.csv"))
+    fitted = shear["exponent"][only(rows(shear, "place" => "routes"))]
+    exponents = unique(table["exponent"][rows(table, "wind" => "profile")])
+    exponent = exponents[argmin(abs.(exponents .- fitted))]
+    cost(wind, exponent, rig) = Dict(table["departure"][row] => table["cost"][row]
+        for row in rows(table, "wind" => wind, "exponent" => exponent, "rig" => rig))
+    bare = cost("hourly", 0.0, "none")
+    days = sort(collect(keys(bare)))
+    savings(costs) = [percent_saving(costs[day], bare[day]) for day in days]
+    change = savings(cost("profile", exponent, "kite")) .-
+             savings(cost("hourly", 0.0, "kite"))
+    centre, spread = mean(change), std(change) / sqrt(length(change))
+    return effect("kite", centre - spread, centre + spread; centre)
+end
+
+"""
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
@@ -3685,6 +3890,95 @@ function canopy_cells_figure()
     axislegend(axis, entries, [kinds..., "model", "kites searched"]; position=:lt,
         nbanks=2, rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
     save(joinpath(figures, "canopy_cells.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    input_source_panels
+
+Panels of [`input_sources_figure`](@ref): a title, the column, each input with the name of
+its row of this paper, the axis label, the scale of the values shown, and the ticks of a
+logarithmic axis or `nothing` for a linear one.
+"""
+input_source_panels = [
+    (title="(a) wing sail, highest lift coefficient", column=1,
+        inputs=[:wing_max_lift_coefficient => "this paper"], xlabel=L"C_{L,\max}",
+        scale=1, ticks=nothing),
+    (title="(b) exponent of mass over height", column=1,
+        inputs=[:rotor_mass_exponent => "rotors, this paper",
+            :wing_mass_exponent => "wing sails, this paper",
+            :suction_mass_exponent => "suction sails, this paper",
+            :rigid_mass_exponent => "VTOL kite, this paper"], xlabel=L"exponent $k$, $n$",
+        scale=1, ticks=nothing),
+    (title="(c) single-skin kite, share of the glide ratio", column=1,
+        inputs=[:single_skin_glide_factor => "this paper"], xlabel="share of a double skin",
+        scale=1, ticks=nothing),
+    (title="(d) kite, projected aspect ratio", column=2,
+        inputs=[:kite_aspect_ratio => "this paper"], xlabel="aspect ratio", scale=1,
+        ticks=nothing),
+    (title="(e) kite, tether length", column=2,
+        inputs=[:tether_length_ratio => "this paper"], xlabel="spans", scale=1,
+        ticks=nothing),
+    (title="(f) canopy life", column=2, inputs=[:canopy_life => "goal, this paper"],
+        xlabel="flight hours [thousands]", scale=1e-3, ticks=nothing),
+    (title="(g) tether life in creep", column=2,
+        inputs=[:tether_lifetime => "this paper"], xlabel="flight hours [thousands]",
+        scale=1e-3, ticks=[5, 10, 20, 40]),
+    (title="(h) tether bends at launch and landing", column=2,
+        inputs=[:tether_bend_life => "this paper"], xlabel="bends [millions]",
+        scale=1e-6, ticks=[0.5, 1, 2])]
+
+"""
+    input_sources_figure()
+
+Each input of [`input_source_panels`](@ref) with its base value and range beside the
+published values in data/input_sources.csv it rests on, its `low` and `high` [unit of the
+input], and `bound` `upper` for a value given only as an upper bound.
+"""
+function input_sources_figure()
+    published = read_table(joinpath(root, "data", "input_sources.csv"))
+    model_colour = style_colour("accent")
+    figure = Figure(size=(page_width, 400))
+    columns = [GridLayout(figure[1, column]; valign=:top) for column in 1:2]
+    row_height = pt(9)
+    for panel in input_source_panels
+        layout = columns[panel.column]
+        names, lows, highs, colours, markers = String[], Float64[], Float64[], [], Symbol[]
+        bases, starts = Float64[], Int[]
+        for (input, name) in panel.inputs
+            push!(starts, length(names) + 1)
+            entry = assumptions.entries[input]
+            push!(names, name); push!(bases, entry.value)
+            push!(lows, entry.low); push!(highs, entry.high)
+            push!(colours, model_colour); push!(markers, :diamond)
+            for row in findall(==(String(input)), published["input"])
+                push!(names, published["name"][row])
+                low, high = published["low"][row], published["high"][row]
+                push!(bases, (low + high) / 2); push!(lows, low); push!(highs, high)
+                push!(colours, :black)
+                push!(markers, published["bound"][row] == "upper" ? :ltriangle : :circle)
+            end
+        end
+        rows = eachindex(names)
+        values = (bases, lows, highs) .* panel.scale
+        axis = Axis(layout[length(layout.content) + 1, 1]; title=panel.title,
+            xlabel=panel.xlabel, xscale=isnothing(panel.ticks) ? identity : log10,
+            xticks=isnothing(panel.ticks) ? Makie.automatic :
+                   (panel.ticks, [@sprintf("%g", tick) for tick in panel.ticks]),
+            yticks=(rows, names), yreversed=true, height=length(rows) * row_height,
+            limits=(nothing, (0.4, length(rows) + 0.6)))
+        length(starts) > 1 &&
+            hlines!(axis, starts[2:end] .- 0.5; color=:gray70, linewidth=rule_width)
+        spread = values[2] .< values[3]
+        rangebars!(axis, rows[spread], values[2][spread], values[3][spread];
+            direction=:x, color=colours[spread], linewidth=goal_width,
+            whiskerwidth=whisker_width)
+        point = .!spread .| (markers .== :diamond)
+        scatter!(axis, values[1][point], rows[point]; color=colours[point],
+            marker=markers[point],
+            markersize=ifelse.(markers[point] .== :ltriangle, 1.5marker_size, marker_size))
+    end
+    resize_to_layout!(figure)
+    save_figure("input_sources", figure)
 end
 
 """
