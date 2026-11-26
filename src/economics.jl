@@ -265,41 +265,44 @@ function layout_winds(assumptions::Assumptions)
 end
 
 """
-    cheapest_layout(ship, route, assumptions)
+    cheapest_layout(ship, route, assumptions; courses=KITE_COURSES)
 
 Rig of the design of `ship` in the layout of its [`layout_counts`](@ref) with the lowest
 [`layout_score`](@ref) on `ship`, which carries no rig yet, at its [`LayoutPrices`](@ref)
-on `route`; for each count of columns more units are tried until two in a row score worse
-than the fewest scored best. `nothing` where no layout fits; the design's rig as it is
-where it has no wings, rotors or suction sails.
+on `route`, any kite with its pattern table over `courses` [rad]; for each count of
+columns more units are tried until two in a row score worse than the fewest scored best.
+`nothing` where no layout fits; the design's rig as it is where it has no wings, rotors or
+suction sails.
 """
-function cheapest_layout(ship::Ship, route, assumptions::Assumptions)
+function cheapest_layout(ship::Ship, route, assumptions::Assumptions; courses=KITE_COURSES)
     (; design, hull) = ship
-    first(standing_unit(design)) > 0 || return design_rig(design, hull, assumptions)
+    first(standing_unit(design)) > 0 ||
+        return design_rig(design, hull, assumptions; courses)
     counts = layout_counts(design, hull, assumptions)
     prices = LayoutPrices(ship, route, assumptions)
     best, lowest = nothing, Inf
     for columns in 1:2
         rig, score = cheapest_in_columns(ship, columns,
             [last(count) for count in counts if first(count) == columns], prices,
-            assumptions)
+            assumptions; courses)
         score < lowest && ((best, lowest) = (rig, score))
     end
     return best
 end
 
 """
-    cheapest_in_columns(ship, columns, in_columns, prices, assumptions)
+    cheapest_in_columns(ship, columns, in_columns, prices, assumptions; courses)
 
 Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
-order, with the lowest [`layout_score`](@ref) at `prices`, and that score; the search
-stops once two counts in a row fit and score worse than the best.
+order, any kite with its pattern table over `courses` [rad], with the lowest
+[`layout_score`](@ref) at `prices`, and that score; the search stops once two counts in a
+row fit and score worse than the best.
 """
 function cheapest_in_columns(ship::Ship, columns, in_columns, prices::LayoutPrices,
-        assumptions::Assumptions)
+        assumptions::Assumptions; courses)
     best, lowest, worse = nothing, Inf, 0
     for in_column in in_columns
-        rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column)
+        rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column, courses)
         isnothing(rig) && continue
         score = layout_score(ship, rig, prices, assumptions)
         if score < lowest || isnothing(best)

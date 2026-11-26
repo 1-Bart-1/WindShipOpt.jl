@@ -979,14 +979,15 @@ function lei_kite_launchable(area, assumptions::Assumptions)
 end
 
 """
-    lei_kite_rig(area, hull, assumptions)
+    lei_kite_rig(area, hull, assumptions; courses=KITE_COURSES)
 
-Leading-edge inflatable kite of projected `area` [m^2] on `hull`, launched, flown and towing
-as the ram-air kite; `nothing` where it is larger than [`largest_lei_kite_area`](@ref).
+Leading-edge inflatable kite of projected `area` [m^2] on `hull` with its pattern table over
+`courses` [rad], launched, flown and towing as the ram-air kite; `nothing` where it is
+larger than [`largest_lei_kite_area`](@ref).
 """
-function lei_kite_rig(area, hull::Hull, assumptions::Assumptions)
+function lei_kite_rig(area, hull::Hull, assumptions::Assumptions; courses=KITE_COURSES)
     area <= largest_lei_kite_area(assumptions) || return nothing
-    return KiteRig(area, assumptions[:lei_aspect_ratio], hull, assumptions;
+    return KiteRig(area, assumptions[:lei_aspect_ratio], hull, assumptions; courses,
         frame=TubeFrame())
 end
 
@@ -1096,19 +1097,20 @@ end
 
 """
     CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area, hull,
-                assumptions; layout...)
+                assumptions; courses=KITE_COURSES, layout...)
 
-Kite of projected `kite_area` [m^2] and `kite_aspect_ratio` towing from its
-[`launch_mast_position`](@ref), over `standing_area` [m^2] of `standing_type` (`WingRig` or
-`RotorRig`) behind the [`launch_mast_reserve`](@ref) in the `layout` of its keywords
-`columns` and `in_column`, or `nothing` if those do not fit.
+Kite of projected `kite_area` [m^2] and `kite_aspect_ratio` with its pattern table over
+`courses` [rad], towing from its [`launch_mast_position`](@ref), over `standing_area`
+[m^2] of `standing_type` (`WingRig` or `RotorRig`) behind the
+[`launch_mast_reserve`](@ref) in the `layout` of its keywords `columns` and `in_column`, or
+`nothing` if those do not fit.
 """
 function CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area,
-        hull::Hull, assumptions::Assumptions; layout...)
+        hull::Hull, assumptions::Assumptions; courses=KITE_COURSES, layout...)
     standing = standing_type(standing_area, hull, assumptions;
         forward_reserve=launch_mast_reserve(hull, assumptions), layout...)
     isnothing(standing) && return nothing
-    kite = KiteRig(kite_area, kite_aspect_ratio, hull, assumptions;
+    kite = KiteRig(kite_area, kite_aspect_ratio, hull, assumptions; courses,
         attach_position=launch_mast_position(hull, assumptions))
     return CombinedRig(kite, standing)
 end

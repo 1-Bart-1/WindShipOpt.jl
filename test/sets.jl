@@ -4897,6 +4897,21 @@ end
           WindShipOpt.crash_cost(flying, assumptions)
 end
 
+@testset "a ship whose kite flies no course costs what the flying one does" begin
+    for design in (ShipDesign(:methanol, 140.0; kite_area=800.0),
+        ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0))
+        priced, flying = (ShipCosts(Ship(design, assumptions; courses), assumptions)
+                          for courses in (Float64[], WindShipOpt.KITE_COURSES))
+        @test (priced.capital, priced.fixed_annual, priced.hold.payload) ==
+              (flying.capital, flying.fixed_annual, flying.hold.payload)
+    end
+    for area in (:kite_area, :rigid_kite_area, :lei_kite_area, :single_skin_kite_area)
+        ship = Ship(ShipDesign(:methanol, 140.0; area => 80.0), assumptions;
+            courses=Float64[])
+        @test isempty(WindShipOpt.kite_rig(ship.rig).forces)
+    end
+end
+
 @testset "a lead over another rig is used up exactly at its life and loss limits" begin
     lead, goal_life, canopy_points, crash_points = 2.0, 4000.0, 8000.0, 1.6
     limits = WindShipOpt.lead_limits(lead, goal_life, canopy_points, crash_points)

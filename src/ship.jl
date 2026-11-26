@@ -392,14 +392,16 @@ struct Ship{R}
 end
 
 """
-    Ship(design, assumptions; route=nothing)
+    Ship(design, assumptions; route=nothing, courses=KITE_COURSES)
 
 Ship for `design`, its wings, rotors or suction sails in their [`cheapest_layout`](@ref)
-on `route`, or `nothing` if its rig does not fit on the hull. Its engines,
+on `route` and its kite's pattern table over `courses` [rad], none for a kite built only
+for its price and mass; `nothing` if its rig does not fit on the hull. Its engines,
 gensets or fuel cells are rated for the [`rated_delivered_power`](@ref) and the hotel
 load; its fuel pays the carbon price by its [`carbon_coverage`](@ref) on `route`.
 """
-function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
+function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing,
+        courses=KITE_COURSES)
     env = Environment(assumptions)
     hull = isnothing(design.class) ? Hull(design.length, assumptions) :
            Hull(design.class, assumptions)
@@ -418,7 +420,7 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     unlimited = Powertrain(; installed_power=Inf, unit_count=1, peak_efficiency=1.0,
         part_load_penalty=0.0, drive.transmission_efficiency, hotel_load)
     bare = Ship(hull_parts..., unlimited, nothing, other_parts...)
-    rig = cheapest_layout(bare, route, assumptions)
+    rig = cheapest_layout(bare, route, assumptions; courses)
     isnothing(rig) && has_rig(design) && return nothing
     delivered = rated_delivered_power(with_rig(bare, rig), assumptions)
     powertrain = Powertrain(;
@@ -469,20 +471,21 @@ end
 has_rig(design::ShipDesign) = any(field -> getfield(design, field) > 0, RIG_AREAS)
 
 """
-    design_rig(design, hull, assumptions; columns=1, in_column=1)
+    design_rig(design, hull, assumptions; columns=1, in_column=1, courses=KITE_COURSES)
 
 Rig of `design` on `hull`, its wings, rotors or suction sails `columns` times `in_column`
-units, or `nothing` where they do not fit.
+units and its kite's pattern table over `courses` [rad], or `nothing` where they do not
+fit.
 """
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; columns=1,
-        in_column=1)
+        in_column=1, courses=KITE_COURSES)
     layout = (; columns, in_column)
     for field in LONE_RIGS
         area = getfield(design, field)
         area > 0 || continue
         count(name -> getfield(design, name) > 0, RIG_AREAS) == 1 ||
             throw(ArgumentError("the rig of $field stands alone on a design"))
-        return lone_rig(field, area, hull, assumptions; layout...)
+        return lone_rig(field, area, hull, assumptions; courses, layout...)
     end
     design.wing_area > 0 && design.rotor_area > 0 &&
         throw(ArgumentError("a design carries wings or rotors, not both"))
@@ -491,26 +494,26 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; co
     if design.kite_area > 0
         aspect_ratio = assumptions[:kite_aspect_ratio]
         standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
-            standing_type, standing_area, hull, assumptions; layout...)
-        return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
+            standing_type, standing_area, hull, assumptions; courses, layout...)
+        return KiteRig(design.kite_area, aspect_ratio, hull, assumptions; courses)
     end
     standing_area > 0 && return standing_type(standing_area, hull, assumptions; layout...)
     return nothing
 end
 
 """
-    lone_rig(field, area, hull, assumptions; columns, in_column)
+    lone_rig(field, area, hull, assumptions; courses, columns, in_column)
 
 Rig of `area` [m^2] on `hull` that the [`LONE_RIGS`](@ref) `field` of a design names:
-suction sails of `columns` times `in_column` units, a VTOL kite, a leading-edge inflatable
-kite or a single-skin kite.
+suction sails of `columns` times `in_column` units, or a VTOL kite, a leading-edge
+inflatable kite or a single-skin kite with its pattern table over `courses` [rad].
 """
-function lone_rig(field, area, hull::Hull, assumptions::Assumptions; layout...)
+function lone_rig(field, area, hull::Hull, assumptions::Assumptions; courses, layout...)
     field == :suction_area &&
         return WingRig(area, hull, assumptions; unit=:suction, layout...)
-    field == :rigid_kite_area && return rigid_kite_rig(area, hull, assumptions)
-    field == :lei_kite_area && return lei_kite_rig(area, hull, assumptions)
-    return KiteRig(area, assumptions[:kite_aspect_ratio], hull, assumptions;
+    field == :rigid_kite_area && return rigid_kite_rig(area, hull, assumptions; courses)
+    field == :lei_kite_area && return lei_kite_rig(area, hull, assumptions; courses)
+    return KiteRig(area, assumptions[:kite_aspect_ratio], hull, assumptions; courses,
         frame=SingleSkin())
 end
 
