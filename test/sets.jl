@@ -5524,6 +5524,11 @@ end
     @test market.error ≈ 1.0
 end
 
+@testset "a number the departures do not move is written without an error" begin
+    @test PaperData.error_cell(1.234, 0.0; finest=1) == "\\(1.2\\)"
+    @test PaperData.error_cell(1.234, 0.21; finest=1) == "\\(1.2 \\pm 0.2\\)"
+end
+
 @testset "a cell where no rig clearly saves fits none and adds to no rig's margin" begin
     margins = PaperData.fleet_margins([fleet_cell(100.0, Dict("kite" => 1.0)),
         fleet_cell(100.0, Dict("kite" => 1.0), Dict("kite" => 5.0))])

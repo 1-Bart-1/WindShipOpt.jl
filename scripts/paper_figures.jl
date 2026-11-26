@@ -2130,9 +2130,11 @@ market_label((; once, recurring, error)) = @sprintf("makers USD %s bn, %s recurr
 """
     error_text(value, error)
 
-`value` [USD] in billions as an [`estimate_text`](@ref), with its `error` to the same place.
+`value` [USD] in billions as an [`estimate_text`](@ref), with its `error` to the same place
+where it is not 0.
 """
 function error_text(value, error)
+    iszero(error) && return estimate_text(1e-9value)
     places = max(0, 1 - floor(Int, log10(abs(rounded_estimate(1e-9value)))))
     return @sprintf("%s ± %.*f", estimate_text(1e-9value), places, 1e-9error)
 end

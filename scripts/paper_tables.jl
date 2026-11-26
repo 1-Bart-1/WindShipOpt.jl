@@ -1792,13 +1792,15 @@ end
     error_cell(value, standard_error; finest)
 
 LaTeX of `value` with its `standard_error`, the error to two significant digits and to
-`finest` decimals at the finest, and the value to the same place.
+`finest` decimals at the finest, and the value to the same place; no error where it is 0.
 """
 function error_cell(value, standard_error; finest)
     magnitude = standard_error > 0 ?
                 floor(Int, log10(round(standard_error; sigdigits=2))) : 0
     digits = min(finest, 1 - magnitude)
-    format = Printf.Format("\\(%.$(max(digits, 0))f \\pm %.$(max(digits, 0))f\\)")
+    places = max(digits, 0)
+    iszero(standard_error) && return @sprintf("\\(%.*f\\)", places, round(value; digits))
+    format = Printf.Format("\\(%.$(places)f \\pm %.$(places)f\\)")
     return Printf.format(format, round(value; digits) + 0.0,
         round(standard_error; digits) + 0.0)
 end
