@@ -327,7 +327,7 @@ At projected 2 the polar method on this shape gives drag below zero up to 2° an
 | ----- | ------------------------- | ------------- |
 | Mast height ratio | 15 m on 125 m²: 1.34; Airseas 35 m on 1,000 m²: 1.11 projected, 1.25 flat; PN-14 19 m on 90 m²: 2.0 | 1.3 (0.8–2.0) |
 | Tether over span at aspect ratio 3 | 300 m on 125 m²: 15.5; about 360 m on 250 m² (Paulig p. 554): 13.1; 19.7 on the kite's own 15.2 m | 13, from the larger kite (10–20) |
-| Turn radius over span at aspect ratio 3 | 45 m on 125 m², bounds 29 and 83 m | 2.3 (1.5–4.3) |
+| Turn radius over projected span | 45 m on the 15.2 m span of 125 m², bounds 29 and 83 m | 3.0 (1.9–5.5) |
 | Force per area | 160 kN on 225 m² flat, about 0.7 (Paulig p. 557): 0.9 on projected | 0.5, a stated choice (0.4–1.0) |
 
 **Canopy mass.** Paulig gives 0.5–0.6 kg/m² for kites of 160–320 m² and 120 kg with lines for the 225 m² kite on cloth slightly above 100 g/m², which is 0.68 kg/m² projected.
