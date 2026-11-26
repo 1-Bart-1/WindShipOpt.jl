@@ -2182,8 +2182,9 @@ a bar over the shares at the corners of the ranges of the e-ammonia and VLSFO pr
 """
 function premium_figure()
     designs = read_table(data_file("designs.csv"))
-    corners = [fuel_repriced(designs, Dict("ammonia" => ammonia, "vlsfo" => vlsfo))
-               for ammonia in (:low, :high), vlsfo in (:low, :high)]
+    corners = [fuel_repriced(designs, fuel_factor.(designs["drive"], Ref(bounds)))
+               for bounds in (Dict("ammonia" => ammonia, "vlsfo" => vlsfo)
+                              for ammonia in (:low, :high), vlsfo in (:low, :high))]
     figure = Figure(size=(column_width, 165))
     lengths = sort(unique(designs["length"]))
     axis = Axis(figure[1, 1]; xlabel="ship length [m]",
@@ -2227,19 +2228,6 @@ Factor on the fuel price of `drive` at its bound in `bounds`, a Dict of drive to
 """
 fuel_factor(drive, bounds) =
     haskey(bounds, drive) ? input_factor(fuel_price_inputs[drive], bounds[drive]) : 1.0
-
-"""
-    fuel_repriced(designs, bounds)
-
-`designs` with the cost of each row of a drive in `bounds`, a Dict of drive to `:low` or
-`:high`, at that bound of the price of its fuel.
-"""
-function fuel_repriced(designs, bounds)
-    repriced = copy(designs)
-    factors = fuel_factor.(designs["drive"], Ref(bounds))
-    repriced["cost"] = designs["cost"] .+ designs["fuel_cost"] .* (factors .- 1)
-    return repriced
-end
 
 """
     breakdown_factors(drive, bound)

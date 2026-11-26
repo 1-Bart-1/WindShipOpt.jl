@@ -67,12 +67,13 @@ study_steps = [:base_kite => base_kite_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
-    :measured_savings => measured_savings_data]
+    :fuel_method => fuel_method_data, :measured_savings => measured_savings_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:published_terms => [:published_table => published_table],
     :routing_value => [:routing_value_numbers => routing_value_numbers_file],
     :today_routing => [:today_routing_numbers => today_routing_numbers_file],
+    :fuel_method => [:fuel_method_numbers => fuel_method_numbers],
     :measured_savings => [:measured_table => measured_table,
         :measured_numbers => measured_numbers_file],
     :wind_height => [:wind_height_numbers => wind_height_numbers_file])

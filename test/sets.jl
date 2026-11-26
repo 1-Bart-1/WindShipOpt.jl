@@ -4985,6 +4985,34 @@ end
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
 
+@testset "re-pricing the base routes matches routing each e-ammonia price where the routes \
+          stay the same, and the base price's best size is checked at each price" begin
+    base_price = Main.assumptions[:e_ammonia_price]
+    # rig, area, cost and fuel cost at the base price; the large kite burns least fuel, and
+    # the lei kite is missing, as from a run made before it
+    cases = [("none", 0.0, 10.0, 4.0), ("kite", 800.0, 8.0, 2.0),
+        ("kite", 1600.0, 8.5, 1.0), ("wings", 800.0, 9.0, 3.0), ("rotors", 400.0, 9.0, 3.0),
+        ("suction", 400.0, 9.0, 3.0), ("vtol", 80.0, 9.5, 3.5)]
+    prices = first(PaperData.situation_inputs[:e_ammonia_price])
+    lines = [(input, value, case...) for (input, value) in
+             [("base", 0.0); [("e_ammonia_price", price) for price in prices]]
+             for case in cases]
+    factor(value) = value == 0 ? 1.0 : value / base_price
+    table = Dict{String, Vector}("ship" => fill("140 m", length(lines)),
+        "route" => fill("caribbean", length(lines)),
+        "drive" => fill("ammonia", length(lines)),
+        "input" => [line[1] for line in lines], "value" => [line[2] for line in lines],
+        "rig" => [line[3] for line in lines], "area" => [line[4] for line in lines],
+        "cost" => [line[5] + line[6] * (factor(line[2]) - 1) for line in lines],
+        "fuel_cost" => [line[6] * factor(line[2]) for line in lines])
+    savings = PaperData.fuel_method_savings(table)
+    @test length(savings) == length(prices) * (length(unique(first.(cases))) - 1)
+    @test all(isapprox(routed, repriced) for (_, _, _, routed, repriced, _) in savings)
+    # the large kite is cheapest once the price is more than 1.5 times the base
+    short = [(price, rig) for (_, price, rig, routed, _, kept) in savings if kept < routed]
+    @test short == [(price, "kite") for price in prices if price > 1.5base_price]
+end
+
 @testset "ship classes group by cargo on deck, free deck first, each by deadweight" begin
     classes = sort(collect(values(ship_classes())); by=PaperData.deck_order)
     labels = PaperData.deck_label.(classes)

@@ -33,6 +33,11 @@ commit = "e3462e72057e789f22434058cae7ee090604e4b3"
 fidelity = "draft"
 run = "2026-11-14T1809"
 
+[fuel_method]
+commit = "5f71a94eefd58a334c795769a3db496a4476c5c3"
+fidelity = "draft"
+run = "2026-11-19T1458"
+
 [lei_kite]
 commit = "ca35a945cb793198905ef1614f21a808f1852906"
 fidelity = "draft"
