@@ -2042,30 +2042,25 @@ end
 """
     fleet_margin_figure()
 
-Per drive, a bar for each rig of the [`fleet_margins`](@ref) of every rig of the class
-study: what it saves a year against no rig on the classes and routes it suits best, pale,
-and the part of that it saves over the next best rig, solid, with its error.
+Per drive, two bars for each rig of the [`fleet_margins`](@ref) of every rig of the class
+study: what it saves a year against no rig on the classes and routes it is fitted to, pale,
+and the part of that it saves over the next best rig, solid, with its error; and under it
+its [`rig_markets`](@ref) there, sold once, grey, and recurring, hatched, with its error.
 """
 function fleet_margin_figure()
     table = class_table()
-    figure = Figure(size=(column_width, 150))
+    figure = Figure(size=(column_width, 220))
     for (k, (drive, title)) in enumerate(drive_panels)
         margins = fleet_margins(fleet_cells(table, drive))
+        markets = rig_markets(table, margins)
         rigs = [rig for rig in class_rigs if haskey(margins, rig)]
         axis = Axis(figure[k, 1]; title, yticks=(eachindex(rigs), rig_label.(rigs)),
-            xlabel=k == length(drive_panels) ? "saving [billion USD a year]" : "",
+            xlabel=k == length(drive_panels) ? "billion USD a year" : "",
             ygridvisible=false, yticksize=0)
         for (i, rig) in enumerate(rigs)
-            (; saved, margin, margin_error) = margins[rig]
             j = findfirst(==(rig), class_rigs)
-            fill_rect!(axis, Rect2f(0, i - 0.35, 1e-9saved, 0.7), range_colour(j))
-            fill_rect!(axis, Rect2f(0, i - 0.35, 1e-9margin, 0.7), palette[j])
-            rangebars!(axis, [i], [1e-9(margin - margin_error)],
-                [1e-9(margin + margin_error)]; direction=:x, color=:black,
-                whiskerwidth=pt(3))
-            text!(axis, 1e-9saved, i; text=margin_label(margin, margin_error, saved),
-                align=(:left, :center), fontsize=note_size,
-                offset=clear_offset((:left, :center), pt(2.5)))
+            margin_bar!(axis, i - 0.2, margins[rig], j)
+            market_bar!(axis, i + 0.2, markets[rig])
         end
         high = 1e-9maximum(entry.saved for entry in values(margins))
         limits!(axis, 0, 1.9high, length(rigs) + 0.5, 0.5)
@@ -2075,15 +2070,71 @@ function fleet_margin_figure()
 end
 
 """
+    margin_bar!(axis, y, margin, j)
+
+Draw on `axis` at `y` the [`fleet_margins`](@ref) entry `margin` of the `j`th rig of
+[`class_rigs`](@ref): its saving against no rig, pale, and its margin over the next best,
+solid, with its error, labelled.
+"""
+function margin_bar!(axis, y, margin, j)
+    (; saved, margin, margin_error) = margin
+    fill_rect!(axis, Rect2f(0, y - 0.17, 1e-9saved, 0.34), range_colour(j))
+    fill_rect!(axis, Rect2f(0, y - 0.17, 1e-9margin, 0.34), palette[j])
+    error_bar!(axis, y, margin, margin_error)
+    text!(axis, 1e-9saved, y; text=margin_label(margin, margin_error, saved),
+        align=(:left, :center), fontsize=note_size,
+        offset=clear_offset((:left, :center), pt(2.5)))
+end
+
+"""
+    market_bar!(axis, y, market)
+
+Draw on `axis` at `y` the [`market_sum`](@ref) `market`: what the rig's makers sell a year
+once, grey, and recurring, hatched, with the error of the recurring, labelled.
+"""
+function market_bar!(axis, y, market)
+    (; once, recurring, error) = market
+    grey = style_colour("guide")
+    fill_rect!(axis, Rect2f(0, y - 0.17, 1e-9once, 0.34), grey)
+    fill_rect!(axis, Rect2f(1e-9once, y - 0.17, 1e-9recurring, 0.34),
+        (background=white, stripe=grey))
+    error_bar!(axis, y, once + recurring, error)
+    text!(axis, 1e-9(once + recurring + error), y; text=market_label(market),
+        align=(:left, :center), fontsize=note_size,
+        offset=clear_offset((:left, :center), pt(2.5)))
+end
+
+"draw on `axis` at `y` the error bar of `value` ± `error` [USD a year]"
+error_bar!(axis, y, value, error) =
+    rangebars!(axis, [y], [1e-9(value - error)], [1e-9(value + error)]; direction=:x,
+        color=:black, whiskerwidth=pt(3))
+
+"""
     margin_label(margin, error, saved)
 
 Label of a rig's `margin` [USD a year] over the next best, as an [`estimate_text`](@ref),
 with its `error` to the same place, of its `saved` [USD a year] against no rig.
 """
-function margin_label(margin, error, saved)
-    places = max(0, 1 - floor(Int, log10(abs(rounded_estimate(1e-9margin)))))
-    return @sprintf("USD %s ± %.*f bn of %s bn", estimate_text(1e-9margin), places,
-        1e-9error, estimate_text(1e-9saved))
+margin_label(margin, error, saved) = @sprintf("USD %s bn of %s bn",
+    error_text(margin, error), estimate_text(1e-9saved))
+
+"""
+    market_label(market)
+
+Label of a [`market_sum`](@ref) `market` [USD a year]: what the rig's makers sell, and of
+that the recurring part with its error.
+"""
+market_label((; once, recurring, error)) = @sprintf("makers USD %s bn, %s recurring",
+    estimate_text(1e-9(once + recurring)), error_text(recurring, error))
+
+"""
+    error_text(value, error)
+
+`value` [USD] in billions as an [`estimate_text`](@ref), with its `error` to the same place.
+"""
+function error_text(value, error)
+    places = max(0, 1 - floor(Int, log10(abs(rounded_estimate(1e-9value)))))
+    return @sprintf("%s ± %.*f", estimate_text(1e-9value), places, 1e-9error)
 end
 
 """
