@@ -2302,6 +2302,18 @@ WindShipOpt.known_weather(source::FixedForecast, weather, time) = source.weather
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly))
 end
 
+@testset "a leg's trace sails on once the ship has held through a gale" begin
+    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=720.0,
+        lateral_spacing=480.0)
+    departure = 24.0 * 31
+    weather = GaleWeather(SyntheticWeather(), departure + 10.0)
+    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly)
+    trace = LegTrace(table.table, sailed, weather, departure)
+    @test all(isfinite, trace.hours)
+    @test first(trace.time) == 12.0
+    @test sum(trace.hours) ≈ sailed.duration - 12.0
+end
+
 """
 Synthetic weather with the gale of `GaleWeather` within a nautical mile of `place`
 (latitude, longitude) [deg] from `from` until `until` [h], and calm elsewhere.

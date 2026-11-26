@@ -1621,6 +1621,28 @@ function flight_table()
 end
 
 """
+    flight_numbers_file()
+
+Write as `\\NumFlight...` macros to paper/sections/flight_numbers.tex, of flight.csv, how
+many cases have a kite, the share of their hours it is up [%] and the share of its hours up
+in which it gives no thrust [%].
+"""
+function flight_numbers_file()
+    table = read_table(data_file("flight.csv"))
+    kite = rows(table, "rig" => "kite")
+    total(column) = sum(table[column][kite])
+    cases = unique(zip((table[column][kite] for column in ("route", "drive", "length"))...))
+    numbers = ["FlightCases" => string(length(cases)),
+        "FlightUpShare" => whole_number(100total("flying") / total("hours")),
+        "FlightIdleShare" => one_decimal(100(1 - total("pulling") / total("flying")))]
+    write_whole(joinpath(sections, "flight_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro(name, text, paper_run.fidelity != :final))
+        end
+    end
+end
+
+"""
     kite_share(table, column, angle, speeds)
 
 Share [%] of the kite's hours in true wind angle band `angle` at the ship speed bands
@@ -1648,8 +1670,8 @@ function write_flight_row(io, table, (angle, label))
     cells = (@sprintf("%.0f", 100kite_hours /
                               sum(table["hours"][rows(table, "rig" => "kite")])),
         share("available"), share("flying"), share("pulling"),
-        @sprintf("\\(%.0f\\)",
-            sum(table["thrust_hours"][kite]) / sum(table["flying"][kite])),
+        @sprintf("\\(%d\\)",
+            round(Int, sum(table["thrust_hours"][kite]) / sum(table["flying"][kite]))),
         (kite_share(table, column, angle, speeds)
          for speeds in ((8,), (10,), (12, 14)), column in ("available", "flying"))...,
         @sprintf("%.1f", sum(table["distance"][bare]) / sum(table["hours"][bare])),
