@@ -1160,10 +1160,16 @@ end
 end
 
 @testset "a kite and the rotors beside it trim jointly to the least engine output" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0), assumptions)
+    design = ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0)
     speed = 10.5KNOT
     weights = range(0.0, 3.0; length=31)
-    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+    # a wider-turning kite in more shear puts a trim the ship cannot hold beside the best
+    wider_turns = with_value(with_value(assumptions, :kite_min_turn_radius, 3.0),
+        :wind_shear_exponent, 0.06)
+    cases = [[(assumptions, wind, angle) for wind in (10.0, 16.0)
+              for angle in deg2rad.(45:15:165)]; (wider_turns, 16.0, deg2rad(60))]
+    for (inputs, wind, angle) in cases
+        ship = Ship(design, inputs)
         spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
         bare = engine_output(ship, speed,
             WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
