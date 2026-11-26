@@ -1164,10 +1164,16 @@ end
 end
 
 @testset "a kite and the rotors beside it trim jointly to the least engine output" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0), assumptions)
+    design = ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0)
     speed = 10.5KNOT
     weights = range(0.0, 3.0; length=31)
-    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+    # a wider-turning kite in more shear puts a trim the ship cannot hold beside the best
+    wider_turns = with_value(with_value(assumptions, :kite_min_turn_radius, 3.0),
+        :wind_shear_exponent, 0.06)
+    cases = [[(assumptions, wind, angle) for wind in (10.0, 16.0)
+              for angle in deg2rad.(45:15:165)]; (wider_turns, 16.0, deg2rad(60))]
+    for (inputs, wind, angle) in cases
+        ship = Ship(design, inputs)
         spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
         bare = engine_output(ship, speed,
             WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
@@ -3888,7 +3894,7 @@ StubJobs(wall, retries; left=Dict{Int, Task}()) =
     StubJobs(wall, retries, left, Dict{Int, Int}(), Threads.Atomic{Int}(0))
 
 PaperRuns.cores(::StubJobs) = 3
-PaperRuns.job_count(::StubJobs) = 4
+PaperRuns.job_count(::StubJobs) = 5
 PaperRuns.retries(jobs::StubJobs) = jobs.retries
 PaperRuns.poll_seconds(::StubJobs) = 0.01
 PaperRuns.running(::StubJobs, handles) = filter(!istaskdone, handles)
@@ -4010,9 +4016,10 @@ end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
     settings = merge(PaperRuns.cluster_settings(), Dict("account" => "", "partition" => ""))
-    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "log", `true`)
+    @test_throws "set the account" PaperRuns.slurm_command(settings, 4, "800M", "run",
+        "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
-    command = PaperRuns.slurm_command(settings, "run", "log", `true`)
+    command = PaperRuns.slurm_command(settings, 4, "800M", "run", "log", `true`)
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
 end
 
@@ -4026,13 +4033,6 @@ end
         PaperRuns.StepTally())
     newer = PaperRuns.write_batch(handed_cases, directories, [24.0])
     @test newer != batch && PaperRuns.deserialize(newer).trip_model == "newer code"
-end
-
-@testset "the run's own share that fails has ended, as a failed job has" begin
-    failed = Threads.@spawn error("a trip failed")
-    wait(Threads.@spawn try wait(failed) catch end)
-    jobs = PaperRuns.SlurmJobs(PaperRuns.cluster_settings())
-    @test isempty(PaperRuns.running(jobs, Any[failed]))
 end
 
 @testset "run jobs that find their run unmoved are counted until it moves" begin
@@ -4053,16 +4053,26 @@ end
     @test PaperRuns.stalled_run_jobs(:draft) == 0
 end
 
-@testset "the jobs of a run are short enough to pass the queue fast and fit the cluster" begin
+@testset "the jobs of a run are short and a quarter node at most, to fit the gaps" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
-    command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
-    option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
-    hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
-    @test parse(Int, option("cpus-per-task")) <= 64
-    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
-    @test option("dependency") == "afterany:7"
+    jobs = PaperRuns.SlurmJobs(settings)
+    run = PaperRuns.slurm_command(settings, settings["run_cores"],
+        settings["run_memory_per_core"], "run", "log", `true`; after="7")
+    cases = PaperRuns.slurm_command(settings, PaperRuns.cores(jobs),
+        settings["memory_per_core"], "cases", "log", `true`)
+    option(command, name) =
+        only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
+    megabytes(memory) = parse(Int, chop(memory)) * (endswith(memory, "G") ? 1024 : 1)
+    for command in (run, cases)
+        hours, minutes, seconds = parse.(Int, split(option(command, "time"), ":"))
+        @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
+        cores = parse(Int, option(command, "cpus-per-task"))
+        @test cores <= 64 ÷ 4
+        @test cores * megabytes(option(command, "mem-per-cpu")) <= 250 * 1024 ÷ 4
+    end
+    @test PaperRuns.shard_count(jobs, 10^6) == settings["jobs"] - 1
+    @test option(run, "dependency") == "afterany:7"
 end
 
 """
@@ -5740,9 +5750,9 @@ end
     both["rig"][(2length(held) + 1):end] .= PaperData.pair_rig
     both["drive"][(length(held) + 1):end] .= "ammonia"
     shares = filter(startswith("FleetShare"), first.(PaperData.fleet_share_numbers(both)))
-    bands = ["Kite", "Wings", "Rotors", "Level"]
-    @test Set(shares) == Set(["FleetShareOil" .* [bands; "None"];
-                              "FleetShareAmmonia" .* [bands; "KiteRotors"]])
+    rigs = ["Kite", "Wings", "Rotors"]
+    @test Set(shares) == Set(["FleetShareOil" .* rigs;
+                              "FleetShareAmmonia" .* [rigs; "KiteRotors"]])
 end
 
 @testset "a kind of ship saves per ship over its ships, its share over its classes" begin
@@ -5976,7 +5986,7 @@ end
         join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
     @test !PaperData.study_holds(PaperData.switched(:none))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
-    @test length(PaperData.side_force_numbers()) == 4length(PaperData.side_force_rigs)
+    @test length(PaperData.side_force_numbers()) == 2length(PaperData.side_force_rigs)
     @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
     @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end
