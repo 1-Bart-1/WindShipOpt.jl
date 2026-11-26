@@ -2623,52 +2623,13 @@ end
     model_parts_data()
 
 Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, whole and with
-each of [`simplified_parts`](@ref) switched off: model_parts.csv; the leeway each rig sails
-at, by [`write_leeway`](@ref): leeway.csv.
+each of [`simplified_parts`](@ref) switched off: model_parts.csv.
 """
 function model_parts_data()
     cases = [case for ship_case in sensitivity_ships(), part in (:none, simplified_parts...)
              for case in rig_cases(ship_case...; part)]
-    write_leeway("leeway.csv")
     write_trips("model_parts.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :rig, :part)
-end
-
-"""
-    write_leeway(name)
-
-Write `name` with the leeway of each rigged ship of [`sensitivity_ships`](@ref), whole, over
-the hours of its [`traced_legs`](@ref): the median and 95th percentile [deg] and the share
-of hours within half a degree of `leeway_limit` [-].
-"""
-function write_leeway(name)
-    cases = [case for ship_case in sensitivity_ships() for case in rig_cases(ship_case...)
-             if case.rig != "none"]
-    traces = fetch.([Threads.@spawn last.(traced_legs(Ship(case.design, assumptions),
-                         case.route)) for case in cases])
-    limit = assumptions[:leeway_limit]
-    open(run_file(name), "w") do io
-        println(io, "ship,rig,median,high,at_limit")
-        for (case, legs) in zip(cases, traces)
-            leeway = rad2deg.(reduce(vcat, (trace.leeway for trace in legs)))
-            hours = reduce(vcat, (trace.hours for trace in legs))
-            @printf(io, "%s,%s,%.2f,%.2f,%.4f\n", case.ship, case.rig,
-                weighted_quantile(leeway, hours, 0.5),
-                weighted_quantile(leeway, hours, 0.95),
-                sum(hours[leeway .>= limit - 0.5]) / sum(hours))
-        end
-    end
-end
-
-"""
-    weighted_quantile(values, weights, share)
-
-The smallest of `values` below which at least `share` of the total `weights` lies.
-"""
-function weighted_quantile(values, weights, share)
-    order = sortperm(values)
-    k = findfirst(>=(share * sum(weights)), cumsum(weights[order]))
-    return values[order[k]]
 end
 
 """
