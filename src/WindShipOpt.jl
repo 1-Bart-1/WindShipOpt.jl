@@ -20,14 +20,14 @@ using TOML: TOML
 using YAML: YAML
 
 export Assumption, Assumptions, with_value, at_today, inputs_read
-export Environment, Hull, WaveCoefficients, resistance, wetted_surface, form_factor
-export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
+export Environment, Hull, WaveCoefficients, resistance, wetted_surface
+export SeakeepingHull, added_resistance_coefficient
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
 export Propeller, Powertrain, delivered_power
 export ShipDesign, Ship, Fuel, fuel_power
 export PerformanceTable, RouteTable
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
-export Corridor, return_corridor, route_corridors, centre_index, Leg, route
+export Corridor, route_corridors, centre_index, Leg, route
 export SearchRecord, kept_states, through_node
 export ForecastArchive, ArchivedForecast, ForecastError, ExpectedForecast
 export ReplannedForecast

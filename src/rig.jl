@@ -1022,18 +1022,6 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
 end
 
 """
-    table_weights(grid, value)
-
-Index of the grid interval holding `value` and the weight of its upper end; the one
-point and no weight on a grid of one point.
-"""
-function table_weights(grid, value)
-    isone(length(grid)) && return 1, 0.0
-    i = clamp(searchsortedlast(grid, value), 1, length(grid) - 1)
-    return i, clamp((value - grid[i]) / (grid[i + 1] - grid[i]), 0.0, 1.0)
-end
-
-"""
     rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, side_weight)
 
 Force of the best pattern for `side_weight`, interpolated in newtons over apparent wind
@@ -1046,13 +1034,12 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     max(rig.min_flight_wind, first(rig.wind_speeds)) <= speed <= rig.max_wind ||
         return NO_RIG_FORCE
-    i, speed_weight = table_weights(rig.wind_speeds, speed)
-    j, course_weight = table_weights(rig.courses, π - angle)
-    k, side_fraction = table_weights(rig.side_weights, side_weight)
+    rows = KnotWeight(rig.wind_speeds, speed)
+    columns = KnotWeight(rig.courses, π - angle)
+    layers = KnotWeight(rig.side_weights, side_weight)
     downwind, crosswind = 0.0, 0.0
-    for (row, row_weight) in ((i, 1 - speed_weight), (i + 1, speed_weight)),
-        (column, column_weight) in ((j, 1 - course_weight), (j + 1, course_weight)),
-        (layer, layer_weight) in ((k, 1 - side_fraction), (k + 1, side_fraction))
+    for (row, row_weight) in knot_ends(rows), (column, column_weight) in knot_ends(columns),
+        (layer, layer_weight) in knot_ends(layers)
 
         weight = row_weight * column_weight * layer_weight
         iszero(weight) && continue
