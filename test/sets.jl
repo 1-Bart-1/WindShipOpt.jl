@@ -4923,35 +4923,79 @@ end
     @test 2.0^(45 / 4) ∉ grid
 end
 
+"""
+    searched_points(cost, starts, grid)
+
+The (area, cost) points a size search on `grid` routes from the areas `starts`, with the
+cost of each area given by the function `cost`.
+"""
+function searched_points(cost, starts, grid)
+    points = [(area, cost(area)) for area in starts]
+    sizes = PaperData.next_sizes(points, grid)
+    while !isempty(sizes)
+        @test !any(area -> any(point -> first(point) ≈ area, points), sizes)
+        append!(points, [(area, cost(area)) for area in sizes])
+        sizes = PaperData.next_sizes(points, grid)
+    end
+    return points
+end
+
+@testset "a size search with no guess starts from every doubling and both bounds" begin
+    @test PaperData.coarse_sizes(PaperData.size_grid(500.0, 2441.4)) ≈
+          [500.0, 2^10.0, 2^11.0, 2441.4]
+    @test PaperData.coarse_sizes(PaperData.size_grid(800.0, 800.0)) == [800.0]
+end
+
 @testset "a size search whose best is a bound next tries the size just inside it" begin
     grid = PaperData.size_grid(500.0, 16000.0)
-    @test PaperData.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
-          grid[end - 1]
-    @test PaperData.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
-          grid[2]
+    @test PaperData.next_sizes([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          [grid[end - 1]]
+    @test PaperData.next_sizes([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          [grid[2]]
 end
 
 @testset "a size search confirms its cheapest size once both neighbours cost more" begin
     grid = PaperData.size_grid(500.0, 16000.0)
-    @test isnothing(PaperData.next_size([(grid[k], cost) for (k, cost) in
+    @test isempty(PaperData.next_sizes([(grid[k], cost) for (k, cost) in
                                          ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
-    @test isnothing(PaperData.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
-    @test PaperData.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
-          grid[9:10]
-    @test isnothing(PaperData.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
+    @test isempty(PaperData.next_sizes([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test only(PaperData.next_sizes([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)],
+        grid)) ∈ grid[9:10]
+    @test isempty(PaperData.next_sizes([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search refines every valley among the sizes it has tried" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    points = [(grid[k], cost) for (k, cost) in ((1, 1.0), (8, 3.0), (9, 4.0), (21, 2.0))]
+    @test PaperData.next_sizes(points, grid) ≈ [grid[2], grid[20]]
 end
 
 @testset "a size search from a guess far off still finds the cheapest size" begin
     grid = PaperData.size_grid(500.0, 64000.0)
     for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
-        cost(area) = (log(area / best))^2
-        points = [(area, cost(area)) for area in PaperData.start_sizes(guess, grid)]
-        while (area = PaperData.next_size(points, grid)) !== nothing
-            @test all(point -> !(first(point) ≈ area), points)
-            push!(points, (area, cost(area)))
-        end
+        points = searched_points(area -> log(area / best)^2,
+            PaperData.start_sizes(guess, grid), grid)
         @test first(points[argmin(last.(points))]) ≈
               grid[PaperData.nearest_step(grid, best)]
+    end
+end
+
+@testset "a size search with no guess finds the cheaper of two valleys" begin
+    grid = PaperData.size_grid(50.0, 2715.0)
+    # wing sails on a feeder container ship in raised pairs: USD per 1000 tonne-km
+    areas = log.([50.0, 108.0, 215.0, 512.0, 1024.0, 2048.0, 2715.0])
+    costs = [10.713, 10.705, 10.676, 10.715, 10.762, 10.777, 10.772]
+    measured(area) = begin
+        k = clamp(searchsortedlast(areas, log(area)), 1, length(areas) - 1)
+        share = (log(area) - areas[k]) / (areas[k + 1] - areas[k])
+        costs[k] + share * (costs[k + 1] - costs[k])
+    end
+    valleys = [area -> min(log(area / small)^2, 0.5log(area / large)^2 + depth)
+               for small in (60.0, 80.0, 120.0), large in (1000.0, 2000.0),
+               depth in (-0.1, 0.1)]
+    for cost in [measured; vec(valleys)]
+        points = searched_points(cost, PaperData.coarse_sizes(grid), grid)
+        @test minimum(last.(points)) == minimum(cost.(grid))
     end
 end
 
@@ -6035,9 +6079,9 @@ costed(cost) = cases -> [isfinite(cost(case.key, case.area)) ?
                          (; cost_per_tonne_km=cost(case.key, case.area)) : nothing
                          for case in cases]
 
-"size search of `key` over `grid` from `guess`, its cases the key and area tried"
-fake_search(key, grid, guess) =
-    (; grid, guess, sized=(area, round) -> (; key, area, round))
+"size search of `key` over `grid` about `guess`, its cases the key and area tried"
+fake_search(key, grid, guess) = (; grid, starts=PaperData.start_sizes(guess, grid),
+    sized=(area, round) -> (; key, area, round))
 
 @testset "a size search keeps apart classes of one name with cargo of different value" begin
     class = ship_classes()["Kamsarmax bulk carrier"]

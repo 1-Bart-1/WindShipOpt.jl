@@ -1015,40 +1015,6 @@ function size_bounds(class)
         (rig => (lower, upper) for (rig, (lower, upper)) in bounds if lower <= upper)...)
 end
 
-"guessed cheapest rig sizes of the class study, data/size_guesses.csv"
-size_guess_file = joinpath(@__DIR__, "..", "data", "size_guesses.csv")
-
-"""
-    size_guesses()
-
-Guessed cheapest area [m^2] of each rig on each ship class and route, keyed by class name,
-rig and route, from `size_guess_file`.
-"""
-function size_guesses()
-    table = read_table(size_guess_file)
-    return Dict((class, rig, Symbol(route)) => area for (class, rig, route, area) in
-                zip(table["class"], table["rig"], table["route"], table["area"]))
-end
-
-"""
-    write_size_guesses(table)
-
-Write to `size_guess_file` the cheapest area of each rig on each class and route on the
-headline drive, the last of [`study_drives`](@ref), in the class table `table`.
-"""
-function write_size_guesses(table)
-    drive = string(last(study_drives))
-    searches = unique(zip(table["class"], table["rig"], table["route"]))
-    open(size_guess_file, "w") do io
-        println(io, "class,rig,route,area")
-        for (class, rig, route) in sort(filter(search -> search[2] != "none", searches))
-            row = cheapest_row(table, class, route, drive, rig)
-            isnothing(row) || println(io, csv_value(class), ",", rig, ",", route, ",",
-                table["area"][row])
-        end
-    end
-end
-
 """
     largest_rig_area(rig, hull)
 
@@ -1631,9 +1597,10 @@ Cases and round trips of each (class, drive, route) of `ships` without a rig, of
 for the cheapest size of each rig ([`searched_rigs!`](@ref)) and, on each route of the
 (class name, drive name) pairs of `paired` among them, of the search for the cheapest kite
 over rotors ([`searched_pairs!`](@ref)) from the cheapest kite and rotors alone. Each rig is
-searched on the headline drive, the last of [`study_drives`](@ref), from its
-[`size_guesses`](@ref); on another drive from the cheapest size the headline drive's search
-found for the same ship, rig and route, where `ships` holds it, else from the guess as well.
+searched on the headline drive, the last of [`study_drives`](@ref), from the
+[`coarse_sizes`](@ref) of its grid; on another drive from the cheapest size the headline
+drive's search found for the same ship, rig and route, where `ships` holds it, else from the
+coarse sizes as well.
 """
 function searched_sizes(ships; paired=())
     headline = last(study_drives)
@@ -1644,11 +1611,11 @@ function searched_sizes(ships; paired=())
     cases = Any[class_case(class, drive, "none", 0.0, route; round=0)
                 for (class, drive, route) in ships]
     trips = round_trips(cases, sampled_departures())
-    guesses = size_guesses()
     found = searched_rigs!(cases, trips, ships[.!follows],
-        key -> guessed_size(guesses, key...))
+        (key, grid) -> coarse_sizes(grid))
     merge!(found, searched_rigs!(cases, trips, ships[follows],
-        ((class, drive, rig, route),) -> found[(class, headline, rig, route)]))
+        ((class, drive, rig, route), grid) ->
+            start_sizes(found[(class, headline, rig, route)], grid)))
     searched_pairs!(cases, trips, [(class, drive, route) for (class, drive, route) in ships
                                    if (class.name, string(drive)) in paired], found)
     return cases, trips
@@ -1687,24 +1654,15 @@ function write_pair_cases(run)
 end
 
 """
-    guessed_size(guesses, class, drive, rig, route)
-
-Area [m^2] of `rig` on `class` and `route` in `guesses` of [`size_guesses`](@ref), or the
-geometric middle of its [`size_bounds`](@ref) where they hold none.
-"""
-guessed_size(guesses, class, drive, rig, route) =
-    get(() -> sqrt(prod(size_bounds(class)[rig])), guesses, (class.name, rig, route))
-
-"""
-    searched_rigs!(cases, trips, ships, guess)
+    searched_rigs!(cases, trips, ships, starts)
 
 Search with [`search_sizes!`](@ref) the cheapest size of each rig of
-[`size_bounds`](@ref) on each (class, drive, route) of `ships`, about the area `guess`
-gives for each (class, drive, rig, route). Returns that cheapest area [m^2] by
-(class, drive, rig, route).
+[`size_bounds`](@ref) on each (class, drive, route) of `ships`, from the areas
+`starts(key, grid)` gives for each `key`, a (class, drive, rig, route), and its
+[`size_grid`](@ref). Returns that cheapest area [m^2] by key.
 """
-function searched_rigs!(cases, trips, ships, guess)
-    searches = Dict(key => rig_search(key, bounds, guess(key))
+function searched_rigs!(cases, trips, ships, starts)
+    searches = Dict(key => rig_search(key, bounds, starts)
                     for (class, drive, route) in ships
                     for (rig, bounds) in size_bounds(class)
                     for key in ((class, drive, rig, route),))
@@ -1712,14 +1670,17 @@ function searched_rigs!(cases, trips, ships, guess)
 end
 
 """
-    rig_search(key, bounds, guess)
+    rig_search(key, bounds, starts)
 
 Size search of [`search_sizes!`](@ref) for the rig of `key`, a (class, drive, rig, route),
-between the smallest and largest area [m^2] of `bounds` about `guess` [m^2].
+between the smallest and largest area [m^2] of `bounds`, from the areas
+`starts(key, grid)` gives on its grid.
 """
-function rig_search((class, drive, rig, route), bounds, guess)
+function rig_search(key, bounds, starts)
+    class, drive, rig, route = key
     sized(area, round) = class_case(class, drive, rig, area, route; round)
-    return (; grid=size_grid(bounds...), guess, sized)
+    grid = size_grid(bounds...)
+    return (; grid, starts=starts(key, grid), sized)
 end
 
 """
@@ -1789,17 +1750,18 @@ function pair_search(ship, sizes, varied)
         kite_area, rotor_area = Base.setindex(sizes, area, varied)
         return class_case(class, drive, pair_rig, kite_area, route; rotor_area, round)
     end
-    return (; grid=size_grid(bounds...), guess=sizes[varied], sized)
+    grid = size_grid(bounds...)
+    return (; grid, starts=start_sizes(sizes[varied], grid), sized)
 end
 
 """
     search_sizes!(cases, trips, searches; routed)
 
 Search the cheapest area of each of `searches`, keyed by anything, each a `grid` of areas
-[m^2] from [`size_grid`](@ref), a `guess` [m^2] and `sized(area, round)` the case of an
-area: the [`start_sizes`](@ref) about the guess, then in rounds the [`next_size`](@ref) of
-every search until each is confirmed, each case tagged with the `round` that added it, 0
-for the starting sizes. The cases tried and their round trips, `routed(cases)`, by default
+[m^2] from [`size_grid`](@ref), the areas it `starts` from and `sized(area, round)` the
+case of an area: the starting areas, then in rounds the [`next_sizes`](@ref) of every
+search until each is confirmed, each case tagged with the `round` that added it, 0 for
+the starting areas. The cases tried and their round trips, `routed(cases)`, by default
 over the [`sampled_departures`](@ref), are added to `cases` and `trips`; infeasible trips
 cost `Inf`. Returns the cheapest area [m^2] by key.
 """
@@ -1807,7 +1769,7 @@ function search_sizes!(cases, trips, searches;
         routed=batch -> round_trips(batch, sampled_departures()))
     points = Dict(key => Tuple{Float64, Float64}[] for key in keys(searches))
     batch = [(key, area, search.sized(area, 0)) for (key, search) in searches
-             for area in start_sizes(search.guess, search.grid)]
+             for area in search.starts]
     round = 0
     while !isempty(batch)
         found = routed(last.(batch))
@@ -1818,9 +1780,8 @@ function search_sizes!(cases, trips, searches;
         end
         round += 1
         batch = []
-        for (key, search) in searches
-            area = next_size(points[key], search.grid)
-            isnothing(area) || push!(batch, (key, area, search.sized(area, round)))
+        for (key, search) in searches, area in next_sizes(points[key], search.grid)
+            push!(batch, (key, area, search.sized(area, round)))
         end
     end
     return Dict(key => first(tried[argmin(last.(tried))]) for (key, tried) in points)
