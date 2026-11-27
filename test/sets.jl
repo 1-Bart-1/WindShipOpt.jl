@@ -4930,6 +4930,19 @@ end
         Dict("kite" => 2.1))
 end
 
+@testset "a launch wears out of the kite all it costs but the crew and the turn" begin
+    hull = Hull(140.0, assumptions)
+    soft = uniform_kite(hull, assumptions)
+    @test WindShipOpt.cycle_cost(soft, assumptions) -
+          WindShipOpt.cycle_wear_cost(soft, assumptions) ≈
+          assumptions[:kite_cycle_crew_cost] + assumptions[:kite_cycle_course_cost]
+    rigid = rigid_test_kite(assumptions)
+    @test WindShipOpt.cycle_cost(rigid, assumptions) -
+          WindShipOpt.cycle_wear_cost(rigid, assumptions) ≈ assumptions[:kite_cycle_crew_cost]
+    @test WindShipOpt.cycle_wear_cost(WindShipOpt.RotorRig(800.0, hull, assumptions),
+        assumptions) == 0
+end
+
 @testset "a rigid kite crashing costs its airframe" begin
     kite = rigid_test_kite(assumptions)
     @test WindShipOpt.crash_cost(kite, assumptions) ≈
@@ -5579,6 +5592,25 @@ end
     @test rotors.margin_error ≈ 0 atol = 1e-12
     @test rotors.saved_error ≈ 2.0
     @test last.(kite.own) == ["rotors", "none"]
+end
+
+@testset "a rig's yearly market adds its cells and errs by the departures' flight hours" begin
+    market = PaperData.market_sum([(once=5.0, recurring=2.0, departures=[1.0, 3.0]),
+        (once=1.0, recurring=2.0, departures=[2.0, 2.0])])
+    @test market.once == 6.0 && market.recurring == 4.0
+    @test market.error ≈ 1.0
+end
+
+@testset "a number the departures do not move is written without an error" begin
+    @test PaperData.error_cell(1.234, 0.0; finest=1) == "\\(1.2\\)"
+    @test PaperData.error_cell(1.234, 0.004; finest=1) == "\\(1.2\\)"
+    @test PaperData.error_cell(1.234, 0.21; finest=1) == "\\(1.2 \\pm 0.2\\)"
+end
+
+@testset "a cell where no rig clearly saves fits none and adds to no rig's margin" begin
+    margins = PaperData.fleet_margins([fleet_cell(100.0, Dict("kite" => 1.0)),
+        fleet_cell(100.0, Dict("kite" => 1.0), Dict("kite" => 5.0))])
+    @test length(margins["kite"].own) == 1 && margins["kite"].saved ≈ 1.0
 end
 
 @testset "a rig is shown where it leads or is level, else given with its best and gap" begin

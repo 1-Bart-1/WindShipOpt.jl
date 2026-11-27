@@ -767,19 +767,29 @@ end
 """
     cycle_cost(rig, assumptions)
 
-Cost of one launch and landing of a kite [USD]: the crew time, the canopy life its flogging
-uses up, the expected [`crash_cost`](@ref) of a kite lost, any turn for the launch and the
-[`tether_bending_cost`](@ref); zero for other rigs.
+Cost of one launch and landing of a kite [USD]: the crew time, any turn for the launch and
+its [`cycle_wear_cost`](@ref); zero for other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
+cycle_cost(rig::KiteRig, assumptions) = assumptions[:kite_cycle_crew_cost] +
+    assumptions[:kite_cycle_course_cost] + cycle_wear_cost(rig, assumptions)
 
-function cycle_cost(rig::KiteRig, assumptions)
+"""
+    cycle_wear_cost(rig, assumptions)
+
+What one launch and landing uses up of the kite of `rig` [USD]: the canopy life its
+flogging uses up, the expected [`crash_cost`](@ref) of a kite lost and the
+[`tether_bending_cost`](@ref); zero for other rigs.
+"""
+cycle_wear_cost(rig, assumptions) = 0.0
+cycle_wear_cost(rig::CombinedRig, assumptions) = cycle_wear_cost(rig.kite, assumptions)
+
+function cycle_wear_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return assumptions[:kite_cycle_crew_cost] +
-           assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] * canopy +
+    return assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] * canopy +
            assumptions[:kite_launch_loss_probability] * crash_cost(rig, assumptions) +
-           assumptions[:kite_cycle_course_cost] + tether_bending_cost(tether, assumptions)
+           tether_bending_cost(tether, assumptions)
 end
 
 """
@@ -818,11 +828,14 @@ wear_cost(rig::KiteRig{RigidAirframe}, assumptions) =
 """
     cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
 
-Cost of launching and landing the kite of `rig` once [USD]: crew time and the expected
-loss of a kite.
+Cost of launching and landing the kite of `rig` once [USD]: crew time and its
+[`cycle_wear_cost`](@ref).
 """
 cycle_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    assumptions[:kite_cycle_crew_cost] +
+    assumptions[:kite_cycle_crew_cost] + cycle_wear_cost(rig, assumptions)
+
+"[`cycle_wear_cost`](@ref) of a rigid kite: the expected loss of a kite [USD]"
+cycle_wear_cost(rig::KiteRig{RigidAirframe}, assumptions) =
     assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
 
 """
