@@ -1012,12 +1012,12 @@ kite_min_elevation:
   source: "Authors' estimate: clear of the waves and the superstructure"
   reason: "Authors' estimate: lowest tether elevation of a pattern, keeping the kite clear of the waves and the ship's superstructure."
 kite_min_turn_radius:
-  value: 3.0
+  value: 2.4
   low: 1.9
-  high: 5.5
+  high: 3.0
   unit: "-"
-  source: "@erhard2013 [Eq. 7]: SkySails turn rate law"
-  reason: "Smallest radius of the kite's path through the air over its projected span: the SkySails turn rate law gives a yaw rate of g times airspeed times the steering deflection delta, so a turn radius 1/(g delta), with g = 0.03-0.05 rad/m for the kite of 160 m^2 flat, 125 m^2 projected, and curve deflections delta of 40-70 % of the steering range [@erhard2013, Eq. 7, Section VIII]; 1/(0.04 x 0.55) = 45 m, with bounds 29 m and 83 m, over that kite's projected span of 15.2 m [@folkersma2020, Table 1]."
+  source: "@erhard2013 [Eq. 7]: SkySails' tightest flown turn"
+  reason: "Smallest radius of the kite's path through the air over its projected span: the SkySails turn rate law gives a yaw rate of g times airspeed times the steering deflection delta, so a turn radius 1/(g delta), with g = 0.03-0.05 rad/m for the kite of 160 m^2 flat, 125 m^2 projected, and curve deflections delta of 40-70 % of the steering range [@erhard2013, Eq. 7, Section VIII]. The smallest radius takes the largest deflection flown: 1/(0.04 x 0.70) = 36 m over that kite's projected span of 15.2 m [@folkersma2020, Table 1], 2.4 spans; the low bound is 29 m at g = 0.05, 1.9 spans, the high bound 45 m at the middle deflection of 55 %, 3.0 spans."
 kite_stall_margin:
   value: 2.0
   unit: deg

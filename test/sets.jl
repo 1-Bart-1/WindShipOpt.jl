@@ -1848,7 +1848,7 @@ end
     skysails_aspect_ratio = 15.2^2 / 125.0
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
     @test spans(small.min_turn_radius, 125.0, 3.0) ≈
-          spans(45.0, 125.0, skysails_aspect_ratio) rtol = 0.05
+          spans(36.0, 125.0, skysails_aspect_ratio) rtol = 0.05
     longest = WindShipOpt.with_value(assumptions, :tether_length_ratio,
         assumptions.entries[:tether_length_ratio].high)
     large, = WindShipOpt.kite_model(250.0, 3.0, longest)
