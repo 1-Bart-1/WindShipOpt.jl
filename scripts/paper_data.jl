@@ -4,6 +4,8 @@
 # Data steps of the paper: each runs one study and writes its data files to the directory
 # of the run in use. Included by paper.jl.
 
+using WindShipOpt: with_changed
+
 "drives compared where the drive is a dimension of the study"
 study_drives = (:vlsfo, :ammonia)
 
@@ -54,14 +56,17 @@ end
 """
     case_routing(case)
 
-What routing one departure of `case` takes: the [`DepartureRouting`](@ref) of its ship and
-what it plans on; `nothing` where its ship does not exist.
+What routing one departure of `case` takes: the [`DepartureRouting`](@ref) of its ship,
+out and back with its model part switched off, and what it plans on; `nothing` where its
+ship does not exist.
 """
 function case_routing(case)
-    ship = case_ship(case)
+    ship = Ship(case.design, case.assumptions; case.route)
     isnothing(ship) && return nothing
-    routing = WindShipOpt.DepartureRouting(ship, first(case.corridors), case.assumptions;
-        case.held_knots)
+    out, back = simplified_ship.((ship, WindShipOpt.return_ship(ship, case.assumptions)),
+        case.part)
+    routing = WindShipOpt.DepartureRouting(out, first(case.corridors), case.assumptions;
+        case.held_knots, back_ship=back)
     return (; routing, forecast=forecast_source(case.forecast))
 end
 
@@ -602,16 +607,16 @@ function angle_sums(name, rig, area)
     ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), assumptions;
         route=name)
     bare = Ship(ShipDesign(:ammonia, 140.0), assumptions; route=name)
-    table = PerformanceTable(ship, assumptions)
+    tables = leg_tables(ship)
     out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions)
-    route_table = RouteTable(table)
+    route_tables = RouteTable.(tables)
     sums, legs = Dict{Tuple{String, String}, NTuple{3, Float64}}(), []
     traced = map(sampled_departures()) do departure
-        trip = out_and_back(route_table, name, departure, (out_hourly, back_hourly))
+        trip = out_and_back(route_tables, name, departure, (out_hourly, back_hourly))
         isnothing(trip) && return nothing
-        out_trace = LegTrace(table, trip.out, weather, departure)
-        back_trace = LegTrace(table, trip.back, weather, trip.back_departure)
+        out_trace = LegTrace(first(tables), trip.out, weather, departure)
+        back_trace = LegTrace(last(tables), trip.back, weather, trip.back_departure)
         add_leg!(sums, out_trace, "out")
         add_leg!(sums, back_trace, "home")
         push!(legs, (trip.out, trip.back))
@@ -621,18 +626,20 @@ function angle_sums(name, rig, area)
 end
 
 """
-    out_and_back(route_table, name, departure, hourly)
+    out_and_back(route_tables, name, departure, hourly)
 
-The legs `out` and `back` routed on the true weather on route `name` from `departure` [h]
-and after the [`turnaround`](@ref), at time costs `hourly` [USD/h] out and back, and the time
-`back_departure` [h] the return leaves; `nothing` if either leg fails.
+The legs `out` and `back` routed on the outbound and return `route_tables` on the true
+weather on route `name` from `departure` [h] and after the [`turnaround`](@ref), at time
+costs `hourly` [USD/h] out and back, and the time `back_departure` [h] the return leaves;
+`nothing` if either leg fails.
 """
-function out_and_back(route_table, name, departure, hourly)
+function out_and_back(route_tables, name, departure, hourly)
     out_corridor, back_corridor = corridors(name)
-    out = route(out_corridor, route_table, weather, departure; time_cost=first(hourly))
+    out = route(out_corridor, first(route_tables), weather, departure;
+        time_cost=first(hourly))
     isnothing(out) && return nothing
-    back_departure = departure + turnaround(route_table, out_corridor)
-    back = route(back_corridor, route_table, weather, back_departure;
+    back_departure = departure + turnaround(first(route_tables), out_corridor)
+    back = route(back_corridor, last(route_tables), weather, back_departure;
         time_cost=last(hourly))
     isnothing(back) && return nothing
     return (; out, back, back_departure)
@@ -690,8 +697,7 @@ function route_tracks_data()
         (_, departure), name, area = cases[k]
         ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions; route=name)
         hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
-        trips[k] = out_and_back(RouteTable(PerformanceTable(ship, assumptions)), name,
-            departure, hourly)
+        trips[k] = out_and_back(RouteTable.(leg_tables(ship)), name, departure, hourly)
         isnothing(trips[k]) &&
             error("no round trip on $name from $departure h with $area m^2 of kite")
     end
@@ -1939,6 +1945,15 @@ end
 "hours a ship spends per port call [h]"
 port_hours() = 24assumptions[:port_time_per_call]
 
+"""
+    leg_tables(ship, inputs=assumptions)
+
+[`PerformanceTable`](@ref)s of `ship` under `inputs` on its outbound leg and, as
+[`return_ship`](@ref WindShipOpt.return_ship), on its return.
+"""
+leg_tables(ship, inputs=assumptions) =
+    PerformanceTable.((ship, WindShipOpt.return_ship(ship, inputs)), Ref(inputs))
+
 "[`turnaround_hours`](@ref) [h] of the ship of `route_table` through `outbound`"
 turnaround(route_table, outbound) =
     WindShipOpt.turnaround_hours(route_table.table.ship, outbound, assumptions)
@@ -2256,7 +2271,7 @@ end
 `nothing` where `trip` is.
 """
 recosted_trip(case, trip) = isnothing(trip) ? nothing :
-    WindShipOpt.with_changed(trip; cost_per_tonne_km=changed_cost(case, trip),
+    with_changed(trip; cost_per_tonne_km=changed_cost(case, trip),
     departures=empty(trip.departures))
 
 """
@@ -2546,27 +2561,26 @@ together, and `:weak_hull` takes the hull's side-force slope at the low bound of
 `hull_side_force_factor`.
 """
 function simplified_ship(ship, part)
-    changed = WindShipOpt.with_changed
     part == :none && return ship
     part == :calibration &&
-        return changed(ship; hull=changed(ship.hull; resistance_factor=1.0))
+        return with_changed(ship; hull=with_changed(ship.hull; resistance_factor=1.0))
     if part == :waves
         # the first two SNNM constants scale the motion and the reflection part
         x = (0.0, 0.0, ship.seakeeping.x[3:end]...)
-        return changed(ship; seakeeping=changed(ship.seakeeping; x))
+        return with_changed(ship; seakeeping=with_changed(ship.seakeeping; x))
     end
     part == :windage &&
-        return changed(ship;
-            windage=changed(ship.windage; frontal_area=0.0, lateral_area=eps()))
+        return with_changed(ship;
+            windage=with_changed(ship.windage; frontal_area=0.0, lateral_area=eps()))
     part == :limits &&
-        return changed(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
-    part == :rudder && return changed(ship; rudder_aspect_ratio=Inf)
+        return with_changed(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
+    part == :rudder && return with_changed(ship; rudder_aspect_ratio=Inf)
     part == :side_force &&
-        return changed(ship; hull=changed(ship.hull; side_force_factor=Inf),
+        return with_changed(ship; hull=with_changed(ship.hull; side_force_factor=Inf),
             rudder_aspect_ratio=Inf)
     part == :weak_hull &&
-        return changed(ship;
-            hull=changed(ship.hull;
+        return with_changed(ship;
+            hull=with_changed(ship.hull;
                 side_force_factor=assumptions.entries[:hull_side_force_factor].low))
     throw(ArgumentError("no model part $part"))
 end
@@ -2695,22 +2709,25 @@ function pair_leads(trips, departures)
 end
 
 """
-    traced_round_trip(table, route_table, name, departure, hourly)
+    traced_round_trip(tables, name, departure, hourly)
 
-The legs `out` and `back` [`route_round_trip`](@ref) finds on route `name` from `departure`
-[h] at time costs `hourly` [USD/h], the time `back_departure` [h] the return leaves and the
+The legs `out` and `back` [`route_round_trip`](@ref) finds on the outbound and return
+[`PerformanceTable`](@ref)s `tables` on route `name` from `departure` [h] at time costs
+`hourly` [USD/h], the time `back_departure` [h] the return leaves and the
 [`LegTrace`](@ref) of each leg; `nothing` if either leg fails.
 """
-function traced_round_trip(table, route_table, name, departure, hourly)
+function traced_round_trip(tables, name, departure, hourly)
     outbound, inbound = corridors(name)
-    hours = turnaround(route_table, outbound)
-    trip = WindShipOpt.route_round_trip(route_table, outbound, inbound, weather, departure,
-        hours, hourly, nothing)
+    route_tables = RouteTable.(tables)
+    hours = turnaround(first(route_tables), outbound)
+    trip = WindShipOpt.route_round_trip(route_tables, outbound, inbound, weather,
+        departure, hours, hourly, nothing)
     isnothing(trip) && return nothing
     out, back = trip
     back_departure = departure + hours
-    return (; out, back, back_departure, out_trace=LegTrace(table, out, weather, departure),
-        back_trace=LegTrace(table, back, weather, back_departure))
+    return (; out, back, back_departure,
+        out_trace=LegTrace(first(tables), out, weather, departure),
+        back_trace=LegTrace(last(tables), back, weather, back_departure))
 end
 
 """
@@ -2720,12 +2737,11 @@ Routed round trips of `ship` on route `name` over the sampled departures, as a l
 each leg and its [`LegTrace`](@ref), with hours priced at the ship's time cost.
 """
 function traced_legs(ship, name)
-    table = PerformanceTable(ship, assumptions)
-    route_table = RouteTable(table)
+    tables = leg_tables(ship)
     hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
     legs = []
     for departure in sampled_departures()
-        trip = traced_round_trip(table, route_table, name, departure, hourly)
+        trip = traced_round_trip(tables, name, departure, hourly)
         isnothing(trip) && continue
         push!(legs, (trip.out, trip.out_trace), (trip.back, trip.back_trace))
     end
@@ -2906,32 +2922,34 @@ function speed_choice_data()
 end
 
 """
-    fixed_speed_sums(table, knots, name, hourly)
+    fixed_speed_sums(tables, knots, name, hourly)
 
 [`speed_term_sums`](@ref) of a ship that holds `knots` [kn] by
 [`held_speed_table`](@ref WindShipOpt.held_speed_table) on the fastest track, with `hourly`
-the cost [USD/h] of each leg on the [`PerformanceTable`](@ref) `table`.
+the cost [USD/h] of each leg on its outbound and return [`PerformanceTable`](@ref)s
+`tables`.
 """
-fixed_speed_sums(table, knots, name, hourly) = speed_term_sums(
-    WindShipOpt.held_speed_table(table, knots), name,
+fixed_speed_sums(tables, knots, name, hourly) = speed_term_sums(
+    WindShipOpt.held_speed_table.(tables, knots), name,
     WindShipOpt.HELD_SPEED_TIME_FACTOR .* hourly, nothing)
 
 """
-    speed_term_sums(table, name, hourly, durations)
+    speed_term_sums(tables, name, hourly, durations)
 
 Fuel energy [GJ], hours, kite flight hours and the leg durations of round trips on route
-`name` over the sampled departures on the [`RouteTable`](@ref) `table`, each leg arriving
-by its time in `durations` where given; `nothing` if a passage fails.
+`name` over the sampled departures on the outbound and return [`RouteTable`](@ref)s
+`tables`, each leg arriving by its time in `durations` where given; `nothing` if a passage
+fails.
 """
-function speed_term_sums(table, name, hourly, durations)
+function speed_term_sums(tables, name, hourly, durations)
     corridors_of_route = corridors(name)
     legs = []
     for (k, departure) in enumerate(sampled_departures())
         schedule = isnothing(durations) ? (Inf, Inf) :
                    (durations[2k - 1], durations[2k])
-        pair = WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
-            departure, turnaround(table, first(corridors_of_route)), hourly, nothing;
-            schedule)
+        pair = WindShipOpt.route_round_trip(tables, corridors_of_route..., weather,
+            departure, turnaround(first(tables), first(corridors_of_route)), hourly,
+            nothing; schedule)
         isnothing(pair) && return nothing
         append!(legs, pair)
     end
@@ -3083,7 +3101,7 @@ kite_without_running_cost = foldl((inputs, key) -> with_value(inputs, key, 0.0),
 function fixed_speed_voyage(hull, kite_area, inputs, knots, name)
     ship = Ship(ShipDesign(:vlsfo, hull; kite_area), inputs; route=name)
     hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
-    return fixed_speed_sums(PerformanceTable(ship, inputs), knots, name, hourly)
+    return fixed_speed_sums(leg_tables(ship, inputs), knots, name, hourly)
 end
 
 """
@@ -3199,7 +3217,7 @@ function beluga_crossing_data()
                 paths, course=:shortest, held_knots=knots)
             state = first(case_routing(case).routing.states)
             legs = fetch.([Threads.@spawn WindShipOpt.forecast_route(first(paths),
-                state.table, weather, departure; time_cost=first(state.hourly))
+                first(state.tables), weather, departure; time_cost=first(state.hourly))
                            for departure in sailed])
             for (departure, leg) in zip(sailed, legs)
                 isnothing(leg) && continue
@@ -3261,8 +3279,9 @@ router_decision_ships = (("140 m", :ammonia, (1600.0, 1500.0, 800.0)),
 """
     router_decision_case(ship, drive, rig, area, route)
 
-The route tables of `ship` on `drive` with `area` [m^2] of `rig` and without a rig, the
-time price [USD/h] of each leg of the ship with the rig, and the corridors of `route`.
+The outbound and return route tables of `ship` on `drive` with `area` [m^2] of `rig` and
+without a rig, the time price [USD/h] of each leg of the ship with the rig, and the
+corridors of `route`.
 """
 function router_decision_case(ship, drive, rig, area, route)
     rigged = Ship(ShipDesign(drive, study_hull(ship); rig_size(rig, area)...), assumptions;
@@ -3270,14 +3289,13 @@ function router_decision_case(ship, drive, rig, area, route)
     bare = Ship(ShipDesign(drive, study_hull(ship)), assumptions; route)
     hourly = WindShipOpt.leg_time_costs(first(WindShipOpt.ship_costs(rigged, assumptions)),
         assumptions)
-    table = RouteTable(PerformanceTable(rigged, assumptions))
-    return (; ship, rig, area, route, table, hourly, corridors=corridors(route),
-        bare=RouteTable(PerformanceTable(bare, assumptions)))
+    return (; ship, rig, area, route, tables=RouteTable.(leg_tables(rigged)), hourly,
+        corridors=corridors(route), bare=RouteTable.(leg_tables(bare)))
 end
 
 "`table` with the kite's launches and landings free"
-free_launch_table(table::RouteTable) = WindShipOpt.with_changed(table;
-    table=WindShipOpt.with_changed(table.table; cycle_cost=0.0))
+free_launch_table(table::RouteTable) = with_changed(table;
+    table=with_changed(table.table; cycle_cost=0.0))
 
 """
     stateless_table(table)
@@ -3287,11 +3305,11 @@ open to any wind, sea and hour, so its state carries nothing.
 """
 function stateless_table(table::RouteTable)
     performance = table.table
-    rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
+    rig = with_changed(performance.ship.rig; launch_min_wind=0.0,
         launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
         landing_max_wave_height=Inf, rough_sea_launch_wind=0.0)
-    return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
-        ship=WindShipOpt.with_changed(performance.ship; rig), cycle_cost=0.0,
+    return with_changed(table; table=with_changed(performance;
+        ship=with_changed(performance.ship; rig), cycle_cost=0.0,
         handling_hours=0.0))
 end
 
@@ -3308,23 +3326,23 @@ cannot sail.
 function router_decision_passages(case, departure)
     rows = NamedTuple[]
     kite = case.rig == "kite"
-    for (leg, corridor, time_cost, start) in zip(("out", "back"), case.corridors,
-        case.hourly, (departure, departure + turnaround(case.table, first(case.corridors))))
-        searched = leg_plan(case.table, corridor, start, time_cost)
-        without = leg_plan(case.bare, corridor, start, time_cost)
+    starts = (departure, departure + turnaround(first(case.tables), first(case.corridors)))
+    for (leg, corridor, time_cost, start, table, bare) in zip(("out", "back"),
+        case.corridors, case.hourly, starts, case.tables, case.bare)
+        searched = leg_plan(table, corridor, start, time_cost)
+        without = leg_plan(bare, corridor, start, time_cost)
         (isnothing(searched) || isnothing(without)) && break
         free, stateless = kite ?
-            (leg_plan(free_launch_table(case.table), corridor, start, time_cost),
-             leg_plan(stateless_table(case.table), corridor, start, time_cost)) :
+            (leg_plan(free_launch_table(table), corridor, start, time_cost),
+             leg_plan(stateless_table(table), corridor, start, time_cost)) :
             (nothing, nothing)
         push!(rows, (; case.ship, case.rig, case.area, case.route, departure, leg,
             without=without.objective, searched=searched.objective,
-            alone=held_objective(without, corridor, case.table, start, time_cost),
+            alone=held_objective(without, corridor, table, start, time_cost),
             free=isnothing(free) ? NaN :
-                 free.objective + free.launches * case.table.table.cycle_cost,
+                 free.objective + free.launches * table.table.cycle_cost,
             stateless=leg_objective(stateless),
-            stateless_sailed=held_objective(stateless, corridor, case.table, start,
-                time_cost),
+            stateless_sailed=held_objective(stateless, corridor, table, start, time_cost),
             searched_launches=searched.launches,
             free_launches=isnothing(free) ? -1 : free.launches))
     end

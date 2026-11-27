@@ -700,7 +700,8 @@ function size_limits(table, row, bare, rival, rival_cost)
     table["cost"][row]
     design = ShipDesign(Symbol(table["drive"][row]), study_hull(ship);
         rig_size(rig, area)...)
-    built = Ship(design, assumptions; route=Symbol(table["route"][row])).rig
+    built = Ship(design, assumptions; route=Symbol(table["route"][row]),
+        courses=Float64[]).rig
     crash = WindShipOpt.crash_cost(built, assumptions)
     work, trips = yearly_trips(table, row, table["route"][row])
     return (; ship, rig, area, crash, saving=percent_saving(cost, bare), rival,
@@ -1310,12 +1311,13 @@ end
     rig_price(table, row)
 
 Price [USD] of the rig of `row` of class table `table`, the capital of its ship less that
-of the same ship without a rig, and that rig ship; `nothing` where today's model fits the
-rig of `row` on no hull of its class.
+of the same ship without a rig, and that rig ship with any kite flying no course;
+`nothing` where today's model fits the rig of `row` on no hull of its class.
 """
 function rig_price(table, row)
     class, drive = ship_classes()[table["class"][row]], Symbol(table["drive"][row])
-    ship = Ship(ShipDesign(drive, class; row_size(table, row)...), assumptions)
+    ship = Ship(ShipDesign(drive, class; row_size(table, row)...), assumptions;
+        courses=Float64[])
     isnothing(ship) && return nothing
     retractable = table["retractable"][row] == "true"
     bare = Ship(ShipDesign(drive, class), assumptions)
