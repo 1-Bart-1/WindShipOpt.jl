@@ -121,6 +121,23 @@ function Hull(length, beam, draft, block, assumptions::Assumptions;
         appendage_form_factor=assumptions[:appendage_form_factor])
 end
 
+"""
+    Hull(hull, draft)
+
+`hull` floating at `draft` [m]: wall-sided between its own draught and `draft`, its midship
+section keeping its bilge, its bulb and appendages as built.
+"""
+function Hull(hull::Hull, draft)
+    rise = hull.draft - draft
+    return with_changed(hull; draft,
+        displacement_volume=hull.displacement_volume - waterplane_area(hull) * rise,
+        midship_coefficient=1 - (1 - hull.midship_coefficient) * hull.draft / draft)
+end
+
+"waterplane area of `hull` [m^2]"
+waterplane_area(hull::Hull) =
+    hull.waterplane_coefficient * hull.waterline_length * hull.beam
+
 block_coefficient(hull::Hull; length=hull.length) =
     hull.displacement_volume / (length * hull.beam * hull.draft)
 waterline_block_coefficient(hull::Hull) =
