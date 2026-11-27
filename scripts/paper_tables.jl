@@ -1922,49 +1922,6 @@ function routing_saving(table, ship, drive, rig, speed)
 end
 
 """
-What published fixed-speed kite studies report for each row of published_terms.csv: the
-citation key, the speed [kn], its label in the table, the fuel saving they state [%] and
-what it covers where that is narrower than a year of trips.
-"""
-published_savings = [("podeur2016", 16.0, "\\citet{podeur2016}", "12.1", ""),
-    ("podeur2016", 19.0, "\\citet{podeur2016}", "6.6", ""),
-    ("bentin2018", 13.0, "\\citet{bentin2018}", "19--29", "routed"),
-    ("leloup2013", 8.0, "\\citet{leloup2013}", "23.5", "downwind in one wind"),
-    ("leloup2013", 15.5, "\\citet{leloup2013}", "26.6", "one crossing"),
-    ("cedelft2016", 10.5, "\\citet{cedelft2016}", "2--15", ""),
-    ("cedelft2016", 12.3, "\\citet{cedelft2016}", "1--9", ""),
-    ("traut2014", 11.2, "\\citet{traut2014}", "1--32", "")]
-
-"""
-    published_table()
-
-Published fuel savings of kites at fixed speed beside our model at that speed on the nearest
-of our ships, priced and free of the kite's running cost, and the routed saving and time of
-our cost-optimal speed: published_table.tex.
-"""
-function published_table()
-    table = read_table(study_file(:published_terms, "published_terms.csv"))
-    write_whole(joinpath(sections, "published_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}llrrrrrl@{}}\n\\toprule")
-        println(io, "Study & Our ship & Kite & Speed & Published & ",
-            "\\multicolumn{2}{c}{Ours [\\%]} & Covers \\\\")
-        println(io, "\\cmidrule(lr){6-7}")
-        println(io, " & & [\\si{m^2}] & [kn] & [\\%] & priced & free & \\\\\n\\midrule")
-        for (source, knots, label, published, scope) in published_savings
-            found = rows(table, "source" => source, "speed" => knots)
-            isempty(found) && continue
-            i = only(found)
-            saving(column) = @sprintf("%.1f",
-                100(1 - table[column][i] / table["fuel_bare"][i]))
-            println(io, join((label, table["ship"][i], @sprintf("%.0f", table["area"][i]),
-                    @sprintf("%g", knots), published, saving("fuel_kite"),
-                    saving("fuel_free"), scope), " & "), " \\\\")
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-"""
 What each ship of [`measured_ships`](@ref) is reported to save at sea, by citation key: the
 fuel saving [%] and the fuel saved per day at sea [t].
 """
@@ -2150,7 +2107,7 @@ the class study, and of its [`compared_table`](@ref) the
 [`kite_rotor_numbers`](@ref), [`class_range_numbers`](@ref),
 [`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref),
 [`split_numbers`](@ref), [`payback_numbers`](@ref), [`premium_numbers`](@ref),
-[`fleet_share_numbers`](@ref) and [`market_numbers`](@ref),
+[`unit_cost_numbers`](@ref), [`fleet_share_numbers`](@ref) and [`market_numbers`](@ref),
 the class study's [`margin_numbers`](@ref) over every rig, the
 [`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref), the
 [`side_force_numbers`](@ref) and the [`combination_numbers`](@ref).
@@ -2165,7 +2122,7 @@ function numbers_file()
                class_range_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes);
                split_numbers(classes); payback_numbers(classes);
-               premium_numbers(classes);
+               premium_numbers(classes); unit_cost_numbers(classes);
                design_premium_numbers(read_table(data_file("designs.csv")));
                fleet_share_numbers(classes); market_numbers(classes);
                margin_numbers(every_rig); forecast_numbers(); side_force_numbers();
@@ -2284,6 +2241,29 @@ function class_range_numbers(table)
                                        for (drive, _) in drive_words])
         push!(numbers, "MostUnits$(macro_word(rig))" =>
             whole_number(maximum(table["units"][cheapest])))
+    end
+    return numbers
+end
+
+"""
+    unit_cost_numbers(table)
+
+Name and text, from the class table `table`, of the range over the container ships and the
+routes of the cost per TEU-kilometre [US cents] of the ship without a rig on VLSFO, and of
+that range per car-kilometre for the car carrier.
+"""
+function unit_cost_numbers(table)
+    classes = read_table(joinpath(root, "data", "ship_classes.csv"))
+    numbers = Pair{String, String}[]
+    for (unit, name) in (("TEU", "TeuKm"), ("CEU", "CarKm"))
+        cents = Float64[]
+        for i in rows(classes, "cargo_unit" => unit), route in unique(table["route"])
+            bare = cheapest_row(table, classes["name"][i], route, "vlsfo", "none")
+            isnothing(bare) && continue
+            push!(cents,
+                100table["cost"][bare] * table["cargo"][bare] / classes["unit_capacity"][i])
+        end
+        push!(numbers, "CostPer$name" => value_range(cents, two_digits))
     end
     return numbers
 end

@@ -63,15 +63,13 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
 method studies, which choose or check a method or setting, run only by name: each records
 its run for its figures and writes its tables
 """
-study_steps = [:base_kite => base_kite_data,
-    :published_terms => published_terms_data, :model_parts => model_parts_data,
+study_steps = [:base_kite => base_kite_data, :model_parts => model_parts_data,
     :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
     :measured_savings => measured_savings_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
-study_tables = Dict(:published_terms => [:published_table => published_table],
-    :routing_value => [:routing_value_numbers => routing_value_numbers_file],
+study_tables = Dict(:routing_value => [:routing_value_numbers => routing_value_numbers_file],
     :today_routing => [:today_routing_numbers => today_routing_numbers_file],
     :measured_savings => [:measured_table => measured_table,
         :measured_numbers => measured_numbers_file],
