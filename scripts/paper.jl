@@ -188,32 +188,24 @@ function paper_status(; fidelity)
     previous = paper_run
     global paper_run = PaperRun(fidelity)
     try
-        return print_steps_status(fidelity)
+        definitions = script_definitions(script_files())
+        current_trips = trip_model(definitions)
+        steps = [data_steps; study_steps]
+        found = Dict(name => step_location(name) for (name, _) in steps)
+        reasons = Dict(name => isnothing(found[name]) ?
+                               ["never ran at $fidelity fidelity"] :
+                               step_reasons(last(found[name]), step_code(definitions, step))
+                       for (name, step) in steps)
+        makers = Dict(file => name for (name, location) in found if !isnothing(location)
+                      for file in last(location)["files"])
+        spread_staleness!(reasons, found, makers)
+        for (name, _) in steps
+            print_status(name, found[name], reasons[name], current_trips)
+        end
+        fidelity == :final &&
+            print_commits(part_commits(filter(!isnothing, collect(values(found)))))
+        return [name for (name, _) in steps if !isempty(reasons[name])]
     finally
         global paper_run = previous
     end
-end
-
-"""
-    print_steps_status(fidelity)
-
-Print and return what [`paper_status`](@ref) does, with the run in use set to `fidelity`.
-"""
-function print_steps_status(fidelity)
-    definitions = script_definitions(script_files())
-    current_trips = trip_model(definitions)
-    steps = [data_steps; study_steps]
-    found = Dict(name => step_location(name) for (name, _) in steps)
-    reasons = Dict(name => isnothing(found[name]) ? ["never ran at $fidelity fidelity"] :
-                           step_reasons(last(found[name]), step_code(definitions, step))
-                   for (name, step) in steps)
-    makers = Dict(file => name for (name, location) in found if !isnothing(location)
-                  for file in last(location)["files"])
-    spread_staleness!(reasons, found, makers)
-    for (name, _) in steps
-        print_status(name, found[name], reasons[name], current_trips)
-    end
-    fidelity == :final &&
-        print_commits(part_commits(filter(!isnothing, collect(values(found)))))
-    return [name for (name, _) in steps if !isempty(reasons[name])]
 end

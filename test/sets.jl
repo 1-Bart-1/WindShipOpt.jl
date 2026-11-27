@@ -112,6 +112,70 @@ end
           calm_drag + together.leeway_drag + together.rudder_drag - hull_force.thrust
 end
 
+@testset "a hull floating lighter loses the layer of its waterplane and drags less" begin
+    hull = Ship(ShipDesign(:vlsfo, ship_classes()["Kamsarmax bulk carrier"]),
+        assumptions).hull
+    light = Hull(hull, hull.draft - 4.0)
+    @test hull.displacement_volume - light.displacement_volume ≈
+          4.0 * WindShipOpt.waterplane_area(hull)
+    built(hull) = (hull.bulb_area, hull.bulb_height, hull.appendage_area,
+        hull.resistance_factor)
+    @test built(light) == built(hull)
+    @test (1 - light.midship_coefficient) * light.draft ≈
+          (1 - hull.midship_coefficient) * hull.draft
+    @test WindShipOpt.block_coefficient(light) < WindShipOpt.block_coefficient(hull)
+    env = Environment(assumptions)
+    @test WindShipOpt.resistance(light, env, 7.0) < WindShipOpt.resistance(hull, env, 7.0)
+end
+
+@testset "the return leg floats at its backhaul's draught, light draught and design" begin
+    draft(name, inputs=assumptions) = (ship = Ship(ShipDesign(:vlsfo, ship_classes()[name]),
+            inputs); (WindShipOpt.return_draft(ship, inputs), ship))
+    bulk_back, bulk = draft("Kamsarmax bulk carrier")
+    class = bulk.design.class
+    @test bulk_back ≈ assumptions[:bulk_carrier_light_draft] * class.scantling_draft
+    nearly_full = with_value(assumptions, :backhaul_fraction, 0.9)
+    full_back, _ = draft("Kamsarmax bulk carrier", nearly_full)
+    unloaded = 0.1WindShipOpt.cargo_mass(WindShipOpt.CargoHold(bulk, nearly_full))
+    waterplane = WindShipOpt.waterplane_area(bulk.hull)
+    @test class.draft - full_back ≈ 1e3unloaded / (bulk.env.water_density * waterplane)
+    container_back, container = draft("feeder container ship")
+    @test container_back ≈ assumptions[:container_light_draft] *
+                           container.design.class.scantling_draft < container.hull.draft
+    car_back, cars = draft("PCTC car carrier")
+    @test car_back == cars.hull.draft
+end
+
+@testset "a lighter ship catches more wind, heels and drifts more under a rig" begin
+    ship = Ship(ShipDesign(:vlsfo, ship_classes()["Kamsarmax bulk carrier"];
+        rotor_area=1600.0), assumptions)
+    rise = 4.0
+    light = WindShipOpt.at_draft(ship, ship.hull.draft - rise, assumptions)
+    @test light.rig.foot_height == ship.rig.foot_height + rise
+    @test light.windage.lateral_area ≈ ship.windage.lateral_area + ship.hull.length * rise
+    @test light.windage.centre_height > ship.windage.centre_height
+    @test (light.propeller, light.powertrain, light.rudder_area) ===
+          (ship.propeller, ship.powertrain, ship.rudder_area)
+    @test light.righting_stiffness / ship.righting_stiffness ≈
+          light.hull.displacement_volume / ship.hull.displacement_volume
+    force = RigForce(1e5, 4e5, 4e5 * WindShipOpt.rig_height(ship.rig), 0.0)
+    lifted = RigForce(1e5, 4e5, 4e5 * WindShipOpt.rig_height(light.rig), 0.0)
+    loaded = WindShipOpt.HullBalance(ship, 6.0, force, 5e5)
+    ballast = WindShipOpt.HullBalance(light, 6.0, lifted, 5e5)
+    @test ballast.heel > loaded.heel
+    @test ballast.leeway > loaded.leeway
+end
+
+@testset "a round trip routes its return on the ship at its return draught" begin
+    ship = Ship(ShipDesign(:vlsfo, ship_classes()["Kamsarmax bulk carrier"];
+        rotor_area=1600.0), assumptions)
+    routing = WindShipOpt.DepartureRouting(ship, first(corridors), assumptions)
+    out, back = first(routing.states).tables
+    @test out.table.ship.hull.draft == ship.hull.draft
+    @test back.table.ship.hull.draft == WindShipOpt.return_draft(ship, assumptions)
+    @test back.table.ship.rig.foot_height > out.table.ship.rig.foot_height
+end
+
 @testset "hull and rudder cancel the side force and yaw moment of rig and wind" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=800.0), assumptions)
     force = RigForce(1e5, 2e5, 2e6, 3e6)
@@ -1838,7 +1902,9 @@ end
     down = last(last(states))
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
-    routed(ship) = WindShipOpt.StateRouting(ship, outbound, assumptions, hourly, nothing)
+    legs(ship) = (ship, WindShipOpt.return_ship(ship, assumptions))
+    routed(ship) = WindShipOpt.StateRouting(legs(ship), outbound, assumptions, hourly,
+        nothing)
     passages = [[WindShipOpt.state_passages(routed(ship), outbound, inbound,
                      SyntheticWeather(), departure, nothing)
                  for departure in (24.0 * 31, 24.0 * 200)]
@@ -1853,7 +1919,7 @@ end
     routing = shared_route_table(design)
     outbound, inbound = corridors
     turnaround = WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
-    trip(out_cost) = WindShipOpt.route_round_trip(routing, outbound, inbound,
+    trip(out_cost) = WindShipOpt.route_round_trip((routing, routing), outbound, inbound,
         SyntheticWeather(), 24.0 * 31, turnaround, (out_cost, 300.0), nothing)
     (slow_out, slow_back), (fast_out, fast_back) = trip(30.0), trip(3000.0)
     @test fast_out.duration < slow_out.duration
@@ -2067,9 +2133,9 @@ end
         return trip(liner), trip(tramp), trip(liner; rotor_area=500.0),
         trip(tramp; rotor_area=500.0)
     end
-    @test days(free) < 0.99days(bare)
-    @test days(free) < days(scheduled) <= days(bare)
+    @test days(scheduled) <= days(bare)
     @test scheduled.fuel_energy < bare.fuel_energy
+    @test free.cost_per_tonne_km < 0.99scheduled.cost_per_tonne_km
     @test days(bare_tramp) == days(bare)
 end
 
@@ -4394,49 +4460,6 @@ end
     @test names == Set([:discount_rate])
 end
 
-module SizeSearch
-include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
-end
-
-@testset "the size grid holds both bounds and no step within half a step of them" begin
-    grid = SizeSearch.size_grid(500.0, 2441.4)
-    @test first(grid) == 500.0 && last(grid) == 2441.4
-    @test all(diff(log2.(grid)) .> 0.125)
-    @test 2.0^(45 / 4) ∉ grid
-end
-
-@testset "a size search whose best is a bound next tries the size just inside it" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test SizeSearch.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
-          grid[end - 1]
-    @test SizeSearch.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
-          grid[2]
-end
-
-@testset "a size search confirms its cheapest size once both neighbours cost more" begin
-    grid = SizeSearch.size_grid(500.0, 16000.0)
-    @test isnothing(SizeSearch.next_size([(grid[k], cost) for (k, cost) in
-                                          ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
-    @test isnothing(SizeSearch.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
-    @test SizeSearch.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
-          grid[9:10]
-    @test isnothing(SizeSearch.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
-end
-
-@testset "a size search from a guess far off still finds the cheapest size" begin
-    grid = SizeSearch.size_grid(500.0, 64000.0)
-    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
-        cost(area) = (log(area / best))^2
-        points = [(area, cost(area)) for area in SizeSearch.start_sizes(guess, grid)]
-        while (area = SizeSearch.next_size(points, grid)) !== nothing
-            @test all(point -> !(first(point) ≈ area), points)
-            push!(points, (area, cost(area)))
-        end
-        @test first(points[argmin(last.(points))]) ≈
-              grid[SizeSearch.nearest_step(grid, best)]
-    end
-end
-
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
@@ -4940,6 +4963,21 @@ end
           WindShipOpt.crash_cost(flying, assumptions)
 end
 
+@testset "a ship whose kite flies no course costs what the flying one does" begin
+    for design in (ShipDesign(:methanol, 140.0; kite_area=800.0),
+        ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0))
+        priced, flying = (ShipCosts(Ship(design, assumptions; courses), assumptions)
+                          for courses in (Float64[], WindShipOpt.KITE_COURSES))
+        @test (priced.capital, priced.fixed_annual, priced.hold.payload) ==
+              (flying.capital, flying.fixed_annual, flying.hold.payload)
+    end
+    for area in (:kite_area, :rigid_kite_area, :lei_kite_area, :single_skin_kite_area)
+        ship = Ship(ShipDesign(:methanol, 140.0; area => 80.0), assumptions;
+            courses=Float64[])
+        @test isempty(WindShipOpt.kite_rig(ship.rig).forces)
+    end
+end
+
 @testset "a lead over another rig is used up exactly at its life and loss limits" begin
     lead, goal_life, canopy_points, crash_points = 2.0, 4000.0, 8000.0, 1.6
     limits = WindShipOpt.lead_limits(lead, goal_life, canopy_points, crash_points)
@@ -4957,6 +4995,45 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "size_search.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
+end
+
+@testset "the size grid holds both bounds and no step within half a step of them" begin
+    grid = PaperData.size_grid(500.0, 2441.4)
+    @test first(grid) == 500.0 && last(grid) == 2441.4
+    @test all(diff(log2.(grid)) .> 0.125)
+    @test 2.0^(45 / 4) ∉ grid
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test PaperData.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          grid[end - 1]
+    @test PaperData.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          grid[2]
+end
+
+@testset "a size search confirms its cheapest size once both neighbours cost more" begin
+    grid = PaperData.size_grid(500.0, 16000.0)
+    @test isnothing(PaperData.next_size([(grid[k], cost) for (k, cost) in
+                                         ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
+    @test isnothing(PaperData.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test PaperData.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
+          grid[9:10]
+    @test isnothing(PaperData.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search from a guess far off still finds the cheapest size" begin
+    grid = PaperData.size_grid(500.0, 64000.0)
+    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
+        cost(area) = (log(area / best))^2
+        points = [(area, cost(area)) for area in PaperData.start_sizes(guess, grid)]
+        while (area = PaperData.next_size(points, grid)) !== nothing
+            @test all(point -> !(first(point) ≈ area), points)
+            push!(points, (area, cost(area)))
+        end
+        @test first(points[argmin(last.(points))]) ≈
+              grid[PaperData.nearest_step(grid, best)]
+    end
 end
 
 @testset "a rotor price is set against the model's price of the same unit as sold" begin

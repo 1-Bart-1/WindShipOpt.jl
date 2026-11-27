@@ -603,10 +603,6 @@ end
 price_citation(price) = join(cite_part.(split(
     match(r"\[([^\]]*)\]", price.source).captures[1], ';')), "; ")
 
-"share of time each rig is out of service at its goal, the same for all [-]"
-out_of_service_goal() = only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
-                                    for rig in rig_names))
-
 """
     goals_table()
 
@@ -704,7 +700,8 @@ function size_limits(table, row, bare, rival, rival_cost)
     table["cost"][row]
     design = ShipDesign(Symbol(table["drive"][row]), study_hull(ship);
         rig_size(rig, area)...)
-    built = Ship(design, assumptions; route=Symbol(table["route"][row])).rig
+    built = Ship(design, assumptions; route=Symbol(table["route"][row]),
+        courses=Float64[]).rig
     crash = WindShipOpt.crash_cost(built, assumptions)
     work, trips = yearly_trips(table, row, table["route"][row])
     return (; ship, rig, area, crash, saving=percent_saving(cost, bare), rival,
@@ -1268,7 +1265,7 @@ Transport work [tonne-km] and round trips of the trip in `row` of `table`, on `r
 a year's trading hours.
 """
 function yearly_trips(table, row, route)
-    outbound, inbound = run_corridors(Symbol(route))
+    outbound, inbound = corridors(Symbol(route))
     tonne_km = table["cargo"][row] * (outbound.track_length +
                                       assumptions[:backhaul_fraction] *
                                       inbound.track_length) / 1e3
@@ -1314,12 +1311,13 @@ end
     rig_price(table, row)
 
 Price [USD] of the rig of `row` of class table `table`, the capital of its ship less that
-of the same ship without a rig, and that rig ship; `nothing` where today's model fits the
-rig of `row` on no hull of its class.
+of the same ship without a rig, and that rig ship with any kite flying no course;
+`nothing` where today's model fits the rig of `row` on no hull of its class.
 """
 function rig_price(table, row)
     class, drive = ship_classes()[table["class"][row]], Symbol(table["drive"][row])
-    ship = Ship(ShipDesign(drive, class; row_size(table, row)...), assumptions)
+    ship = Ship(ShipDesign(drive, class; row_size(table, row)...), assumptions;
+        courses=Float64[])
     isnothing(ship) && return nothing
     retractable = table["retractable"][row] == "true"
     bare = Ship(ShipDesign(drive, class), assumptions)
