@@ -1372,6 +1372,56 @@ function cell_market(table, cell, rig)
 end
 
 """
+    yearly_market(table, cell, rig)
+
+What the makers of `rig` sell a year [USD] to every ship of a [`fleet_cells`](@ref) cell of
+class table `table` fitted with its best size: the rig without the parts wear replaces,
+sold once per rig life (`once`), and its maintenance, lost units and the parts its flight
+hours and launches wear out (`recurring`), also on each departure's flight hours
+(`departures`).
+"""
+function yearly_market(table, cell, rig)
+    row = cell.best[rig]
+    price, ship = rig_price(table, row)
+    _, trips = yearly_trips(table, row, cell.route)
+    once = (price - WindShipOpt.worn_part_price(ship.rig, assumptions)) /
+           assumptions[lifetime_inputs[rig]]
+    standing = WindShipOpt.rig_maintenance(ship.rig, price, assumptions) +
+               WindShipOpt.yearly_crash_cost(ship.rig, assumptions) +
+               trips * table["launches"][row] *
+               WindShipOpt.cycle_wear_cost(ship.rig, assumptions)
+    flown(share) = trips * share * 24table["days"][row] *
+                   WindShipOpt.wear_cost(ship.rig, assumptions)
+    recurring(share) = cell.ships * (standing + flown(share))
+    return (; once=cell.ships * once, recurring=recurring(table["flight_share"][row]),
+        departures=recurring.(table["departure_flight_shares"][row]))
+end
+
+"""
+    rig_markets(table, margins)
+
+Per rig of the [`fleet_margins`](@ref) `margins` over cells of class table `table`, the
+[`market_sum`](@ref) of its [`yearly_market`](@ref) over the cells it is fitted to.
+"""
+rig_markets(table, margins) =
+    Dict(rig => market_sum([yearly_market(table, cell, rig) for (cell, _) in own])
+         for (rig, (; own)) in margins)
+
+"""
+    market_sum(markets)
+
+The `once` and `recurring` sales [USD a year] of [`yearly_market`](@ref)s `markets` summed,
+with the jackknife `error` over their shared departures of the recurring sales.
+"""
+function market_sum(markets)
+    recurring(departures) = sum(sum(market.departures[departures]) / length(departures)
+                                for market in markets)
+    return (; once=sum(market.once for market in markets),
+        recurring=sum(market.recurring for market in markets),
+        error=jackknife_error(recurring, length(first(markets).departures)))
+end
+
+"""
     type_savings(table, drive)
 
 Each kind of ship of `ship_types`, its word and label, with the [`kind_savings`](@ref) of
@@ -1740,13 +1790,17 @@ end
     error_cell(value, standard_error; finest)
 
 LaTeX of `value` with its `standard_error`, the error to two significant digits and to
-`finest` decimals at the finest, and the value to the same place.
+`finest` decimals at the finest, and the value to the same place; no error where it rounds
+to 0 there.
 """
 function error_cell(value, standard_error; finest)
     magnitude = standard_error > 0 ?
                 floor(Int, log10(round(standard_error; sigdigits=2))) : 0
     digits = min(finest, 1 - magnitude)
-    format = Printf.Format("\\(%.$(max(digits, 0))f \\pm %.$(max(digits, 0))f\\)")
+    places = max(digits, 0)
+    iszero(round(standard_error; digits)) &&
+        return @sprintf("\\(%.*f\\)", places, round(value; digits))
+    format = Printf.Format("\\(%.$(places)f \\pm %.$(places)f\\)")
     return Printf.format(format, round(value; digits) + 0.0,
         round(standard_error; digits) + 0.0)
 end
@@ -2279,21 +2333,28 @@ end
 Name and text, per drive of the class table `table` and per rig of its
 [`fleet_margins`](@ref) there: the rig's margin over the next best with its error
 [billion USD a year] and in tank-to-wake CO2 on VLSFO, in fuel elsewhere [million t a
-year]; and the share [%] of the rigs' saving against no rig that their margins make up.
+year]; what its makers sell a year there, its [`rig_markets`](@ref) entry, with the error
+of the recurring part [billion USD a year], and the share [%] that recurs; and the share
+[%] of the rigs' saving against no rig that their margins make up.
 """
 function margin_numbers(table)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
         margins = fleet_margins(fleet_cells(table, drive))
+        markets = rig_markets(table, margins)
         measure, measure_word, scale = drive == "vlsfo" ?
                                        (:carbon, "Carbon", 1e-12) : (:fuel, "Fuel", 1e-9)
         for (rig, (; own, margin, margin_error)) in margins
             name = word * macro_word(rig)
             kept = sum(getfield(cell_margin(table, cell, rig, next), measure)
                        for (cell, next) in own)
+            (; once, recurring, error) = markets[rig]
             push!(numbers,
                 "Margin$name" => error_cell(1e-9margin, 1e-9margin_error; finest=1),
-                "Margin$measure_word$name" => two_digits(scale * kept))
+                "Margin$measure_word$name" => two_digits(scale * kept),
+                "Makers$name" => error_cell(1e-9(once + recurring), 1e-9error; finest=1),
+                "MakersRecurringShare$name" =>
+                    whole_number(100recurring / (once + recurring)))
         end
         margin, saved = (sum(getfield(entry, measure) for entry in values(margins))
                          for measure in (:margin, :saved))

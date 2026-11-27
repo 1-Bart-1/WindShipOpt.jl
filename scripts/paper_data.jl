@@ -1174,8 +1174,9 @@ deck_order(class) = (class.deck_tiers > 0, class.deadweight)
 """
     class_table()
 
-Columns of classes.csv with the cost [USD/tkm] of each departure of each row, in date order,
-as the column `"departure_costs"`, from the class_departures.csv of the same run.
+Columns of classes.csv with the cost [USD/tkm] and the flight share of each departure of
+each row, in date order, as the columns `"departure_costs"` and `"departure_flight_shares"`,
+from the class_departures.csv of the same run.
 """
 function class_table()
     path = data_file("classes.csv")
@@ -1183,13 +1184,15 @@ function class_table()
     departures = read_classes(joinpath(dirname(path), "class_departures.csv"))
     key(columns, i) = Tuple(columns[name][i] for name in ("class", "route", "drive", "rig",
         "area", "rotor_area"))
-    dated = Dict{Tuple, Vector{Tuple{String, Float64}}}()
+    dated = Dict{Tuple, Vector{Tuple{String, Float64, Float64}}}()
     for i in eachindex(departures["cost"])
         push!(get!(dated, key(departures, i), []), (departures["date"][i],
-            departures["cost"][i]))
+            departures["cost"][i], departures["flight_share"][i]))
     end
-    table["departure_costs"] = [last.(sort(dated[key(table, i)]))
-                                for i in eachindex(table["cost"])]
+    for (column, k) in (("departure_costs", 2), ("departure_flight_shares", 3))
+        table[column] = [getindex.(sort(dated[key(table, i)]), k)
+                         for i in eachindex(table["cost"])]
+    end
     return table
 end
 
@@ -1358,9 +1361,11 @@ end
 """
     cell_ranking(cell)
 
-The rig that saves a fleet `cell` most and the next best, `"none"` for no rig.
+The rig fitted to a fleet `cell`, the one that saves most where it clearly saves, and the
+next best, `"none"` for no rig.
 """
 function cell_ranking(cell)
+    isempty(fleet_leaders(cell.savings, [cell])) && return "none", "none"
     savings = merge(Dict("none" => 0.0), cell.savings)
     best, next = sort(collect(keys(savings)); by=rig -> savings[rig], rev=true)
     return best, next

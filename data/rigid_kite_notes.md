@@ -14,7 +14,7 @@ The model is MX2 at 54 m², every input a number at that design, sized away from
 | `rigid_drag` | 0.070 | 0.054 | 0.127 | 0.123 − 0.083 induced (elliptic) + 0.0022 feathered propellers + 0.029 tether (0.7 × 29.4 mm × 300 m / 4 / 54 m²). Bounds: profile, span efficiency, propeller and tether drag at their bounds. |
 | `rigid_cost_per_mass` | 280 | 48 | 540 | Structure 290 USD/kg × 1374 kg + 232 USD/m² × 54 m² + drives 0.10 USD/W × 1.13 MW = 524k USD, over 1854 kg. |
 | `rigid_tether_cost` | 51k | 26k | 110k | Tether 275 kg × 186 USD/kg (93-400). The rest of the station is the soft kite's winch, launch mast and ship-side controls at the kite's 300 kN and 54 m²: 70k + 30k. |
-| `rigid_upkeep_per_area` | 0.67 | 0.29 | 1.37 | Airframe upkeep 0.61 (0.26-1.2) + tether wear 51k / 16,000 h / 54 m² = 0.06. |
+| `rigid_upkeep_per_area` | 0.32 | 0.32 | 0.67 | Airframe upkeep 14/54 = 0.26, Makani's own estimate, up to the 33/54 = 0.61 ceiling, + tether wear 51k / 16,000 h / 54 m² = 0.06. |
 
 Dropped as too small to move the answer: the hover's energy, 6 min at 844 kW and 0.20 USD/kWh, USD 17 a launch; its time, 6 min of no thrust a launch, under 0.5 % of the flight hours; the tether's bending per launch; the perch's deck width, which costs cargo only on a container ship, where the VTOL kite is not routed; and half the tether's weight in flight, 7 % of the flying mass. The flight limit and life are the soft kite's (`kite_max_wind`, `kite_lifetime`), equal to the values the VTOL kite had.
 
