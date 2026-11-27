@@ -690,7 +690,9 @@ end
 end
 
 @testset "a kite without flight drag flies where every fixed start misses" begin
-    low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
+    # every fixed start misses only for a kite turning no tighter than 3 spans
+    low_drag = with_value(with_value(assumptions, :kite_flight_drag, 0.0),
+        :kite_min_turn_radius, 3.0)
     aspect_ratio = assumptions[:kite_aspect_ratio]
     model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, low_drag)
     course = deg2rad(120.0)
