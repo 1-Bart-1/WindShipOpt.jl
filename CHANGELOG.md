@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- `Ship(design, assumptions; courses=Float64[])` builds a ship whose kite flies no course, so it is priced and weighed without computing its pattern table; the paper tables price each fleet cell's rig this way.
+
 ### Changed
 
 - BREAKING: `ShipDesign` no longer takes `kite_aspect_ratio`; a design's kite flies the aspect ratio of the assumption `kite_aspect_ratio`, which `with_value` or `with_kite_aspect_ratio` changes. `WindShipOpt.kite_aspect_ratio(design, assumptions)` is gone with it.
