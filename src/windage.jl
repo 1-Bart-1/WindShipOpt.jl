@@ -88,6 +88,22 @@ function Windage(type::AbstractString, length, beam, deck_tiers, assumptions::As
 end
 
 """
+    lifted(windage, rise, beam)
+
+`windage` of a hull of `beam` [m] floating `rise` [m] higher: its sides and front grown by
+that much freeboard, the lateral centroid moved to suit.
+"""
+function lifted(windage::Windage, rise, beam)
+    side = windage.length * rise
+    lateral = windage.lateral_area + side
+    return with_changed(windage; frontal_area=windage.frontal_area + beam * rise,
+        lateral_area=lateral,
+        centre_position=windage.centre_position * windage.lateral_area / lateral,
+        centre_height=(windage.lateral_area * (windage.centre_height + rise) +
+                       side * rise / 2) / lateral)
+end
+
+"""
     wind_load_types()
 
 Wind-load coefficients and measured ship of each ship type, from `data/wind_loads.csv`,

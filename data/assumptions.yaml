@@ -732,12 +732,31 @@ retractable_rig_premium:
   estimate: true
   source: "Authors' estimate: hydraulics, hinge and foundation steel"
   reason: "Extra price of tilting, folding or rails that lower wings and rotors for cargo handling and bridges, over the fixed rig price: the authors' bottom-up estimate of the hydraulics, hinge and foundation steel (10-17 % for a tilting 35 x 5 m rotor of 56 t); such systems are in service (Norsepower tilting, Anemoi rails and folding, WindWings folding)."
-ballast_draft_fraction:
-  value: 0.55
+general_cargo_light_draft:
+  value: 0.65
   unit: "-"
-  estimate: true
-  source: "Authors' estimate: bulk carriers and tankers in ballast"
-  reason: "Draft in ballast over design draft, at which bulk carriers and tankers arrive at loading berths and their air draft is highest; authors' estimate."
+  source: "@olmer2017 [Appendix J]: AIS draughts of the world fleet in 2015"
+  reason: "Mean draught in ballast over the summer load-line draught of general cargo ships in 2015 [@olmer2017, Appendix J]."
+bulk_carrier_light_draft:
+  value: 0.57
+  unit: "-"
+  source: "@olmer2017 [Appendix J]: AIS draughts of the world fleet in 2015"
+  reason: "Mean draught in ballast over the summer load-line draught of bulk carriers in 2015 [@olmer2017, Appendix J]."
+tanker_light_draft:
+  value: 0.6
+  unit: "-"
+  source: "@olmer2017 [Appendix J]: AIS draughts of the world fleet in 2015"
+  reason: "Mean draught in ballast over the summer load-line draught of oil tankers in 2015 [@olmer2017, Appendix J]."
+container_light_draft:
+  value: 0.81
+  unit: "-"
+  source: "@olmer2017 [Appendix J]: AIS draughts of the world fleet in 2015"
+  reason: "Container ships sail no ballast voyages; their mean draught over the summer load-line draught in 2015 [@olmer2017, Appendix J]."
+vehicle_carrier_light_draft:
+  value: 0.87
+  unit: "-"
+  source: "@olmer2017 [Appendix J]: AIS draughts of the world fleet in 2015"
+  reason: "Vehicle carriers sail no ballast voyages; their mean draught over the summer load-line draught in 2015 [@olmer2017, Appendix J]."
 restricted_call_days:
   value: 2.0
   unit: days

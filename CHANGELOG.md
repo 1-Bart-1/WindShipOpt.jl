@@ -5,6 +5,7 @@
 ### Added
 
 - `WindShipOpt.cycle_wear_cost(rig, assumptions)`: what one kite launch and landing wears out of the kite, the part of `cycle_cost` beyond crew and turn.
+- `Ship(design, assumptions; courses=Float64[])` builds a ship whose kite flies no course, so it is priced and weighed without computing its pattern table; the paper tables price each fleet cell's rig this way.
 
 ### Changed
 

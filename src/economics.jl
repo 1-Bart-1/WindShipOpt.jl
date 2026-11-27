@@ -265,41 +265,44 @@ function layout_winds(assumptions::Assumptions)
 end
 
 """
-    cheapest_layout(ship, route, assumptions)
+    cheapest_layout(ship, route, assumptions; courses=KITE_COURSES)
 
 Rig of the design of `ship` in the layout of its [`layout_counts`](@ref) with the lowest
 [`layout_score`](@ref) on `ship`, which carries no rig yet, at its [`LayoutPrices`](@ref)
-on `route`; for each count of columns more units are tried until two in a row score worse
-than the fewest scored best. `nothing` where no layout fits; the design's rig as it is
-where it has no wings, rotors or suction sails.
+on `route`, any kite with its pattern table over `courses` [rad]; for each count of
+columns more units are tried until two in a row score worse than the fewest scored best.
+`nothing` where no layout fits; the design's rig as it is where it has no wings, rotors or
+suction sails.
 """
-function cheapest_layout(ship::Ship, route, assumptions::Assumptions)
+function cheapest_layout(ship::Ship, route, assumptions::Assumptions; courses=KITE_COURSES)
     (; design, hull) = ship
-    first(standing_unit(design)) > 0 || return design_rig(design, hull, assumptions)
+    first(standing_unit(design)) > 0 ||
+        return design_rig(design, hull, assumptions; courses)
     counts = layout_counts(design, hull, assumptions)
     prices = LayoutPrices(ship, route, assumptions)
     best, lowest = nothing, Inf
     for columns in 1:2
         rig, score = cheapest_in_columns(ship, columns,
             [last(count) for count in counts if first(count) == columns], prices,
-            assumptions)
+            assumptions; courses)
         score < lowest && ((best, lowest) = (rig, score))
     end
     return best
 end
 
 """
-    cheapest_in_columns(ship, columns, in_columns, prices, assumptions)
+    cheapest_in_columns(ship, columns, in_columns, prices, assumptions; courses)
 
 Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
-order, with the lowest [`layout_score`](@ref) at `prices`, and that score; the search
-stops once two counts in a row fit and score worse than the best.
+order, any kite with its pattern table over `courses` [rad], with the lowest
+[`layout_score`](@ref) at `prices`, and that score; the search stops once two counts in a
+row fit and score worse than the best.
 """
 function cheapest_in_columns(ship::Ship, columns, in_columns, prices::LayoutPrices,
-        assumptions::Assumptions)
+        assumptions::Assumptions; courses)
     best, lowest, worse = nothing, Inf, 0
     for in_column in in_columns
-        rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column)
+        rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column, courses)
         isnothing(rig) && continue
         score = layout_score(ship, rig, prices, assumptions)
         if score < lowest || isnothing(best)
@@ -316,11 +319,11 @@ end
     fixed_rig_port_hours(rig, class, assumptions)
 
 Mean extra time per port call [h] of a `rig` fixed on deck: the cargo-handling delay of
-`class`, plus the lost calls of a ship whose air draft in ballast exceeds the class
-limit. Inf where a fixed rig prevents cargo handling, as on the reference coaster when
-`class` is `nothing` and for units raised above the stacks, which stand in the cranes' way;
-zero for kites and ships without a rig, and that of the [`standing_rig`](@ref) for a kite
-over a standing rig.
+`class`, plus the lost calls of a ship whose air draft at its [`light_draft`](@ref)
+exceeds the class limit. Inf where a fixed rig prevents cargo handling, as on the reference
+coaster when `class` is `nothing` and for units raised above the stacks, which stand in the
+cranes' way; zero for kites and ships without a rig, and that of the
+[`standing_rig`](@ref) for a kite over a standing rig.
 """
 fixed_rig_port_hours(rig, class, assumptions) = 0.0
 fixed_rig_port_hours(rig::CombinedRig, class, assumptions) =
@@ -330,8 +333,8 @@ fixed_rig_port_hours(::Union{WingRig, RotorRig}, ::Nothing, assumptions) = Inf
 function fixed_rig_port_hours(rig::Union{WingRig, RotorRig}, class::ShipClass,
         assumptions)
     raised(rig) && return Inf
-    ballast_rise = (1 - assumptions[:ballast_draft_fraction]) * class.draft
-    air_draft = rig.foot_height + rig.height + ballast_rise
+    rise = max(class.draft - light_draft(class, class.draft, assumptions), 0.0)
+    air_draft = rig.foot_height + rig.height + rise
     air_draft > class.air_draft_limit || return class.fixed_rig_port_hours
     return class.fixed_rig_port_hours + 24class.restricted_call_share *
                                          assumptions[:restricted_call_days]
@@ -984,21 +987,21 @@ turnaround_hours(ship::Ship, outbound, assumptions::Assumptions) =
     24assumptions[:port_time_per_call]
 
 """
-    route_round_trip(table, outbound, inbound, weather, departure, turnaround, hourly,
+    route_round_trip(tables, outbound, inbound, weather, departure, turnaround, hourly,
                      forecast; schedule=(Inf, Inf))
 
-Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
-`table` for one departure, the return leaving `turnaround` [h] after it, at the outbound
-and return time costs `hourly` [USD/h], each arriving by its time [h] in `schedule`, or
-`nothing` if either fails, planned on `forecast`, or on the real weather where that is
-`nothing`.
+Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the outbound and return
+[`RouteTable`](@ref)s `tables` for one departure, the return leaving `turnaround` [h] after
+it, at the outbound and return time costs `hourly` [USD/h], each arriving by its time [h]
+in `schedule`, or `nothing` if either fails, planned on `forecast`, or on the real weather
+where that is `nothing`.
 """
-function route_round_trip(table, outbound, inbound, weather, departure, turnaround, hourly,
+function route_round_trip(tables, outbound, inbound, weather, departure, turnaround, hourly,
         forecast; schedule=(Inf, Inf))
-    out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
-        arrival_by=first(schedule), forecast)
+    out = forecast_route(outbound, first(tables), weather, departure;
+        time_cost=first(hourly), arrival_by=first(schedule), forecast)
     isnothing(out) && return nothing
-    back = forecast_route(inbound, table, weather, departure + turnaround;
+    back = forecast_route(inbound, last(tables), weather, departure + turnaround;
         time_cost=last(hourly), arrival_by=last(schedule), forecast)
     isnothing(back) && return nothing
     return out, back
@@ -1106,28 +1109,29 @@ function state_rigs(rig::CombinedRig, assumptions)
 end
 
 """
-    StateRouting(ship, outbound, assumptions, hourly, held_knots)
+    StateRouting(legs, outbound, assumptions, hourly, held_knots)
 
-What routing `ship` in one service state takes: its [`RouteTable`](@ref), holding
-`held_knots` [kn] by [`held_speed_table`](@ref) or choosing speed where `nothing`, the
-outbound and return time costs `hourly` [USD/h], and the [`turnaround_hours`](@ref) on
-`outbound`.
+What routing a ship in one service state takes: the [`RouteTable`](@ref)s of its outbound
+and return `legs`, the ship as it floats on each, holding `held_knots` [kn] by
+[`held_speed_table`](@ref) or choosing speed where `nothing`, the outbound and return time
+costs `hourly` [USD/h], and the [`turnaround_hours`](@ref) on `outbound`.
 """
 struct StateRouting{T}
-    "route table of the ship in this state"
-    table::T
+    "route tables of the ship in this state, outbound and return"
+    tables::Tuple{T, T}
     "outbound and return time costs [USD/h]"
     hourly::Tuple{Float64, Float64}
     "hours from a departure to that of its return [h]"
     turnaround::Float64
 end
 
-function StateRouting(ship::Ship, outbound, assumptions, hourly, held_knots)
-    table = PerformanceTable(ship, assumptions)
-    route_table = isnothing(held_knots) ? RouteTable(table) :
-                  held_speed_table(table, held_knots)
-    return StateRouting(route_table, Tuple(hourly),
-        turnaround_hours(ship, outbound, assumptions))
+function StateRouting(legs, outbound, assumptions, hourly, held_knots)
+    tables = map(legs) do ship
+        table = PerformanceTable(ship, assumptions)
+        isnothing(held_knots) ? RouteTable(table) : held_speed_table(table, held_knots)
+    end
+    return StateRouting(tables, Tuple(hourly),
+        turnaround_hours(first(legs), outbound, assumptions))
 end
 
 """
@@ -1140,7 +1144,7 @@ that of this departure; `nothing` if a passage is infeasible.
 """
 function state_passages(routing::StateRouting, outbound, inbound, weather, departure,
         forecast; schedule=(Inf, Inf))
-    legs = route_round_trip(routing.table, outbound, inbound, weather, departure,
+    legs = route_round_trip(routing.tables, outbound, inbound, weather, departure,
         routing.turnaround, routing.hourly, forecast; schedule)
     isnothing(legs) && return nothing
     out, back = legs
@@ -1150,13 +1154,15 @@ function state_passages(routing::StateRouting, outbound, inbound, weather, depar
 end
 
 """
-    DepartureRouting(ship, outbound, assumptions; held_knots=nothing)
+    DepartureRouting(ship, outbound, assumptions; held_knots=nothing,
+                     back_ship=return_ship(ship, assumptions))
 
-What routing one departure of `ship` out along `outbound` takes: the [`StateRouting`](@ref)
-of each of its [`service_states`](@ref) with a share, `nothing` for the others, and where it
-keeps a liner schedule ([`keeps_schedule`](@ref)) that of the ship without its rig, routed
-for cost, whose times it keeps. The router holds `held_knots` [kn], or chooses speed where
-`nothing`, and prices time at the hold's cargo before the fuel store.
+What routing one departure of `ship` out along `outbound`, and back as `back_ship`, takes:
+the [`StateRouting`](@ref) of each of its [`service_states`](@ref) with a share, `nothing`
+for the others, and where it keeps a liner schedule ([`keeps_schedule`](@ref)) that of the
+ship without its rig, routed for cost, whose times it keeps. The router holds `held_knots`
+[kn], or chooses speed where `nothing`, and prices time at the hold's cargo before the
+fuel store.
 """
 struct DepartureRouting
     "routing of each service state, `nothing` for a state without a share"
@@ -1165,17 +1171,20 @@ struct DepartureRouting
     schedule::Union{Nothing, StateRouting}
 end
 
-function DepartureRouting(ship::Ship, outbound, assumptions; held_knots=nothing)
+function DepartureRouting(ship::Ship, outbound, assumptions; held_knots=nothing,
+        back_ship=return_ship(ship, assumptions))
     hourly = leg_time_costs(first(ship_costs(ship, assumptions)), assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
+    back_rigs = last.(service_states(back_ship.rig, assumptions))
     states = Union{Nothing, StateRouting}[
-        share > 0 ? StateRouting(with_rig(ship, rig), outbound, assumptions, router_hourly,
-            held_knots) : nothing
-        for (share, rig) in service_states(ship.rig, assumptions)]
+        share > 0 ? StateRouting((with_rig(ship, rig), with_rig(back_ship, back_rig)),
+            outbound, assumptions, router_hourly, held_knots) : nothing
+        for ((share, rig), back_rig) in zip(service_states(ship.rig, assumptions),
+            back_rigs)]
     isnothing(held_knots) && keeps_schedule(ship) ||
         return DepartureRouting(states, nothing)
-    bare = with_rig(ship, nothing)
-    bare_hourly = leg_time_costs(ShipCosts(bare, assumptions), assumptions)
+    bare = with_rig.((ship, back_ship), nothing)
+    bare_hourly = leg_time_costs(ShipCosts(first(bare), assumptions), assumptions)
     return DepartureRouting(states,
         StateRouting(bare, outbound, assumptions, bare_hourly, nothing))
 end
