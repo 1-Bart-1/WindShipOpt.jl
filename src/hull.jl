@@ -8,13 +8,13 @@ Fluid properties shared by all force models.
 """
 Base.@kwdef struct Environment
     "sea water density [kg/m^3]"
-    water_density::Float64 = 1025.0
+    water_density::Float64
     "sea water kinematic viscosity [m^2/s]"
-    water_viscosity::Float64 = 1.19e-6
+    water_viscosity::Float64
     "air density [kg/m^3]"
-    air_density::Float64 = 1.225
+    air_density::Float64
     "exponent of the power-law wind profile over the sea [-]"
-    shear_exponent::Float64 = 0.05
+    shear_exponent::Float64
     "gravitational acceleration [m/s^2]"
     gravity::Float64 = 9.81
 end
